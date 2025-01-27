@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:himappnew/showbusinesses.dart';
 
 class MyCustomForm extends StatefulWidget {
   const MyCustomForm({super.key});
@@ -12,7 +13,8 @@ class MyCustomForm extends StatefulWidget {
 class MyCustomFormState extends State<MyCustomForm> {
   final _formKey = GlobalKey<FormState>();
   bool _isPasswordVisible = false;
-
+  final TextEditingController userNameController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -37,6 +39,7 @@ class MyCustomFormState extends State<MyCustomForm> {
                 }
                 return null;
               },
+              controller: userNameController,
             ),
           ),
           SizedBox(height: 16),
@@ -69,6 +72,7 @@ class MyCustomFormState extends State<MyCustomForm> {
                 }
                 return null;
               },
+              controller: passwordController,
             ),
           ),
           Padding(
@@ -78,9 +82,13 @@ class MyCustomFormState extends State<MyCustomForm> {
               child: ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Processing Data')),
-                    );
+                    if (userNameController.text == 'admin' &&
+                        passwordController.text == 'admin') {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const ShowBusinesses()));
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(
