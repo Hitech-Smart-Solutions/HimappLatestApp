@@ -15,6 +15,7 @@ class MyCustomFormState extends State<MyCustomForm> {
   bool _isPasswordVisible = false;
   final TextEditingController userNameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  String? _selectedBusiness;
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -84,10 +85,7 @@ class MyCustomFormState extends State<MyCustomForm> {
                   if (_formKey.currentState!.validate()) {
                     if (userNameController.text == 'admin' &&
                         passwordController.text == 'admin') {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const ShowBusinesses()));
+                      _showBusinessesModal();
                     }
                   }
                 },
@@ -110,5 +108,85 @@ class MyCustomFormState extends State<MyCustomForm> {
         ],
       ),
     );
+  }
+
+  void _showBusinessesModal() {
+    showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16.0),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Select Company",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    title: const Text("Hitech Projects"),
+                    onTap: () {
+                      setState(() {
+                        _selectedBusiness = 'Hitech Projects';
+                      });
+                      Navigator.of(context).pop();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ShowBusinesses(
+                              selectedBusiness:
+                                  _selectedBusiness ?? 'Select business first'),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    title: const Text("HRMC"),
+                    onTap: () {
+                      setState(() {
+                        _selectedBusiness = 'HRMC';
+                      });
+                      Navigator.of(context).pop();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ShowBusinesses(
+                              selectedBusiness:
+                                  _selectedBusiness ?? 'Select business first'),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    title: const Text("Alphabet"),
+                    onTap: () {
+                      setState(() {
+                        _selectedBusiness = 'Alphabet';
+                      });
+                      Navigator.of(context).pop();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ShowBusinesses(
+                              selectedBusiness:
+                                  _selectedBusiness ?? 'Select business first'),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
   }
 }
