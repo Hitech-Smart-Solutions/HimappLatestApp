@@ -1,16 +1,7 @@
-# himappnew
+# HiMapp Application (iOS and Android)
 
 A new Flutter project.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+HiMapp is a versatile mobile application built using Flutter technology, designed to streamline operations across three core modules: Quality, Safety, and Admin. The Quality module ensures efficient tracking and maintenance of standards, the Safety module focuses on compliance and risk management, while the Admin module facilitates seamless management of user roles and system configurations. With its intuitive interface and cross-platform compatibility, HiMapp is an all-in-one solution for enhancing productivity and maintaining operational excellence.
