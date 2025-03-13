@@ -111,82 +111,103 @@ class MyCustomFormState extends State<MyCustomForm> {
   }
 
   void _showBusinessesModal() {
-    showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    "Select Company",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor:
+          Colors.black.withValues(alpha: 0.5), // Background color with opacity
+      transitionDuration:
+          const Duration(milliseconds: 300), // Animation duration
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Select Company",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    title: const Text("Hitech Projects"),
-                    onTap: () {
-                      setState(() {
-                        _selectedBusiness = 'Hitech Projects';
-                      });
-                      Navigator.of(context).pop();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ShowBusinesses(
-                              selectedBusiness:
-                                  _selectedBusiness ?? 'Select business first'),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    title: const Text("HRMC"),
-                    onTap: () {
-                      setState(() {
-                        _selectedBusiness = 'HRMC';
-                      });
-                      Navigator.of(context).pop();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ShowBusinesses(
-                              selectedBusiness:
-                                  _selectedBusiness ?? 'Select business first'),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    title: const Text("Alphabet"),
-                    onTap: () {
-                      setState(() {
-                        _selectedBusiness = 'Alphabet';
-                      });
-                      Navigator.of(context).pop();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ShowBusinesses(
-                              selectedBusiness:
-                                  _selectedBusiness ?? 'Select business first'),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: const Text("Hitech Projects"),
+                      onTap: () {
+                        setState(() {
+                          _selectedBusiness = 'Hitech Projects';
+                        });
+                        Navigator.of(context).pop();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ShowBusinesses(
+                                selectedBusiness: _selectedBusiness ??
+                                    'Select business first'),
+                          ),
+                        );
+                      },
+                    ),
+                    ListTile(
+                      title: const Text("HRMS"),
+                      onTap: () {
+                        setState(() {
+                          _selectedBusiness = 'HRMS';
+                        });
+                        Navigator.of(context).pop();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ShowBusinesses(
+                                selectedBusiness: _selectedBusiness ??
+                                    'Select business first'),
+                          ),
+                        );
+                      },
+                    ),
+                    ListTile(
+                      title: const Text("Alphabet"),
+                      onTap: () {
+                        setState(() {
+                          _selectedBusiness = 'Alphabet';
+                        });
+                        Navigator.of(context).pop();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ShowBusinesses(
+                                selectedBusiness: _selectedBusiness ??
+                                    'Select business first'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
-          );
-        });
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            ),
+            child: child,
+          ),
+        );
+      },
+    );
   }
 }
