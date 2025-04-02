@@ -6,7 +6,6 @@ import 'service/company_service.dart'; // Import your new service
 import 'service/login_service.dart'; // Login service as before
 import 'dashboard_page.dart';
 
-
 class MyCustomForm extends StatefulWidget {
   const MyCustomForm({super.key});
 
@@ -36,8 +35,8 @@ class _MyCustomFormState extends State<MyCustomForm> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (BuildContext context) => Center(child: CircularProgressIndicator()),
+      builder: (BuildContext context) =>
+          Center(child: CircularProgressIndicator()),
     );
 
     final result = await _loginService.login(username, password);
@@ -47,6 +46,7 @@ class _MyCustomFormState extends State<MyCustomForm> {
       final responseBody = result['data'];
 
       var userId = responseBody['userId'];
+      // ignore: unused_local_variable
       var userName = responseBody['userName'];
       var token = responseBody['token'];
 
@@ -65,19 +65,18 @@ class _MyCustomFormState extends State<MyCustomForm> {
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder:
-          (BuildContext context) => AlertDialog(
-            title: Text('Login Failed'),
-            content: Text(message),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close the dialog
-                },
-                child: Text('OK'),
-              ),
-            ],
+      builder: (BuildContext context) => AlertDialog(
+        title: Text('Login Failed'),
+        content: Text(message),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close the dialog
+            },
+            child: Text('OK'),
           ),
+        ],
+      ),
     );
   }
 
@@ -101,46 +100,67 @@ class _MyCustomFormState extends State<MyCustomForm> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-                FutureBuilder<List<Company>>(
-                  future: _companyService.fetchCompanies(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
+
+                // Fetch User ID before calling fetchCompanies
+                FutureBuilder<int?>(
+                  future: SharedPrefsHelper.getUserId(),
+                  builder: (context, userSnapshot) {
+                    if (userSnapshot.connectionState ==
+                        ConnectionState.waiting) {
                       return Center(child: CircularProgressIndicator());
-                    } else if (snapshot.hasError) {
-                      return Center(child: Text('Error: ${snapshot.error}'));
-                    } else if (snapshot.hasData) {
-                      List<Company> companies = snapshot.data!;
-                      return Column(
-                        children:
-                            companies.map((company) {
-                              return ListTile(
-                                title: Text(company.name),
-                                onTap: () async {
-                                  setState(() {
-                                    _selectedBusiness = company.name;
-                                  });
-                                  await SharedPrefsHelper.saveCompanyId(company.id);
-                                  Navigator.of(
-                                    context,
-                                  ).pop(); // Close the popup
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => DashboardPage(
-                                            companyName:
-                                                _selectedBusiness ??
-                                                'Default Company',
-                                            projectService: ProjectService(),
-                                          ),
-                                    ),
-                                  );
-                                },
-                              );
-                            }).toList(),
-                      );
+                    } else if (userSnapshot.hasError ||
+                        !userSnapshot.hasData ||
+                        userSnapshot.data == null) {
+                      return Center(child: Text('Error fetching user ID'));
                     } else {
-                      return Center(child: Text('No businesses available'));
+                      int userId = userSnapshot.data!;
+
+                      return FutureBuilder<List<Company>>(
+                        future: _companyService.fetchCompanies(
+                            userId), // Use the retrieved user ID
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(child: CircularProgressIndicator());
+                          } else if (snapshot.hasError) {
+                            return Center(
+                                child: Text('Error: ${snapshot.error}'));
+                          } else if (snapshot.hasData) {
+                            List<Company> companies = snapshot.data!;
+                            return Column(
+                              children: companies.map((company) {
+                                return ListTile(
+                                  title: Text(company.name),
+                                  onTap: () async {
+                                    setState(() {
+                                      _selectedBusiness = company.name;
+                                    });
+                                    await SharedPrefsHelper.saveCompanyId(
+                                        company.id);
+                                    // ignore: use_build_context_synchronously
+                                    Navigator.of(context)
+                                        .pop(); // Close the popup
+                                    Navigator.push(
+                                      // ignore: use_build_context_synchronously
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => DashboardPage(
+                                          companyName: _selectedBusiness ??
+                                              'Default Company',
+                                          projectService: ProjectService(),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              }).toList(),
+                            );
+                          } else {
+                            return Center(
+                                child: Text('No businesses available'));
+                          }
+                        },
+                      );
                     }
                   },
                 ),

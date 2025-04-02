@@ -8,8 +8,8 @@ class Company {
 
   factory Company.fromJson(Map<String, dynamic> json) {
     return Company(
-      id: json['id'], // Assuming 'id' is the field name for company ID
-      name: json['companyName'], // Replace with actual field name
+      id: json['ID'], // Assuming 'id' is the field name for company ID
+      name: json['CompanyName'], // Replace with actual field name
     );
   }
 }
