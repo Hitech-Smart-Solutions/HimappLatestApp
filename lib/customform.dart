@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:himappnew/model/company.dart';
 import 'package:himappnew/service/project_service.dart';
+import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'service/company_service.dart'; // Import your new service
 import 'service/login_service.dart'; // Login service as before
@@ -148,6 +149,8 @@ class _MyCustomFormState extends State<MyCustomForm> {
                                           companyName: _selectedBusiness ??
                                               'Default Company',
                                           projectService: ProjectService(),
+                                          siteObservationService:
+                                              SiteObservationService(),
                                         ),
                                       ),
                                     );
