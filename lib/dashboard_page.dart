@@ -14,6 +14,7 @@ class DashboardPage extends StatefulWidget {
   }) : _projectService = projectService;
 
   @override
+  // ignore: library_private_types_in_public_api
   _DashboardPageState createState() => _DashboardPageState();
 }
 

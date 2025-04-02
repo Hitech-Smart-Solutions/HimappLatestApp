@@ -12,10 +12,6 @@ class ProjectService {
 
     if (response.statusCode == 200) {
       final jsonData = jsonDecode(response.body);
-
-      // Debugging: Print the response structure
-      print("API Response: $jsonData");
-
       if (jsonData is Map<String, dynamic> &&
           jsonData.containsKey("Value") &&
           jsonData["Value"] is Map<String, dynamic> &&
