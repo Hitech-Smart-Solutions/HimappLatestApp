@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:himappnew/model/company.dart';
+import 'package:himappnew/service/project_service.dart';
+import 'package:himappnew/shared_prefs_helper.dart';
 import 'service/company_service.dart'; // Import your new service
 import 'service/login_service.dart'; // Login service as before
 import 'dashboard_page.dart';
-import 'package:himappnew/model/company.dart';
+
 
 class MyCustomForm extends StatefulWidget {
   const MyCustomForm({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _MyCustomFormState createState() => _MyCustomFormState();
 }
 
@@ -28,18 +31,16 @@ class _MyCustomFormState extends State<MyCustomForm> {
   Future<void> _login() async {
     final username = userNameController.text;
     final password = passwordController.text;
-    print("Username: $username, Password: $password");
 
     // Show a loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) =>
-          Center(child: CircularProgressIndicator()),
+      builder:
+          (BuildContext context) => Center(child: CircularProgressIndicator()),
     );
 
     final result = await _loginService.login(username, password);
-
     Navigator.pop(context); // Close the loading dialog
 
     if (result['success']) {
@@ -64,18 +65,19 @@ class _MyCustomFormState extends State<MyCustomForm> {
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: Text('Login Failed'),
-        content: Text(message),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close the dialog
-            },
-            child: Text('OK'),
+      builder:
+          (BuildContext context) => AlertDialog(
+            title: Text('Login Failed'),
+            content: Text(message),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close the dialog
+                },
+                child: Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -109,28 +111,33 @@ class _MyCustomFormState extends State<MyCustomForm> {
                     } else if (snapshot.hasData) {
                       List<Company> companies = snapshot.data!;
                       return Column(
-                        children: companies.map((company) {
-                          return ListTile(
-                            title: Text(company.name),
-                            onTap: () async {
-                              setState(() {
-                                _selectedBusiness = company.name;
-                              });
-                              await _loginService
-                                  .saveCompanyIdToLocalStorage(company.id);
-                              Navigator.of(context).pop(); // Close the popup
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => DashboardPage(
-                                    companyName:
-                                        _selectedBusiness ?? 'Default Company',
-                                  ),
-                                ),
+                        children:
+                            companies.map((company) {
+                              return ListTile(
+                                title: Text(company.name),
+                                onTap: () async {
+                                  setState(() {
+                                    _selectedBusiness = company.name;
+                                  });
+                                  await SharedPrefsHelper.saveCompanyId(company.id);
+                                  Navigator.of(
+                                    context,
+                                  ).pop(); // Close the popup
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => DashboardPage(
+                                            companyName:
+                                                _selectedBusiness ??
+                                                'Default Company',
+                                            projectService: ProjectService(),
+                                          ),
+                                    ),
+                                  );
+                                },
                               );
-                            },
-                          );
-                        }).toList(),
+                            }).toList(),
                       );
                     } else {
                       return Center(child: Text('No businesses available'));
@@ -161,7 +168,7 @@ class _MyCustomFormState extends State<MyCustomForm> {
               children: [
                 // Your custom logo
                 Image.asset(
-                  'assets/images/hitech_logo.png', // Make sure to place your logo here
+                  'images/hitech_Logo.png', // Make sure to place your logo here
                   width: 150,
                   height: 150,
                 ),

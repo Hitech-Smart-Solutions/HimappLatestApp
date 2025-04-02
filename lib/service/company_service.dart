@@ -1,8 +1,8 @@
 // company_service.dart
 
 import 'dart:convert';
+import 'package:himappnew/model/company.dart';
 import 'package:http/http.dart' as http;
-import 'package:himappnew/model/company.dart'; // Assuming Company model is in company.dart
 
 class CompanyService {
   // Fetch data from the API
