@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:himappnew/model/company.dart';
+import 'package:himappnew/model/company_model.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';

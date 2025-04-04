@@ -1,7 +1,7 @@
 // company_service.dart
 
 import 'dart:convert';
-import 'package:himappnew/model/company.dart';
+import 'package:himappnew/model/company_model.dart';
 import 'package:http/http.dart' as http;
 
 class CompanyService {

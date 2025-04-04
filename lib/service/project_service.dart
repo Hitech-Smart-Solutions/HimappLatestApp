@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:himappnew/model/project.dart';
+import 'package:himappnew/model/project_model.dart';
 import 'package:http/http.dart' as http;
 
 class ProjectService {
