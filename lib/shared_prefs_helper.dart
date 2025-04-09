@@ -37,6 +37,19 @@ class SharedPrefsHelper {
     return prefs.getInt('selectedCompanyId');
   }
 
+// Retrieve project ID from SharedPreferences
+  static Future<int?> getProjectID() async {
+    final prefs = await SharedPreferences.getInstance();
+    print(prefs.getInt('ProjectID'));
+    return prefs.getInt('ProjectID');
+  }
+
+  // Save project ID to SharedPreferences
+  static Future<void> saveProjectID(int projectID) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('ProjectID', projectID);
+  }
+
   // Manually set a test token (for debugging purposes)
   static Future<void> setManualToken() async {
     String token =

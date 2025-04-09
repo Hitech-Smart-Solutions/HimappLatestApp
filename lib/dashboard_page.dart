@@ -8,6 +8,7 @@ import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 class DashboardPage extends StatefulWidget {
   final String companyName;
@@ -45,8 +46,35 @@ class _DashboardPageState extends State<DashboardPage> {
   String? selectedObservation;
   List<Observation> observationsList = [];
 
+  String? selectedObservationType;
+  List<ObservationType> observationTypeList = [];
+
+  String? selectedArea;
+  List<Area> areaList = [];
+
+  String? selectedPart;
+  List<Part> partList = [];
+
+  String? selectedFloor;
+  List<Floor> floorList = [];
+
+  String? selectedElement;
+  List<Elements> elementList = [];
+
+  String? selectedContractor;
+  List<Party> ContractorList = [];
+
+  String? selectedUser;
+  List<User> userList = [];
+
   bool isComplianceRequired = false; // Compliance toggle state
   bool isEscalationRequired = false; // Escalation toggle state
+
+  TextEditingController observationDescriptionController =
+      TextEditingController();
+  TextEditingController userDescriptionController = TextEditingController();
+  TextEditingController ActionToBeTakenController = TextEditingController();
+  TextEditingController reworkCostController = TextEditingController();
 
   final CompanyService _companyService = CompanyService(); // Company service
   final _formKey = GlobalKey<FormState>();
@@ -59,16 +87,33 @@ class _DashboardPageState extends State<DashboardPage> {
     fetchIssueTypes();
     fetchActivities();
     fetchObservations();
+    fetchObservationType();
+    fetchAreaList();
+    fetchFloorList();
+    fetchPartList();
+    fetchElementList();
+    fetchContractorList();
+    fetchUserList();
     _dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
   }
 
-  void _submitForm() {
+  String formatDateForApi(DateTime date) {
+    return DateFormat("yyyy-MM-dd'T'HH:mm:ss").format(date);
+  }
+
+  void _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Form is valid')));
+      // ✅ FORM IS VALID
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Submitting...')),
+      );
+
+      await submitForm(); // 👈 Your actual async method
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Form is invalid')));
+      // ❌ FORM IS INVALID
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please correct the errors')),
+      );
     }
   }
 
@@ -196,7 +241,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Fetch projects
   Future<void> fetchProjects() async {
     try {
       int? userId = await SharedPrefsHelper.getUserId();
@@ -219,6 +263,13 @@ class _DashboardPageState extends State<DashboardPage> {
         selectedItem = items.isNotEmpty ? items[0] : null;
         isLoading = false;
       });
+
+      // Save the selected project ID in SharedPreferences (assuming first project is selected)
+      if (projects.isNotEmpty) {
+        await SharedPrefsHelper.saveProjectID(
+            projects[0].id); // Save the first project ID
+        // print("Saved project ID: ${projects[0].id}");
+      }
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -359,6 +410,316 @@ class _DashboardPageState extends State<DashboardPage> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+// Fetch ObservationsType from the service
+  Future<void> fetchObservationType() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      List<ObservationType> fetchedObservationType =
+          await widget._siteObservationService.fetchObservationType();
+
+      setState(() {
+        observationTypeList = fetchedObservationType;
+        if (observationTypeList.isNotEmpty) {
+          selectedObservationType = observationTypeList[0].name;
+          print("selectedObservationType: $selectedObservationType");
+        } else {
+          selectedObservationType = null;
+        }
+      });
+    } catch (e) {
+      print('Error fetching ObservationType: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Fetch Area from the service
+  Future<void> fetchAreaList() async {
+    int? projectID = await SharedPrefsHelper.getProjectID();
+    // print(projectID);
+    setState(() {
+      isLoading = true;
+    });
+    // print(projectID);
+    try {
+      List<Area> fetchedArea =
+          await widget._siteObservationService.fetchAreaList(projectID!);
+
+      setState(() {
+        areaList = fetchedArea;
+        if (areaList.isNotEmpty) {
+          selectedArea = areaList[0].sectionName;
+          print("Area List: ${areaList.length}");
+        } else {
+          selectedArea = null;
+        }
+      });
+    } catch (e) {
+      print('Error fetching Area: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Fetch Floor from the service
+  Future<void> fetchFloorList() async {
+    int? projectID = await SharedPrefsHelper.getProjectID();
+    // print(projectID);
+    setState(() {
+      isLoading = true;
+    });
+    // print(projectID);
+    try {
+      List<Floor> fetchedFloor =
+          await widget._siteObservationService.fetchFloorList(projectID!);
+
+      setState(() {
+        floorList = fetchedFloor;
+        if (areaList.isNotEmpty) {
+          selectedFloor = floorList[0].floorName;
+          print(floorList);
+        } else {
+          selectedFloor = null;
+        }
+      });
+    } catch (e) {
+      print('Error fetching Floor: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Fetch Floor from the service
+  Future<void> fetchPartList() async {
+    int? projectID = await SharedPrefsHelper.getProjectID();
+    // print(projectID);
+    setState(() {
+      isLoading = true;
+    });
+    // print(projectID);
+    try {
+      List<Part> fetchedPart =
+          await widget._siteObservationService.fetchPartList(projectID!);
+
+      setState(() {
+        partList = fetchedPart;
+        if (partList.isNotEmpty) {
+          selectedPart = partList[0].partName;
+          print(partList);
+        } else {
+          selectedPart = null;
+        }
+      });
+    } catch (e) {
+      print('Error fetching Part: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Fetch Element from the service
+  Future<void> fetchElementList() async {
+    int? projectID = await SharedPrefsHelper.getProjectID();
+    // print(projectID);
+    setState(() {
+      isLoading = true;
+    });
+    // print(projectID);
+    try {
+      List<Elements> fetchedElement =
+          await widget._siteObservationService.fetchElementList(projectID!);
+
+      setState(() {
+        elementList = fetchedElement;
+        if (elementList.isNotEmpty) {
+          selectedElement = elementList[0].elementName;
+          print(elementList);
+        } else {
+          selectedPart = null;
+        }
+      });
+    } catch (e) {
+      print('Error fetching Element: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Fetch Contractor from the service
+  Future<void> fetchContractorList() async {
+    setState(() {
+      isLoading = true;
+    });
+    // print(projectID);
+    try {
+      List<Party> fetchedContractor =
+          await widget._siteObservationService.fetchContractorList();
+
+      setState(() {
+        ContractorList = fetchedContractor;
+        if (ContractorList.isNotEmpty) {
+          selectedContractor = ContractorList[0].partyName;
+          print(ContractorList);
+        } else {
+          selectedContractor = null;
+        }
+      });
+    } catch (e) {
+      print('Error fetching Contractor: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Fetch User from the service
+  Future<void> fetchUserList() async {
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      List<User> fetchedUsers =
+          await widget._siteObservationService.fetchUserList();
+
+      // Remove duplicates based on userName (if needed)
+      List<User> uniqueUsers = [];
+      Set<String> userNames = {}; // To track duplicate userNames
+
+      for (var user in fetchedUsers) {
+        if (!userNames.contains(user.userName)) {
+          uniqueUsers.add(user);
+          userNames.add(user.userName); // Add to set to prevent duplicates
+        }
+      }
+
+      setState(() {
+        userList = uniqueUsers;
+        if (userList.isNotEmpty) {
+          // Assuming you're displaying userName in the dropdown
+          selectedUser = userList[0].userName; // Set the first user as selected
+          print("Selected User: $selectedUser");
+        } else {
+          selectedUser = null;
+        }
+      });
+    } catch (e) {
+      print('Error fetching User: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Function to submit the form data
+  Future<void> submitForm() async {
+    // Retrieve text field values from controllers
+    String observationDescription = observationDescriptionController.text;
+    String userDescription = userDescriptionController.text;
+    String actionToBeTaken =
+        ActionToBeTakenController.text; // Add this line to get the action text
+    int? projectID = await SharedPrefsHelper.getProjectID();
+    int? companyID = await SharedPrefsHelper.getCompanyId();
+    int? userID = await SharedPrefsHelper.getUserId();
+    // Create SiteObservationModel from form data
+    // String formattedDate =
+    //     DateFormat("yyyy-MM-ddTHH:mm:ss").format(DateTime.now());
+
+    SiteObservationModel siteObservation = SiteObservationModel(
+      uniqueID: const Uuid().v4(),
+      id: 0,
+      siteObservationCode: "",
+      trancationDate: formatDateForApi(DateTime.now()),
+      observationRaisedBy: userID!,
+      observationTypeID: observationTypeList
+          .firstWhere(
+              (observation) => observation.name == selectedObservationType)
+          .id,
+      issueTypeID: issueTypes
+          .firstWhere((issueType) => issueType.name == selectedIssueType)
+          .id,
+      dueDate: formatDateForApi(DateTime.now()),
+      observationDescription: observationDescription,
+      userDescription: userDescription, // You can add more fields
+      complianceRequired: isComplianceRequired,
+      escalationRequired: isEscalationRequired,
+      actionToBeTaken: actionToBeTaken,
+      companyID: companyID!,
+      projectID: projectID!,
+      functionID: ScreenTypes.Safety,
+      activityID: activities
+          .firstWhere(
+              (activities) => activities.activityName == selectedActivities)
+          .id,
+      sectionID:
+          areaList.firstWhere((area) => area.sectionName == selectedArea).id,
+      floorID:
+          floorList.firstWhere((floor) => floor.floorName == selectedFloor).id,
+      partID: partList.firstWhere((part) => part.partName == selectedPart).id,
+      elementID: elementList
+          .firstWhere((element) => element.elementName == selectedElement)
+          .id,
+      contractorID: ContractorList.firstWhere(
+          (contractor) => contractor.partyName == selectedContractor).id,
+      reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
+      comments: 'Some comments',
+      rootCauseID: 0,
+      corretiveActionToBeTaken: 'Corrective action here',
+      preventiveActionTaken: 'Preventive action here',
+      statusID: 3,
+      isActive: true,
+      createdBy: userID,
+      createdDate: formatDateForApi(DateTime.now()),
+      lastModifiedBy: userID,
+      lastModifiedDate: formatDateForApi(DateTime.now()),
+      siteObservationActivity: [
+        SiteObservationActivity(
+            id: 0,
+            siteObservationID: null,
+            actionID: 1,
+            comments: 'Some initial comments',
+            documentName: 'document.pdf',
+            fromStatusID: 0,
+            toStatusID: 0,
+            assignedUserID: userList
+                .firstWhere((user) => user.firstName == selectedUser)
+                .id,
+            createdBy: userID,
+            createdDate: formatDateForApi(DateTime.now())
+            // siteObservation: 'Observation content',
+            ),
+      ],
+    );
+    print((siteObservation.toJson()));
+    // Call service to submit the data
+    bool success = await widget._siteObservationService
+        .submitSiteObservation(siteObservation);
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Site Observation submitted successfully!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit Site Observation')),
+      );
     }
   }
 
@@ -594,6 +955,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             SizedBox(height: 20),
                             TextFormField(
+                              controller: observationDescriptionController,
                               decoration: InputDecoration(
                                 labelText: 'Observation Description',
                                 border: OutlineInputBorder(
@@ -604,6 +966,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             SizedBox(height: 20),
                             TextFormField(
+                              controller: userDescriptionController,
                               decoration: InputDecoration(
                                 labelText: 'User Description',
                                 border: OutlineInputBorder(
@@ -636,10 +999,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             SizedBox(height: 20),
                             // Dropdown for Select observation
                             DropdownButtonFormField<String>(
-                              value: selectedIssueType,
+                              value: selectedObservationType,
                               onChanged: (String? newValue) {
                                 setState(() {
-                                  selectedIssueType = newValue;
+                                  selectedObservationType = newValue;
                                 });
                               },
                               decoration: InputDecoration(
@@ -647,10 +1010,11 @@ class _DashboardPageState extends State<DashboardPage> {
                                 border: OutlineInputBorder(),
                               ),
                               validator: _validateObservationType,
-                              items: issueTypes.map((IssueType issueType) {
+                              items: observationTypeList
+                                  .map((ObservationType observationType) {
                                 return DropdownMenuItem<String>(
-                                  value: issueType.name,
-                                  child: Text(issueType.name),
+                                  value: observationType.name,
+                                  child: Text(observationType.name),
                                 );
                               }).toList(),
                             ),
@@ -700,10 +1064,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             SizedBox(height: 20),
                             // Dropdown for Select Area
                             DropdownButtonFormField<String>(
-                              value: selectedIssueType,
+                              value: selectedArea,
                               onChanged: (String? newValue) {
                                 setState(() {
-                                  selectedIssueType = newValue;
+                                  selectedArea = newValue;
                                 });
                               },
                               decoration: InputDecoration(
@@ -711,10 +1075,10 @@ class _DashboardPageState extends State<DashboardPage> {
                                 border: OutlineInputBorder(),
                               ),
                               validator: _validateArea,
-                              items: issueTypes.map((IssueType issueType) {
+                              items: areaList.map((Area areaList) {
                                 return DropdownMenuItem<String>(
-                                  value: issueType.name,
-                                  child: Text(issueType.name),
+                                  value: areaList.sectionName,
+                                  child: Text(areaList.sectionName),
                                 );
                               }).toList(),
                             ),
@@ -722,10 +1086,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             SizedBox(height: 20),
                             // Dropdown for Select Floor
                             DropdownButtonFormField<String>(
-                              value: selectedIssueType,
+                              value: selectedFloor,
                               onChanged: (String? newValue) {
                                 setState(() {
-                                  selectedIssueType = newValue;
+                                  selectedFloor = newValue;
                                 });
                               },
                               decoration: InputDecoration(
@@ -733,10 +1097,10 @@ class _DashboardPageState extends State<DashboardPage> {
                                 border: OutlineInputBorder(),
                               ),
                               validator: _validateFloor,
-                              items: issueTypes.map((IssueType issueType) {
+                              items: floorList.map((Floor floorList) {
                                 return DropdownMenuItem<String>(
-                                  value: issueType.name,
-                                  child: Text(issueType.name),
+                                  value: floorList.floorName,
+                                  child: Text(floorList.floorName),
                                 );
                               }).toList(),
                             ),
@@ -744,10 +1108,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             SizedBox(height: 20),
                             // Dropdown for Select Part
                             DropdownButtonFormField<String>(
-                              value: selectedIssueType,
+                              value: selectedPart,
                               onChanged: (String? newValue) {
                                 setState(() {
-                                  selectedIssueType = newValue;
+                                  selectedPart = newValue;
                                 });
                               },
                               decoration: InputDecoration(
@@ -755,10 +1119,10 @@ class _DashboardPageState extends State<DashboardPage> {
                                 border: OutlineInputBorder(),
                               ),
                               validator: _validatePart,
-                              items: issueTypes.map((IssueType issueType) {
+                              items: partList.map((Part partList) {
                                 return DropdownMenuItem<String>(
-                                  value: issueType.name,
-                                  child: Text(issueType.name),
+                                  value: partList.partName,
+                                  child: Text(partList.partName),
                                 );
                               }).toList(),
                             ),
@@ -766,10 +1130,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             SizedBox(height: 20),
                             // Dropdown for Select Element
                             DropdownButtonFormField<String>(
-                              value: selectedIssueType,
+                              value: selectedElement,
                               onChanged: (String? newValue) {
                                 setState(() {
-                                  selectedIssueType = newValue;
+                                  selectedElement = newValue;
                                 });
                               },
                               decoration: InputDecoration(
@@ -777,10 +1141,10 @@ class _DashboardPageState extends State<DashboardPage> {
                                 border: OutlineInputBorder(),
                               ),
                               validator: _validateElement,
-                              items: issueTypes.map((IssueType issueType) {
+                              items: elementList.map((Elements elementList) {
                                 return DropdownMenuItem<String>(
-                                  value: issueType.name,
-                                  child: Text(issueType.name),
+                                  value: elementList.elementName,
+                                  child: Text(elementList.elementName),
                                 );
                               }).toList(),
                             ),
@@ -788,10 +1152,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             SizedBox(height: 20),
                             // Dropdown for Select Contractor Name
                             DropdownButtonFormField<String>(
-                              value: selectedIssueType,
+                              value: selectedContractor,
                               onChanged: (String? newValue) {
                                 setState(() {
-                                  selectedIssueType = newValue;
+                                  selectedContractor = newValue;
                                 });
                               },
                               decoration: InputDecoration(
@@ -799,10 +1163,13 @@ class _DashboardPageState extends State<DashboardPage> {
                                 border: OutlineInputBorder(),
                               ),
                               validator: _validateContractor,
-                              items: issueTypes.map((IssueType issueType) {
+                              items:
+                                  ContractorList.map<DropdownMenuItem<String>>(
+                                      (Party contractor) {
                                 return DropdownMenuItem<String>(
-                                  value: issueType.name,
-                                  child: Text(issueType.name),
+                                  value: contractor
+                                      .partyName, // Ensure this is a String
+                                  child: Text(contractor.partyName),
                                 );
                               }).toList(),
                             ),
@@ -810,10 +1177,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             SizedBox(height: 20),
                             // Dropdown for Select Assigned To
                             DropdownButtonFormField<String>(
-                              value: selectedIssueType,
+                              value: selectedUser,
                               onChanged: (String? newValue) {
                                 setState(() {
-                                  selectedIssueType = newValue;
+                                  selectedUser = newValue;
                                 });
                               },
                               decoration: InputDecoration(
@@ -821,16 +1188,17 @@ class _DashboardPageState extends State<DashboardPage> {
                                 border: OutlineInputBorder(),
                               ),
                               validator: _validateAssigned,
-                              items: issueTypes.map((IssueType issueType) {
+                              items: userList.map((User user) {
                                 return DropdownMenuItem<String>(
-                                  value: issueType.name,
-                                  child: Text(issueType.name),
+                                  value: user.userName,
+                                  child: Text(user.userName),
                                 );
                               }).toList(),
                             ),
 
                             SizedBox(height: 10),
                             TextFormField(
+                              controller: ActionToBeTakenController,
                               decoration: InputDecoration(
                                 labelText: 'Action to be Taken',
                                 border: OutlineInputBorder(
@@ -839,6 +1207,25 @@ class _DashboardPageState extends State<DashboardPage> {
                               ),
                               validator: _validateDescription,
                               // Add Controller to manage input text here (optional)
+                            ),
+
+                            SizedBox(height: 10),
+                            TextFormField(
+                              controller: reworkCostController,
+                              keyboardType: TextInputType
+                                  .number, // Allow only number input
+                              decoration: InputDecoration(
+                                labelText: 'Rework Cost',
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty)
+                                  return 'Please enter rework cost';
+                                if (double.tryParse(value) == null)
+                                  return 'Enter valid number';
+                                return null;
+                              },
                             ),
 
                             SizedBox(height: 20),
