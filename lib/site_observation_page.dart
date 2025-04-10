@@ -10,12 +10,12 @@ import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
-class DashboardPage extends StatefulWidget {
+class SiteObservationPage extends StatefulWidget {
   final String companyName;
   final ProjectService _projectService;
   final SiteObservationService _siteObservationService;
 
-  const DashboardPage({
+  const SiteObservationPage({
     super.key,
     required this.companyName,
     required ProjectService projectService,
@@ -24,10 +24,10 @@ class DashboardPage extends StatefulWidget {
         _siteObservationService = siteObservationService;
 
   @override
-  _DashboardPageState createState() => _DashboardPageState();
+  _SiteObservationState createState() => _SiteObservationState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _SiteObservationState extends State<SiteObservationPage> {
   List<String> items = []; // Project names list
   List<Company> companies = []; // Company names list
   List<SiteObservation> observations = []; // Dummy data

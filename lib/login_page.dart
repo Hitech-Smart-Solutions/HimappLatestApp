@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:himappnew/deshboard.dart';
 import 'package:himappnew/model/company_model.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'service/company_service.dart'; // Import your new service
 import 'service/login_service.dart'; // Login service as before
-import 'dashboard_page.dart';
+import 'site_observation_page.dart';
 
 class MyCustomForm extends StatefulWidget {
   const MyCustomForm({super.key});
@@ -53,6 +54,9 @@ class _MyCustomFormState extends State<MyCustomForm> {
 
       if (userId != null && token != null) {
         // Show businesses modal after successful login
+        await SharedPrefsHelper.clear(); // Purana data hata do
+        await SharedPrefsHelper.saveUserId(userId);
+        await SharedPrefsHelper.saveToken(token);
         _showBusinessesModal();
       } else {
         _showErrorDialog("Required data not found in the response.");
@@ -141,11 +145,13 @@ class _MyCustomFormState extends State<MyCustomForm> {
                                     // ignore: use_build_context_synchronously
                                     Navigator.of(context)
                                         .pop(); // Close the popup
-                                    Navigator.push(
+                                    Navigator.pushReplacement(
                                       // ignore: use_build_context_synchronously
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => DashboardPage(
+                                        builder: (_) => DashboardPage(
+                                          userName:
+                                              userSnapshot.data.toString(),
                                           companyName: _selectedBusiness ??
                                               'Default Company',
                                           projectService: ProjectService(),

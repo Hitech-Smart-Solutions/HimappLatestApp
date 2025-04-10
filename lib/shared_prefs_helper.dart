@@ -50,6 +50,23 @@ class SharedPrefsHelper {
     await prefs.setInt('ProjectID', projectID);
   }
 
+  static Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Sab data hata dega
+  }
+
+  // Save user name
+  static Future<void> saveUserName(String userName) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', userName);
+  }
+
+// Get user name
+  static Future<String?> getUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_name');
+  }
+
   // Manually set a test token (for debugging purposes)
   static Future<void> setManualToken() async {
     String token =
