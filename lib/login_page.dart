@@ -4,15 +4,21 @@ import 'package:himappnew/model/company_model.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
-import 'service/company_service.dart'; // Import your new service
-import 'service/login_service.dart'; // Login service as before
+import 'service/company_service.dart';
+import 'service/login_service.dart';
 import 'site_observation_page.dart';
 
 class MyCustomForm extends StatefulWidget {
-  const MyCustomForm({super.key});
+  final bool isDarkMode;
+  final VoidCallback onToggleTheme;
+
+  const MyCustomForm({
+    super.key,
+    required this.isDarkMode,
+    required this.onToggleTheme,
+  });
 
   @override
-  // ignore: library_private_types_in_public_api
   _MyCustomFormState createState() => _MyCustomFormState();
 }
 
@@ -23,38 +29,31 @@ class _MyCustomFormState extends State<MyCustomForm> {
   final TextEditingController passwordController = TextEditingController();
   String? _selectedBusiness;
 
-  final LoginService _loginService =
-      LoginService(); // Create an instance of the login service
-  final CompanyService _companyService =
-      CompanyService(); // Create an instance of the company service
+  final LoginService _loginService = LoginService();
+  final CompanyService _companyService = CompanyService();
 
-  // Login function
   Future<void> _login() async {
     final username = userNameController.text;
     final password = passwordController.text;
 
-    // Show a loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) =>
-          Center(child: CircularProgressIndicator()),
+          const Center(child: CircularProgressIndicator()),
     );
 
     final result = await _loginService.login(username, password);
-    Navigator.pop(context); // Close the loading dialog
+    Navigator.pop(context);
 
     if (result['success']) {
       final responseBody = result['data'];
-
       var userId = responseBody['userId'];
-      // ignore: unused_local_variable
       var userName = responseBody['userName'];
       var token = responseBody['token'];
 
       if (userId != null && token != null) {
-        // Show businesses modal after successful login
-        await SharedPrefsHelper.clear(); // Purana data hata do
+        await SharedPrefsHelper.clear();
         await SharedPrefsHelper.saveUserId(userId);
         await SharedPrefsHelper.saveToken(token);
         _showBusinessesModal();
@@ -66,26 +65,22 @@ class _MyCustomFormState extends State<MyCustomForm> {
     }
   }
 
-  // Show error dialog
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: Text('Login Failed'),
+        title: const Text('Login Failed'),
         content: Text(message),
         actions: <Widget>[
           TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close the dialog
-            },
-            child: Text('OK'),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
           ),
         ],
       ),
     );
   }
 
-  // Show businesses modal with dynamic company list
   void _showBusinessesModal() {
     showDialog(
       context: context,
@@ -105,31 +100,29 @@ class _MyCustomFormState extends State<MyCustomForm> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-
-                // Fetch User ID before calling fetchCompanies
                 FutureBuilder<int?>(
                   future: SharedPrefsHelper.getUserId(),
                   builder: (context, userSnapshot) {
                     if (userSnapshot.connectionState ==
                         ConnectionState.waiting) {
-                      return Center(child: CircularProgressIndicator());
+                      return const Center(child: CircularProgressIndicator());
                     } else if (userSnapshot.hasError ||
                         !userSnapshot.hasData ||
                         userSnapshot.data == null) {
-                      return Center(child: Text('Error fetching user ID'));
+                      return const Center(
+                          child: Text('Error fetching user ID'));
                     } else {
                       int userId = userSnapshot.data!;
-
                       return FutureBuilder<List<Company>>(
-                        future: _companyService.fetchCompanies(
-                            userId), // Use the retrieved user ID
+                        future: _companyService.fetchCompanies(userId),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return Center(child: CircularProgressIndicator());
+                            return const Center(
+                                child: CircularProgressIndicator());
                           } else if (snapshot.hasError) {
                             return Center(
-                                child: Text('Error: ${snapshot.error}'));
+                                child: Text('Error: \${snapshot.error}'));
                           } else if (snapshot.hasData) {
                             List<Company> companies = snapshot.data!;
                             return Column(
@@ -142,16 +135,14 @@ class _MyCustomFormState extends State<MyCustomForm> {
                                     });
                                     await SharedPrefsHelper.saveCompanyId(
                                         company.id);
-                                    // ignore: use_build_context_synchronously
-                                    Navigator.of(context)
-                                        .pop(); // Close the popup
+                                    Navigator.of(context).pop();
                                     Navigator.pushReplacement(
-                                      // ignore: use_build_context_synchronously
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => DashboardPage(
-                                          userName:
-                                              userSnapshot.data.toString(),
+                                          isDarkMode: true,
+                                          onToggleTheme: widget.onToggleTheme,
+                                          userName: userNameController.text,
                                           companyName: _selectedBusiness ??
                                               'Default Company',
                                           projectService: ProjectService(),
@@ -165,7 +156,7 @@ class _MyCustomFormState extends State<MyCustomForm> {
                               }).toList(),
                             );
                           } else {
-                            return Center(
+                            return const Center(
                                 child: Text('No businesses available'));
                           }
                         },
@@ -187,6 +178,12 @@ class _MyCustomFormState extends State<MyCustomForm> {
       appBar: AppBar(
         title: const Text("Login", textAlign: TextAlign.center),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(widget.isDarkMode ? Icons.dark_mode : Icons.light_mode),
+            onPressed: widget.onToggleTheme,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -195,21 +192,17 @@ class _MyCustomFormState extends State<MyCustomForm> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Your custom logo
                 Image.asset(
-                  'images/hitech_Logo.png', // Make sure to place your logo here
+                  'images/hitech_Logo.png',
                   width: 150,
                   height: 150,
                 ),
                 const SizedBox(height: 20),
-
-                // The custom form you provided
                 Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Username Field
                       SizedBox(
                         width: 350,
                         child: TextFormField(
@@ -231,8 +224,6 @@ class _MyCustomFormState extends State<MyCustomForm> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
-                      // Password Field
                       SizedBox(
                         width: 350,
                         child: TextFormField(
@@ -267,8 +258,6 @@ class _MyCustomFormState extends State<MyCustomForm> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
-                      // Login Button
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         child: SizedBox(
@@ -280,12 +269,13 @@ class _MyCustomFormState extends State<MyCustomForm> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color.fromRGBO(55, 154, 230, 1),
+                              backgroundColor:
+                                  const Color.fromRGBO(55, 154, 230, 1),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                             ),
-                            child: Text(
+                            child: const Text(
                               'Login',
                               style: TextStyle(
                                 fontSize: 18.0,

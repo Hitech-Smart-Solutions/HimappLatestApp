@@ -1,5 +1,8 @@
-import 'package:animated_widgets/widgets/translation_animated.dart';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:animated_widgets/widgets/scale_animated.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
@@ -11,6 +14,8 @@ class DashboardPage extends StatelessWidget {
   final String userName;
   final ProjectService projectService;
   final SiteObservationService siteObservationService;
+  final bool isDarkMode;
+  final VoidCallback onToggleTheme;
 
   const DashboardPage({
     super.key,
@@ -18,6 +23,8 @@ class DashboardPage extends StatelessWidget {
     required this.userName,
     required this.projectService,
     required this.siteObservationService,
+    required this.isDarkMode,
+    required this.onToggleTheme,
   });
 
   @override
@@ -26,20 +33,33 @@ class DashboardPage extends StatelessWidget {
       drawer: _buildDrawer(context),
       appBar: AppBar(
         title: Text("Dashboard - $companyName"),
+        actions: [
+          IconButton(
+            icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: onToggleTheme,
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildParallaxHeader(), // ⬅️ Add this here
+            SizedBox(height: 16),
             _buildGreetingCard(userName),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             _buildStatsCards(context),
-            SizedBox(height: 20),
+            const SizedBox(height: 30),
+            Text("Insights",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            _buildBarChart(),
+            const SizedBox(height: 30),
             Text("Recent Observations",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             _buildRecentObservations(),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text("Reminders",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             _buildRemindersList(),
@@ -49,27 +69,51 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // Greeting Card with User Name and Avatar
+  Widget _buildParallaxHeader() {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Image.asset("images/parallax_bg.jpg", fit: BoxFit.cover),
+        ),
+        Container(
+          height: 150,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.4),
+          ),
+          child: const Text(
+            "✨ Welcome to your Smart Dashboard",
+            style: TextStyle(
+                color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Greeting Card
   Widget _buildGreetingCard(String userName) {
     return Row(
       children: [
-        CircleAvatar(
+        const CircleAvatar(
           radius: 30,
           backgroundImage: AssetImage("images/profile.png"),
         ),
-        SizedBox(width: 16),
+        const SizedBox(width: 16),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Hello, $userName!", style: TextStyle(fontSize: 18)),
+            Text("Hello, $userName", style: const TextStyle(fontSize: 18)),
             Text("Welcome back to $companyName",
-                style: TextStyle(fontSize: 14, color: Colors.grey)),
+                style: const TextStyle(fontSize: 14, color: Colors.grey)),
           ],
         ),
       ],
     );
   }
 
+  // Stats Cards
   Widget _buildStatsCards(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     double cardWidth = (screenWidth - 48) / 2;
@@ -78,60 +122,89 @@ class DashboardPage extends StatelessWidget {
       spacing: 16,
       runSpacing: 16,
       children: [
-        _buildStatCard(
-            "Ongoing Projects", "12", Icons.work, Colors.blue, cardWidth, 0),
-        _buildStatCard("Site Observations", "5", Icons.visibility,
-            Colors.orange, cardWidth, 200),
-        _buildStatCard("Pending Approvals", "3", Icons.pending_actions,
-            Colors.red, cardWidth, 400),
+        _buildNeonGlassCard(
+            icon: Icons.work,
+            title: "Ongoing Projects",
+            value: "12",
+            color: Colors.cyanAccent,
+            width: cardWidth),
+        _buildNeonGlassCard(
+            icon: Icons.visibility,
+            title: "Observations",
+            value: "5",
+            color: Colors.orangeAccent,
+            width: cardWidth),
+        _buildNeonGlassCard(
+            icon: Icons.pending_actions,
+            title: "Pending",
+            value: "3",
+            color: Colors.pinkAccent,
+            width: cardWidth),
       ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color,
-      double width, int delay) {
-    return TranslationAnimatedWidget.tween(
+  Widget _buildNeonGlassCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+    double? width,
+  }) {
+    return ScaleAnimatedWidget.tween(
       enabled: true,
-      duration: Duration(milliseconds: 600 + delay),
-      translationDisabled: Offset(0, 50),
-      translationEnabled: Offset(0, 0),
-      child: SizedBox(
-        width: width,
-        child: Card(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 6,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [color.withOpacity(0.7), color],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
+      duration: const Duration(milliseconds: 150),
+      scaleEnabled: 0.97,
+      scaleDisabled: 1,
+      child: Container(
+        width: width ?? double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: [
+              color.withOpacity(0.25),
+              color.withOpacity(0.15),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.8),
+              blurRadius: 20,
+              spreadRadius: 1,
             ),
-            padding: EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.white24,
-                  child: Icon(icon, color: Colors.white),
-                ),
-                SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(color: Colors.white, fontSize: 14)),
-                    SizedBox(height: 4),
-                    Text(value,
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ],
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color.withOpacity(0.4), width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, color: Colors.white, size: 30),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 14)),
+                      Text(value,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22)),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -139,28 +212,116 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // Recent Site Observations List
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color, double width) {
+    return ScaleAnimatedWidget.tween(
+      enabled: true,
+      duration: const Duration(milliseconds: 150),
+      scaleDisabled: 1.0,
+      scaleEnabled: 0.95,
+      child: GestureDetector(
+        onTap: () {},
+        child: SizedBox(
+          width: width,
+          child: Card(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            elevation: 10,
+            shadowColor: color.withOpacity(0.6),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [color.withOpacity(0.8), color],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.6),
+                    blurRadius: 20,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 5),
+                  )
+                ],
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(seconds: 1),
+                    curve: Curves.easeInOut,
+                    child: Icon(icon, size: 30, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 14)),
+                      const SizedBox(height: 4),
+                      Text(value,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Chart
+  Widget _buildBarChart() {
+    return SizedBox(
+      height: 250,
+      child: BarChart(
+        BarChartData(
+          barGroups: [
+            BarChartGroupData(
+                x: 0,
+                barRods: [BarChartRodData(toY: 12, color: Colors.blueAccent)]),
+            BarChartGroupData(
+                x: 1,
+                barRods: [BarChartRodData(toY: 8, color: Colors.orangeAccent)]),
+            BarChartGroupData(
+                x: 2,
+                barRods: [BarChartRodData(toY: 5, color: Colors.redAccent)]),
+          ],
+          titlesData: FlTitlesData(show: true),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(show: true),
+        ),
+      ),
+    );
+  }
+
   Widget _buildRecentObservations() {
     return Column(
       children: List.generate(3, (index) {
         return ListTile(
-          leading: Icon(Icons.warning, color: Colors.orange),
+          leading: const Icon(Icons.warning, color: Colors.orange),
           title: Text("Observation #${index + 1}"),
-          subtitle: Text("Site: ABC, Status: Pending"),
-          trailing: Icon(Icons.arrow_forward_ios, size: 16),
+          subtitle: const Text("Site: ABC, Status: Pending"),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         );
       }),
     );
   }
 
-  // Reminders List
   Widget _buildRemindersList() {
     return Column(
       children: List.generate(3, (index) {
         return ListTile(
-          leading: Icon(Icons.calendar_today, color: Colors.blue),
-          title: Text("Inspection at Site XYZ"),
-          subtitle: Text("Due: Tomorrow"),
+          leading: const Icon(Icons.calendar_today, color: Colors.blue),
+          title: const Text("Inspection at Site XYZ"),
+          subtitle: const Text("Due: Tomorrow"),
         );
       }),
     );
@@ -177,10 +338,7 @@ class DashboardPage extends StatelessWidget {
       child: FutureBuilder<String?>(
         future: SharedPrefsHelper.getUserName(),
         builder: (context, snapshot) {
-          String userName = "User";
-          if (snapshot.hasData && snapshot.data != null) {
-            userName = snapshot.data!;
-          }
+          String userName = snapshot.data ?? "User";
 
           return ListView(
             padding: EdgeInsets.zero,
@@ -198,19 +356,15 @@ class DashboardPage extends StatelessWidget {
                   children: [
                     const CircleAvatar(
                       radius: 30,
-                      backgroundImage: AssetImage(
-                          "images/profile.png"), // Add your profile image in assets
+                      backgroundImage: AssetImage("images/profile.png"),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      userName,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    Text(
-                      companyName,
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
+                    Text(userName,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 16)),
+                    Text(companyName,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 14)),
                   ],
                 ),
               ),
@@ -218,14 +372,14 @@ class DashboardPage extends StatelessWidget {
                 leading: const Icon(Icons.dashboard, color: Colors.blue),
                 title: const Text('Dashboard'),
                 onTap: () {
-                  Navigator.pop(context); // Close the drawer
+                  Navigator.pop(context);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.assignment, color: Colors.orange),
                 title: const Text('Site Observation'),
                 onTap: () {
-                  Navigator.pop(context); // Close the drawer
+                  Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -247,7 +401,10 @@ class DashboardPage extends StatelessWidget {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const MyCustomForm()),
+                        builder: (context) => MyCustomForm(
+                              isDarkMode: isDarkMode,
+                              onToggleTheme: onToggleTheme,
+                            )),
                     (route) => false,
                   );
                 },
