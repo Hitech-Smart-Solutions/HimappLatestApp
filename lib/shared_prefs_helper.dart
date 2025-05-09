@@ -67,6 +67,18 @@ class SharedPrefsHelper {
     return prefs.getString('user_name');
   }
 
+  // Save dark mode status
+  static Future<void> saveDarkModeStatus(bool isDarkMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDarkMode', isDarkMode);
+  }
+
+  // Get dark mode status
+  static Future<bool> getDarkModeStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('isDarkMode') ?? false; // Default to false if not set
+  }
+
   // Manually set a test token (for debugging purposes)
   static Future<void> setManualToken() async {
     String token =

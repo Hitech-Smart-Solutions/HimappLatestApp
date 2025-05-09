@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:animated_widgets/widgets/scale_animated.dart';
+import 'package:himappnew/labour_registration_page.dart';
+import 'package:himappnew/service/labour_registration_service.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
@@ -98,7 +100,7 @@ class DashboardPage extends StatelessWidget {
       children: [
         const CircleAvatar(
           radius: 30,
-          backgroundImage: AssetImage("images/profile.png"),
+          backgroundImage: AssetImage("assets/images/profile.png"),
         ),
         const SizedBox(width: 16),
         Column(
@@ -356,7 +358,7 @@ class DashboardPage extends StatelessWidget {
                   children: [
                     const CircleAvatar(
                       radius: 30,
-                      backgroundImage: AssetImage("images/profile.png"),
+                      backgroundImage: AssetImage("assets/images/profile.png"),
                     ),
                     const SizedBox(height: 10),
                     Text(userName,
@@ -387,6 +389,23 @@ class DashboardPage extends StatelessWidget {
                         companyName: companyName,
                         projectService: projectService,
                         siteObservationService: siteObservationService,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // Add the Labour Registration option here
+              ListTile(
+                leading: const Icon(Icons.person_add, color: Colors.green),
+                title: const Text('Labour Registration'),
+                onTap: () {
+                  Navigator.pop(context); // Close the drawer
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LabourRegistrationPage(
+                        companyName: companyName,
+                        labourRegistrationService: LabourRegistrationService(),
                       ),
                     ),
                   );
