@@ -405,6 +405,7 @@ class DashboardPage extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (_) => LabourRegistrationPage(
                         companyName: companyName,
+                        projectService: projectService,
                         labourRegistrationService: LabourRegistrationService(),
                       ),
                     ),

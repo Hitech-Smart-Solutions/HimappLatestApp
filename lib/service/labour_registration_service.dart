@@ -23,34 +23,71 @@ class LabourRegistrationService {
   //   }
   // }
 
-  Future<List<LabourModel>> fetchLabours() async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'http://192.168.1.130:8000/api/LabourRegistration/GetLabourRegistrations'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
+  // Future<List<LabourModel>> fetchLabours() async {
+  //   String? token = await SharedPrefsHelper.getToken();
+
+  //   final response = await http.get(
+  //     Uri.parse(
+  //         'http://192.168.1.130:8000/api/LabourRegistration/GetLabourRegistrationByProjectID?ProjectID=32796&SortColumn=ID%20desc&PageIndex=0&PageSize=10&IsActive=true'),
+  //     headers: {
+  //       'Authorization': 'Bearer $token',
+  //       'Content-Type': 'application/json',
+  //     },
+  //   );
+  //   if (response.statusCode == 200) {
+  //     try {
+  //       // Directly decode the JSON response as a List
+  //       final data = jsonDecode(response.body);
+  //       final rows = data['Value']['Table1'] as List;
+  //       // Check if the list is empty
+  //       if (data.isEmpty) {
+  //         print('No activities found');
+  //       }
+
+  //       // Map the List of dynamic objects to Observation objects
+  //       return rows.map((e) => LabourModel.fromJson(e)).toList();
+  //     } catch (e) {
+  //       print("Error parsing the JSON data: $e");
+  //       throw Exception('Failed to load Observation');
+  //     }
+  //   } else {
+  //     throw Exception('Failed to load Observation');
+  //   }
+  // }
+
+  Future<List<LabourModel>> fetchLabours({
+    required int projectId,
+    String sortColumn = 'ID desc',
+    int pageIndex = 0,
+    int pageSize = 10,
+    bool isActive = true,
+  }) async {
+    final uri = Uri.http(
+      '192.168.1.130:8000',
+      '/api/LabourRegistration/GetLabourRegistrationByProjectID',
+      {
+        'ProjectID': projectId.toString(),
+        'SortColumn': sortColumn,
+        'PageIndex': pageIndex.toString(),
+        'PageSize': pageSize.toString(),
+        'IsActive': isActive.toString(),
       },
     );
+    String? token = await SharedPrefsHelper.getToken();
+    final response = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
     if (response.statusCode == 200) {
-      try {
-        // Directly decode the JSON response as a List
-        final List<dynamic> jsonData = jsonDecode(response.body);
-
-        // Check if the list is empty
-        if (jsonData.isEmpty) {
-          print('No activities found');
-        }
-
-        // Map the List of dynamic objects to Observation objects
-        return jsonData.map((item) => LabourModel.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing the JSON data: $e");
-        throw Exception('Failed to load Observation');
-      }
+      final data = json.decode(response.body);
+      final List<dynamic> table1 = data['Value']['Table1'];
+      return table1.map((e) => LabourModel.fromJson(e)).toList();
     } else {
-      throw Exception('Failed to load Observation');
+      throw Exception('Failed to load labours');
     }
   }
 
@@ -203,4 +240,36 @@ class LabourRegistrationService {
   //     throw Exception('Failed to load projects');
   //   }
   // }
+
+  Future<bool> submitLabourRegistration(LabourRegistration data) async {
+    String? token = await SharedPrefsHelper.getToken();
+
+    if (token == null) {
+      print("❌ Token not found.");
+      return false;
+    }
+
+    final url = Uri.parse(
+        'http://192.168.1.130:8000/api/LabourRegistration/CreateLabourRegistrationMaster');
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token', // ✅ Add token here
+    };
+
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode(data.toJson()),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      print('✅ Registration successful');
+      return true;
+    } else {
+      print('❌ Error: ${response.statusCode}');
+      print('Body: ${response.body}');
+      return false;
+    }
+  }
 }

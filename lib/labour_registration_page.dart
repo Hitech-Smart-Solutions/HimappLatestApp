@@ -1,32 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:himappnew/model/labour_registration_model.dart';
+import 'package:himappnew/model/project_model.dart';
+import 'package:himappnew/service/project_service.dart';
+import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:himappnew/service/labour_registration_service.dart';
+import 'package:uuid/uuid.dart';
 
 class LabourRegistrationPage extends StatefulWidget {
   final String companyName;
   final LabourRegistrationService labourRegistrationService;
+  final ProjectService _projectService;
 
   const LabourRegistrationPage({
-    Key? key,
+    super.key,
     required this.companyName,
+    required ProjectService projectService,
     required this.labourRegistrationService, // Pass the service here
-  }) : super(key: key);
+  }) : _projectService = projectService;
 
   @override
   State<LabourRegistrationPage> createState() => _LabourRegistrationPageState();
 }
 
 class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
+  Project? selectedProject;
+  List<Project> items = [];
   bool showForm = false;
   List<LabourModel> labourList = [];
   bool isLoading = false;
 
   final _formKey = GlobalKey<FormState>();
   final _dateFormat = DateFormat('yyyy-MM-dd');
-  DateTime? _regDate, _birthDate, _arrivalDate;
+  DateTime? _regDate,
+      _birthDate,
+      _arrivalDate,
+      _firstVaccineDate,
+      _secorndVaccineDate;
   TimeOfDay? _arrivalTime;
   File? _labourPhoto, _registrationDoc;
 
@@ -50,6 +62,8 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   CityModel? selectedCity;
   bool isCityLoading = false;
 
+  bool readOnly = false;
+
   // Controllers
   final TextEditingController formSrNoController = TextEditingController();
   final TextEditingController contractorNameController =
@@ -57,6 +71,7 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   final TextEditingController contractorContactController =
       TextEditingController();
   final TextEditingController labourNameController = TextEditingController();
+  final TextEditingController labourCodeController = TextEditingController();
   final TextEditingController labourContactController = TextEditingController();
   final TextEditingController labourTypeController = TextEditingController();
   final TextEditingController aadharController = TextEditingController();
@@ -70,7 +85,18 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   final TextEditingController cityController = TextEditingController();
   final TextEditingController addressController = TextEditingController();
 
+  final TextEditingController firstVaccineReferenceID = TextEditingController();
+  final TextEditingController secorndVaccineReferenceID =
+      TextEditingController();
+
+  final Map<String, int> genderMapping = {
+    'Male': 1,
+    'Female': 2,
+    'Other': 3,
+  };
+
   String? selectedGender;
+  int? genderId;
   String? selectedBloodGroup;
   String? selectedMaritalStatus;
 
@@ -90,22 +116,84 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   @override
   void initState() {
     super.initState();
+    fetchProjects();
     _loadParties();
     _fetchLabours();
     _loadLabourTypes();
     _loadCountries();
   }
 
+  Future<void> fetchProjects() async {
+    try {
+      int? userId = await SharedPrefsHelper.getUserId();
+      int? companyId = await SharedPrefsHelper.getCompanyId();
+      if (userId == null || companyId == null) {
+        print("User ID or Company ID not found in SharedPreferences");
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      List<Project> projects = await widget._projectService.fetchProject(
+        userId,
+        companyId,
+      );
+
+      setState(() {
+        items = projects; // Correct: List<Project>
+        selectedProject = items.isNotEmpty ? items[0] : null;
+        isLoading = false;
+      });
+      // Save the selected project ID in SharedPreferences (assuming first project is selected)
+      if (projects.isNotEmpty) {
+        await SharedPrefsHelper.saveProjectID(
+            projects[0].id); // Save the first project ID
+        // print("Saved project ID: ${projects[0].id}");
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      print("Error fetching projects: $e");
+    }
+  }
+
 //Get Labour List
+  // Future<void> _fetchLabours() async {
+  //   setState(() => isLoading = true);
+  //   try {
+  //     // Assuming `LabourService.getAllLabours()` returns a list of labours.
+  //     final fetched = await widget.labourRegistrationService.fetchLabours();
+  //     setState(() => labourList = fetched);
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context)
+  //         .showSnackBar(SnackBar(content: Text('Error fetching labours')));
+  //   } finally {
+  //     setState(() => isLoading = false);
+  //   }
+  // }
+
   Future<void> _fetchLabours() async {
     setState(() => isLoading = true);
+
     try {
-      // Assuming `LabourService.getAllLabours()` returns a list of labours.
-      final fetched = await widget.labourRegistrationService.fetchLabours();
+      int? projectID = await SharedPrefsHelper.getProjectID();
+      print(projectID);
+
+      final fetched = await widget.labourRegistrationService.fetchLabours(
+        projectId: projectID!,
+        sortColumn: 'ID desc',
+        pageSize: 10,
+        pageIndex: 0,
+        isActive: true,
+      );
+
       setState(() => labourList = fetched);
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error fetching labours')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching labours: $e')),
+      );
     } finally {
       setState(() => isLoading = false);
     }
@@ -182,27 +270,51 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   }
 
   Widget _buildLabourList() {
-    if (isLoading) {
-      return Center(child: CircularProgressIndicator());
-    }
-
-    if (labourList.isEmpty) {
-      return Center(child: Text("No labours found."));
-    }
-
-    return ListView.builder(
-      itemCount: labourList.length,
-      itemBuilder: (context, index) {
-        final labour = labourList[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          child: ListTile(
-            leading: Icon(Icons.person),
-            title: Text(labour.fullName),
-            subtitle: Text("Code: ${labour.labourRegistrationCode}"),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: DropdownButton<Project>(
+            isExpanded: true,
+            hint: Text("Select a project"),
+            value: selectedProject,
+            items: items.map((project) {
+              return DropdownMenuItem<Project>(
+                value: project,
+                child: Text(project.name),
+              );
+            }).toList(),
+            onChanged: (Project? newProject) {
+              setState(() {
+                selectedProject = newProject;
+              });
+              if (newProject != null) {
+                _fetchLabours(); // Fetch labours for selected project
+              }
+            },
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: isLoading
+              ? Center(child: CircularProgressIndicator())
+              : labourList.isEmpty
+                  ? Center(child: Text("No labours found."))
+                  : ListView.builder(
+                      itemCount: labourList.length,
+                      itemBuilder: (context, index) {
+                        final labour = labourList[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: ListTile(
+                            leading: Icon(Icons.person),
+                            title: Text(labour.fullName),
+                            subtitle: Text("Code: ${labour.code}"),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
     );
   }
 
@@ -226,6 +338,128 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     );
   }
 
+  void _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      // Getting projectID from SharedPrefsHelper
+      int? projectID = await SharedPrefsHelper.getProjectID();
+      int? userID = await SharedPrefsHelper.getUserId();
+      int genderId = genderMapping[selectedGender!] ?? 0;
+
+      print("projectID: $projectID");
+      print("userID: $userID");
+      // Checking if gender and party are selected
+      if (selectedGender == null || selectedParty == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Please select gender and party')),
+        );
+        return;
+      }
+      genderId = genderMapping[selectedGender!] ?? 0;
+
+      // Creating LabourRegistration object
+      final registration = LabourRegistration(
+        uniqueId: const Uuid().v4(),
+        id: 0,
+        labourRegistrationDate: _regDate!,
+        labourRegistrationCode: labourCodeController.text,
+        partyId: selectedParty!.id,
+        partyContactNo: contractorContactController.text,
+        fullName: labourNameController.text,
+        birthDate: _birthDate!,
+        genderId: genderId, // Gender ID as int
+        // fullName: fullNameController.text,
+        contactNo: labourContactController.text,
+        tradeId: selectedLabourType!.id,
+        projectId: projectID!, // Assuming projectID is non-null here
+        uanNo: uanController.text,
+        aadharNo: aadharController.text,
+        panNo: panController.text,
+        voterIDNo: voterIdController.text,
+        bankAccNo: accountController.text,
+        profileImagePath: _labourPhoto != null
+            ? _labourPhoto!.path
+            : '', // Assuming path is required
+        profileFileName: _labourPhoto != null
+            ? _labourPhoto!.path.split('/').last
+            : '', // Assuming filename is required
+        statusId: 1, // Assuming status ID is 1 for active
+        isActive: true, // Assuming active by default
+        createdBy: userID, // Assuming created by user ID
+        createdDate: DateTime.now(),
+        lastModifiedBy: userID, // Assuming last modified by user ID
+        lastModifiedDate: DateTime.now(),
+        labourArrivalDate: _arrivalDate!, // Assuming arrival date is required
+        idMark: idMarkController.text, // Assuming ID mark is required
+        bloodGroup: selectedBloodGroup,
+        maritalStatusId: selectedMaritalStatus == "Single"
+            ? 1
+            : selectedMaritalStatus == "Married"
+                ? 2
+                : 3, // Assuming marital status IDs
+        address: addressController.text,
+        cityId: selectedCity != null
+            ? selectedCity!.id
+            : 0, // Assuming city ID is required
+        stateId: selectedState != null
+            ? selectedState!.id
+            : 0, // Assuming state ID is required
+        countryId: selectedCountry != null
+            ? selectedCountry!.id
+            : 0, // Assuming country ID is required
+        firstVaccineDate: DateTime.now(),
+        firstVaccineReferenceID: firstVaccineReferenceID.text,
+        // secorndVaccineDate: DateTime.now(),
+        secorndVaccineDate: DateTime.now(), // Replace null
+        secorndVaccineReferenceID: secorndVaccineReferenceID.text,
+        labourRegistrationDocumentDetails: [
+          LabourRegistrationDocumentDetail(
+            uniqueId: const Uuid().v4(),
+            id: 0,
+            labourRegistrationId: 0,
+            documentName: 'Registration Document',
+            fileName: _registrationDoc != null
+                ? _registrationDoc!.path.split('/').last
+                : '', // Assuming filename is required
+            fileContentType: '',
+            filePath: _registrationDoc != null
+                ? _registrationDoc!.path
+                : '', // Assuming path is required
+            isActive: true,
+            createdBy: userID,
+            createdDate: DateTime.now(),
+            lastModifiedBy: userID,
+            lastModifiedDate: DateTime.now(),
+            // documentTypeId: 1, // Assuming document type ID is 1
+            // documentPath: _registrationDoc != null
+            //     ? _registrationDoc!.path
+            //     : '', // Assuming path is required
+            // documentFileName: _registrationDoc != null
+            //     ? _registrationDoc!.path.split('/').last
+            //     : '', // Assuming filename is required
+          ),
+        ],
+      );
+      // Submit the registration data
+      bool success = await widget.labourRegistrationService
+          .submitLabourRegistration(registration);
+
+      // Show success or failure message
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Registration Successful')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Registration Failed')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please complete all required fields')),
+      );
+    }
+  }
+
   Widget _buildForm() {
     return SingleChildScrollView(
       child: Form(
@@ -235,7 +469,13 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
           children: [
             _dateField("Date of Registration", _regDate,
                 (date) => setState(() => _regDate = date)),
-            _textField("Form Sr. No", controller: formSrNoController),
+            _textField("Form Sr. No",
+                controller: formSrNoController, readOnly: true),
+            // TextField(
+            //   controller: formSrNoController,
+            //   readOnly: true,
+            //   decoration: InputDecoration(labelText: "Form Sr. No"),
+            // ),
             DropdownButtonFormField<PartyModel>(
               value: selectedParty,
               onChanged: (PartyModel? newParty) {
@@ -260,10 +500,17 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
                 controller: contractorContactController,
                 validator: _validatePhone),
             _textField("Name Of Labour", controller: labourNameController),
+            _textField("Code Of Labour", controller: labourCodeController),
             _dateField("Labour Birth Date", _birthDate,
                 (date) => setState(() => _birthDate = date)),
-            _dropdownField("Gender", ["Male", "Female", "Other"],
-                selectedGender, (val) => setState(() => selectedGender = val)),
+            _dropdownField(
+                "Gender", ["Male", "Female", "Other"], selectedGender, (val) {
+              setState(() {
+                selectedGender = val; // Update the selectedGender
+                genderId = genderMapping[
+                    val]; // Update genderId based on the selected gender
+              });
+            }),
             _textField("Labour Contact Number",
                 keyboard: TextInputType.phone,
                 controller: labourContactController,
@@ -376,23 +623,19 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
                 );
               }).toList(),
             ),
+            _dateField("Labour Arrival Date", _firstVaccineDate,
+                (date) => setState(() => _firstVaccineDate = date)),
+            _textField("Name Of Labour", controller: firstVaccineReferenceID),
+            _dateField("Labour Arrival Date", _secorndVaccineDate,
+                (date) => setState(() => _secorndVaccineDate = date)),
+            _textField("Name Of Labour", controller: secorndVaccineReferenceID),
             SizedBox(height: 16),
             _textField("Address", controller: addressController, maxLines: 3),
             _fileUploadField(
                 "Document", _registrationDoc, () => _pickImage(false)),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: () {
-                if (_formKey.currentState!.validate()) {
-                  if (_labourPhoto == null || _registrationDoc == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("Please upload required documents")));
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text("Labour Registered Successfully!")));
-                }
-              },
+              onPressed: _submitForm, // ✅ yahan sirf method ka naam
               icon: Icon(Icons.save),
               label: Text("Submit"),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
@@ -409,10 +652,33 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     return null;
   }
 
+  // Widget _textField(String label,
+  //     {TextInputType keyboard = TextInputType.text,
+  //     int maxLines = 1,
+  //     TextEditingController? controller,
+  //     bool readOnly = false,
+  //     String? Function(String?)? validator}) {
+  //   return Padding(
+  //     padding: const EdgeInsets.only(bottom: 16),
+  //     child: TextFormField(
+  //       controller: controller,
+  //       keyboardType: keyboard,
+  //       maxLines: maxLines,
+  //       // readOnly: readOnly,
+  //       decoration:
+  //           InputDecoration(labelText: label, border: OutlineInputBorder()),
+  //       filled: readOnly,
+  //       validator: validator ??
+  //           (val) => val == null || val.isEmpty ? "Required" : null,
+  //     ),
+  //   );
+  // }
+
   Widget _textField(String label,
       {TextInputType keyboard = TextInputType.text,
       int maxLines = 1,
       TextEditingController? controller,
+      bool readOnly = false,
       String? Function(String?)? validator}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -420,10 +686,18 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
         controller: controller,
         keyboardType: keyboard,
         maxLines: maxLines,
-        decoration:
-            InputDecoration(labelText: label, border: OutlineInputBorder()),
+        readOnly: readOnly,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(),
+          filled: readOnly,
+          fillColor: readOnly ? Colors.grey.shade100 : null,
+        ),
         validator: validator ??
-            (val) => val == null || val.isEmpty ? "Required" : null,
+            (val) {
+              if (readOnly) return null; // ❌ No validation if field is readOnly
+              return val == null || val.isEmpty ? "Required" : null;
+            },
       ),
     );
   }
