@@ -162,8 +162,8 @@ class LabourRegistration {
   int? countryId;
   DateTime? firstVaccineDate;
   String? firstVaccineReferenceID;
-  DateTime? secorndVaccineDate;
-  String? secorndVaccineReferenceID;
+  DateTime? secondVaccineDate;
+  String? secondVaccineReferenceID;
   List<LabourRegistrationDocumentDetail>? labourRegistrationDocumentDetails;
 
   LabourRegistration({
@@ -202,54 +202,77 @@ class LabourRegistration {
     this.countryId,
     this.firstVaccineDate,
     this.firstVaccineReferenceID,
-    this.secorndVaccineDate,
-    this.secorndVaccineReferenceID,
+    this.secondVaccineDate,
+    this.secondVaccineReferenceID,
     this.labourRegistrationDocumentDetails,
   });
 
   factory LabourRegistration.fromJson(Map<String, dynamic> json) {
     return LabourRegistration(
-      uniqueId: json['uniqueId'],
-      id: json['id'],
-      labourRegistrationDate: DateTime.tryParse(json['labourRegistrationDate']),
-      labourRegistrationCode: json['labourRegistrationCode'],
-      partyId: json['partyId'],
-      partyContactNo: json['partyContactNo'],
-      fullName: json['fullName'],
-      birthDate: DateTime.tryParse(json['birthDate']),
-      genderId: json['genderId'],
-      contactNo: json['contactNo'],
-      tradeId: json['tradeId'],
-      projectId: json['projectId'],
-      uanNo: json['uanNo'],
-      aadharNo: json['aadharNo'],
-      panNo: json['panNo'],
-      voterIDNo: json['voterIDNo'],
-      bankAccNo: json['bankAccNo'],
-      profileImagePath: json['profileImagePath'],
-      profileFileName: json['profileFileName'],
-      statusId: json['statusId'],
-      isActive: json['isActive'],
-      createdBy: json['createdBy'],
-      createdDate: DateTime.tryParse(json['createdDate']),
-      lastModifiedBy: json['lastModifiedBy'],
-      lastModifiedDate: DateTime.tryParse(json['lastModifiedDate']),
-      labourArrivalDate: DateTime.tryParse(json['labourArrivalDate']),
-      idMark: json['idMark'],
-      bloodGroup: json['bloodGroup'],
-      maritalStatusId: json['maritalStatusId'],
-      address: json['address'],
-      cityId: json['cityId'],
-      stateId: json['stateId'],
-      countryId: json['countryId'],
-      firstVaccineDate: DateTime.tryParse(json['firstVaccineDate']),
-      firstVaccineReferenceID: json['firstVaccineReferenceID'],
-      secorndVaccineDate: DateTime.tryParse(json['secorndVaccineDate']),
-      secorndVaccineReferenceID: json['secorndVaccineReferenceID'],
+      uniqueId: json['uniqueId'] ?? '', // Default to empty string if null
+      id: json['id'] ?? 0, // Default to 0 if null
+      labourRegistrationDate: json['labourRegistrationDate'] != null
+          ? DateTime.tryParse(json['labourRegistrationDate'])
+          : null, // Handle invalid or null date gracefully
+      labourRegistrationCode:
+          json['labourRegistrationCode'] ?? 'N/A', // Default if null
+      partyId: json['partyId'] ?? 0, // Default to 0 if null
+      partyContactNo: json['partyContactNo'] ??
+          'No Contact', // Default to 'No Contact' if null
+      fullName: json['fullName'] ?? 'No Name', // Default to 'No Name' if null
+      birthDate: json['birthDate'] != null
+          ? DateTime.tryParse(json['birthDate'])
+          : null, // Handle null date gracefully
+      genderId: json['genderId'] ?? 0, // Default to 0 if null
+      contactNo:
+          json['contactNo'] ?? 'No Contact', // Default to 'No Contact' if null
+      tradeId: json['tradeId'] ?? 0, // Default to 0 if null
+      projectId: json['projectId'] ?? 0, // Default to 0 if null
+      uanNo: json['uanNo'] ?? 'N/A', // Default to 'N/A' if null
+      aadharNo: json['aadharNo'] ?? 'N/A', // Default to 'N/A' if null
+      panNo: json['panNo'] ?? 'N/A', // Default to 'N/A' if null
+      voterIDNo: json['voterIDNo'] ?? 'N/A', // Default to 'N/A' if null
+      bankAccNo: json['bankAccNo'] ?? 'N/A', // Default to 'N/A' if null
+      profileImagePath:
+          json['profileImagePath'] ?? '', // Default to empty string if null
+      profileFileName:
+          json['profileFileName'] ?? '', // Default to empty string if null
+      statusId: json['statusId'] ?? 0, // Default to 0 if null
+      isActive: json['isActive'] ?? false, // Default to false if null
+      createdBy: json['createdBy'] ?? 0, // Default to 0 if null
+      createdDate: json['createdDate'] != null
+          ? DateTime.tryParse(json['createdDate'])
+          : null, // Handle null date gracefully
+      lastModifiedBy: json['lastModifiedBy'] ?? 0, // Default to 0 if null
+      lastModifiedDate: json['lastModifiedDate'] != null
+          ? DateTime.tryParse(json['lastModifiedDate'])
+          : null, // Handle null date gracefully
+      labourArrivalDate: json['labourArrivalDate'] != null
+          ? DateTime.tryParse(json['labourArrivalDate'])
+          : null, // Handle null date gracefully
+      idMark: json['idMark'] ?? 'No ID Mark', // Default to 'No ID Mark' if null
+      bloodGroup: json['bloodGroup'] ?? 'N/A', // Default to 'N/A' if null
+      maritalStatusId: json['maritalStatusId'] ?? 0, // Default to 0 if null
+      address:
+          json['address'] ?? 'No Address', // Default to 'No Address' if null
+      cityId: json['cityId'] ?? 0, // Default to 0 if null
+      stateId: json['stateId'] ?? 0, // Default to 0 if null
+      countryId: json['countryId'] ?? 0, // Default to 0 if null
+      firstVaccineDate: json['firstVaccineDate'] != null
+          ? DateTime.tryParse(json['firstVaccineDate'])
+          : null, // Handle null date gracefully
+      firstVaccineReferenceID:
+          json['firstVaccineReferenceID'] ?? 'N/A', // Default to 'N/A' if null
+      secondVaccineDate: json['secondVaccineDate'] != null
+          ? DateTime.tryParse(json['secondVaccineDate'])
+          : null, // Handle null date gracefully
+      secondVaccineReferenceID: json['secorndVaccineReferenceID'] ??
+          'N/A', // Default to 'N/A' if null
       labourRegistrationDocumentDetails:
           (json['labourRegistrationDocumentDetails'] as List?)
-              ?.map((e) => LabourRegistrationDocumentDetail.fromJson(e))
-              .toList(),
+                  ?.map((e) => LabourRegistrationDocumentDetail.fromJson(e))
+                  .toList() ??
+              [], // Default to empty list if null
     );
   }
 
@@ -290,8 +313,8 @@ class LabourRegistration {
       'countryId': countryId,
       'firstVaccineDate': firstVaccineDate?.toIso8601String(),
       'firstVaccineReferenceID': firstVaccineReferenceID,
-      'secorndVaccineDate': secorndVaccineDate?.toIso8601String(),
-      'secorndVaccineReferenceID': secorndVaccineReferenceID,
+      'secondVaccineDate': secondVaccineDate?.toIso8601String(),
+      'secondVaccineReferenceID': secondVaccineReferenceID,
       'labourRegistrationDocumentDetails':
           labourRegistrationDocumentDetails?.map((e) => e.toJson()).toList(),
     };
@@ -335,21 +358,30 @@ class LabourRegistrationDocumentDetail {
 
   factory LabourRegistrationDocumentDetail.fromJson(Map<String, dynamic> json) {
     return LabourRegistrationDocumentDetail(
-      uniqueId: json['uniqueId'],
-      id: json['id'],
-      labourRegistrationId: json['labourRegistrationId'],
-      documentName: json['documentName'],
-      fileName: json['fileName'],
-      fileContentType: json['fileContentType'],
-      filePath: json['filePath'],
-      isActive: json['isActive'],
-      createdBy: json['createdBy'],
-      createdDate: DateTime.tryParse(json['createdDate']),
-      lastModifiedBy: json['lastModifiedBy'],
-      lastModifiedDate: DateTime.tryParse(json['lastModifiedDate']),
-      documentTypeId: json['documentTypeId'], // Added documentTypeId
-      documentPath: json['documentPath'], // Added documentPath
-      documentFileName: json['documentFileName'], // Added documentFileName
+      uniqueId: json['uniqueId'] ?? '', // Default to empty string if null
+      id: json['id'] ?? 0, // Default to 0 if null
+      labourRegistrationId:
+          json['labourRegistrationId'] ?? 0, // Default to 0 if null
+      documentName: json['documentName'] ??
+          'No Document', // Default to 'No Document' if null
+      fileName: json['fileName'] ?? 'No File', // Default to 'No File' if null
+      fileContentType:
+          json['fileContentType'] ?? 'Unknown', // Default to 'Unknown' if null
+      filePath: json['filePath'] ?? '', // Default to empty string if null
+      isActive: json['isActive'] ?? false, // Default to false if null
+      createdBy: json['createdBy'] ?? 0, // Default to 0 if null
+      createdDate: json['createdDate'] != null
+          ? DateTime.tryParse(json['createdDate'])
+          : null, // Handle null or invalid date gracefully
+      lastModifiedBy: json['lastModifiedBy'] ?? 0, // Default to 0 if null
+      lastModifiedDate: json['lastModifiedDate'] != null
+          ? DateTime.tryParse(json['lastModifiedDate'])
+          : null, // Handle null or invalid date gracefully
+      documentTypeId: json['documentTypeId'] ?? 0, // Default to 0 if null
+      documentPath:
+          json['documentPath'] ?? '', // Default to empty string if null
+      documentFileName:
+          json['documentFileName'] ?? '', // Default to empty string if null
     );
   }
 

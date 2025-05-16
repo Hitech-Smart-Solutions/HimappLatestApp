@@ -13,12 +13,14 @@ class LabourRegistrationPage extends StatefulWidget {
   final String companyName;
   final LabourRegistrationService labourRegistrationService;
   final ProjectService _projectService;
+  final LabourRegistration? selectedLabour;
 
   const LabourRegistrationPage({
     super.key,
     required this.companyName,
     required ProjectService projectService,
     required this.labourRegistrationService, // Pass the service here
+    this.selectedLabour,
   }) : _projectService = projectService;
 
   @override
@@ -99,6 +101,36 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   int? genderId;
   String? selectedBloodGroup;
   String? selectedMaritalStatus;
+  int? maritalStatusId;
+
+  int _mapMaritalStatusStringToId(String? status) {
+    switch (status) {
+      case 'Single':
+        return 1;
+      case 'Married':
+        return 2;
+      case 'Divorced':
+        return 3;
+      default:
+        return 1;
+    }
+  }
+
+  String _mapMaritalStatusIdToString(int? id) {
+    switch (id) {
+      case 1:
+        return 'Single';
+      case 2:
+        return 'Married';
+      case 3:
+        return 'Divorced';
+      default:
+        return 'Single'; // Default fallback
+    }
+  }
+
+  late TextEditingController fullNameController;
+  late TextEditingController contactNoController;
 
   Future<void> _pickImage(bool isPhoto) async {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
@@ -113,6 +145,15 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     }
   }
 
+  LabourRegistration? selectedLabour;
+  final Map<int, String> reverseGenderMapping = {
+    1: 'Male',
+    2: 'Female',
+    3: 'Other',
+  };
+
+  int labourId = 0; // Assuming this is the ID of the labour being edited
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +162,7 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     _fetchLabours();
     _loadLabourTypes();
     _loadCountries();
+    final labour = widget.selectedLabour;
   }
 
   Future<void> fetchProjects() async {
@@ -128,7 +170,6 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
       int? userId = await SharedPrefsHelper.getUserId();
       int? companyId = await SharedPrefsHelper.getCompanyId();
       if (userId == null || companyId == null) {
-        print("User ID or Company ID not found in SharedPreferences");
         setState(() {
           isLoading = false;
         });
@@ -149,7 +190,6 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
       if (projects.isNotEmpty) {
         await SharedPrefsHelper.saveProjectID(
             projects[0].id); // Save the first project ID
-        // print("Saved project ID: ${projects[0].id}");
       }
     } catch (e) {
       setState(() {
@@ -159,28 +199,11 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     }
   }
 
-//Get Labour List
-  // Future<void> _fetchLabours() async {
-  //   setState(() => isLoading = true);
-  //   try {
-  //     // Assuming `LabourService.getAllLabours()` returns a list of labours.
-  //     final fetched = await widget.labourRegistrationService.fetchLabours();
-  //     setState(() => labourList = fetched);
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context)
-  //         .showSnackBar(SnackBar(content: Text('Error fetching labours')));
-  //   } finally {
-  //     setState(() => isLoading = false);
-  //   }
-  // }
-
   Future<void> _fetchLabours() async {
     setState(() => isLoading = true);
 
     try {
       int? projectID = await SharedPrefsHelper.getProjectID();
-      print(projectID);
-
       final fetched = await widget.labourRegistrationService.fetchLabours(
         projectId: projectID!,
         sortColumn: 'ID desc',
@@ -252,8 +275,7 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   }
 
   //City List
-
-  void _loadCities(int stateId) async {
+  Future<void> _loadCities(int stateId) async {
     setState(() {
       isCityLoading = true;
       selectedCity = null;
@@ -267,6 +289,39 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
         isCityLoading = false;
       });
     }
+  }
+
+  Future<void> _setDropdownValuesForEdit(
+      LabourRegistration selectedLabour) async {
+    // Step 1: Set selectedCountry
+    selectedCountry = countries.firstWhere(
+      (country) => country.id == selectedLabour.countryId,
+      orElse: () => countries.first,
+    );
+
+    // Step 2: Load states for selected country
+    await _loadStates(selectedCountry!.id);
+
+    // Step 3: Set selectedState
+    if (states.isNotEmpty) {
+      selectedState = states.firstWhere(
+        (state) => state.id == selectedLabour.stateId,
+        orElse: () => states.first,
+      );
+    }
+
+    // Step 4: Load cities for selected state
+    await _loadCities(selectedState!.id);
+    // await Future(() => _loadCities(selectedState!.id));
+    // Step 5: Set selectedCity
+    if (cities.isNotEmpty) {
+      selectedCity = cities.firstWhere(
+        (city) => city.id == selectedLabour.cityId,
+        orElse: () => cities.first,
+      );
+    }
+
+    setState(() {});
   }
 
   Widget _buildLabourList() {
@@ -307,8 +362,92 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
                           margin: const EdgeInsets.symmetric(vertical: 8),
                           child: ListTile(
                             leading: Icon(Icons.person),
-                            title: Text(labour.fullName),
-                            subtitle: Text("Code: ${labour.code}"),
+                            title: Text(labour.fullName ?? 'No Name'),
+                            subtitle: Text("Code: ${labour.code ?? 'N/A'}"),
+                            onTap: () async {
+                              // final labourId = labour.id;
+                              final labourIdFromList = labour.id;
+                              // print(labourId);
+                              final labourRegistration = await widget
+                                  .labourRegistrationService
+                                  .getLabourById(labourIdFromList);
+                              setState(() {
+                                showForm = true; // Open the form
+                                selectedLabour = labourRegistration;
+                                labourId = labourRegistration.id ?? 0;
+                                _regDate =
+                                    selectedLabour!.labourRegistrationDate;
+                                formSrNoController.text =
+                                    selectedLabour?.labourRegistrationCode ??
+                                        '';
+                                selectedParty = parties.firstWhere(
+                                  (party) =>
+                                      party.id == selectedLabour?.partyId,
+                                  orElse: () => parties
+                                      .first, // fallback in case ID doesn't match
+                                );
+                                contractorContactController.text =
+                                    selectedLabour?.partyContactNo ?? '';
+                                labourNameController.text =
+                                    selectedLabour?.fullName ?? '';
+                                _birthDate =
+                                    selectedLabour?.birthDate ?? DateTime.now();
+                                if (selectedLabour?.genderId != null) {
+                                  selectedGender = reverseGenderMapping[
+                                          selectedLabour!.genderId!] ??
+                                      'Male';
+                                }
+                                labourContactController.text =
+                                    selectedLabour?.contactNo ?? '';
+                                selectedLabourType = labourTypes.firstWhere(
+                                  (albour) =>
+                                      labour.id == selectedLabour?.tradeId,
+                                  orElse: () => labourTypes
+                                      .first, // fallback in case ID doesn't match
+                                );
+                                aadharController.text =
+                                    selectedLabour?.aadharNo ?? '';
+                                panController.text =
+                                    selectedLabour?.panNo ?? '';
+                                voterIdController.text =
+                                    selectedLabour?.voterIDNo ?? '';
+                                uanController.text =
+                                    selectedLabour?.uanNo ?? '';
+                                accountController.text =
+                                    selectedLabour?.bankAccNo ?? '';
+                                _arrivalDate =
+                                    selectedLabour?.labourArrivalDate;
+                                _arrivalTime = TimeOfDay.fromDateTime(
+                                    selectedLabour?.labourArrivalDate ??
+                                        DateTime.now());
+                                // _arrivalTime = selectedLabour?.arrivalTime;
+                                idMarkController.text =
+                                    selectedLabour?.idMark ?? '';
+                                selectedBloodGroup =
+                                    selectedLabour?.bloodGroup ?? '';
+                                selectedMaritalStatus =
+                                    _mapMaritalStatusIdToString(
+                                        selectedLabour?.maritalStatusId);
+                                _setDropdownValuesForEdit(labourRegistration);
+                                addressController.text =
+                                    selectedLabour?.address ?? '';
+                                _firstVaccineDate =
+                                    selectedLabour?.firstVaccineDate;
+                                firstVaccineReferenceID.text =
+                                    selectedLabour?.firstVaccineReferenceID ??
+                                        '';
+                                _secorndVaccineDate =
+                                    selectedLabour?.secondVaccineDate;
+                                secorndVaccineReferenceID.text =
+                                    selectedLabour?.secondVaccineReferenceID ??
+                                        '';
+                                _labourPhoto = selectedLabour
+                                            ?.profileImagePath !=
+                                        null
+                                    ? File(selectedLabour!.profileImagePath!)
+                                    : null;
+                              });
+                            },
                           ),
                         );
                       },
@@ -340,117 +479,102 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
 
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      // Getting projectID from SharedPrefsHelper
       int? projectID = await SharedPrefsHelper.getProjectID();
       int? userID = await SharedPrefsHelper.getUserId();
       int genderId = genderMapping[selectedGender!] ?? 0;
 
-      print("projectID: $projectID");
-      print("userID: $userID");
-      // Checking if gender and party are selected
       if (selectedGender == null || selectedParty == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Please select gender and party')),
         );
         return;
       }
-      genderId = genderMapping[selectedGender!] ?? 0;
 
-      // Creating LabourRegistration object
       final registration = LabourRegistration(
         uniqueId: const Uuid().v4(),
-        id: 0,
+        id: labourId, // 👈 id 0 hoga to save, warna update
         labourRegistrationDate: _regDate!,
         labourRegistrationCode: labourCodeController.text,
         partyId: selectedParty!.id,
         partyContactNo: contractorContactController.text,
         fullName: labourNameController.text,
         birthDate: _birthDate!,
-        genderId: genderId, // Gender ID as int
-        // fullName: fullNameController.text,
+        genderId: genderId,
         contactNo: labourContactController.text,
         tradeId: selectedLabourType!.id,
-        projectId: projectID!, // Assuming projectID is non-null here
+        projectId: projectID!,
         uanNo: uanController.text,
         aadharNo: aadharController.text,
         panNo: panController.text,
         voterIDNo: voterIdController.text,
         bankAccNo: accountController.text,
-        profileImagePath: _labourPhoto != null
-            ? _labourPhoto!.path
-            : '', // Assuming path is required
-        profileFileName: _labourPhoto != null
-            ? _labourPhoto!.path.split('/').last
-            : '', // Assuming filename is required
-        statusId: 1, // Assuming status ID is 1 for active
-        isActive: true, // Assuming active by default
-        createdBy: userID, // Assuming created by user ID
+        profileImagePath: _labourPhoto?.path ?? '',
+        profileFileName:
+            _labourPhoto != null ? _labourPhoto!.path.split('/').last : '',
+        statusId: 1,
+        isActive: true,
+        createdBy: userID,
         createdDate: DateTime.now(),
-        lastModifiedBy: userID, // Assuming last modified by user ID
+        lastModifiedBy: userID,
         lastModifiedDate: DateTime.now(),
-        labourArrivalDate: _arrivalDate!, // Assuming arrival date is required
-        idMark: idMarkController.text, // Assuming ID mark is required
+        labourArrivalDate: _arrivalDate!,
+        idMark: idMarkController.text,
         bloodGroup: selectedBloodGroup,
         maritalStatusId: selectedMaritalStatus == "Single"
             ? 1
             : selectedMaritalStatus == "Married"
                 ? 2
-                : 3, // Assuming marital status IDs
+                : 3,
         address: addressController.text,
-        cityId: selectedCity != null
-            ? selectedCity!.id
-            : 0, // Assuming city ID is required
-        stateId: selectedState != null
-            ? selectedState!.id
-            : 0, // Assuming state ID is required
-        countryId: selectedCountry != null
-            ? selectedCountry!.id
-            : 0, // Assuming country ID is required
+        cityId: selectedCity?.id ?? 0,
+        stateId: selectedState?.id ?? 0,
+        countryId: selectedCountry?.id ?? 0,
         firstVaccineDate: DateTime.now(),
         firstVaccineReferenceID: firstVaccineReferenceID.text,
-        // secorndVaccineDate: DateTime.now(),
-        secorndVaccineDate: DateTime.now(), // Replace null
-        secorndVaccineReferenceID: secorndVaccineReferenceID.text,
+        secondVaccineDate: DateTime.now(),
+        secondVaccineReferenceID: secorndVaccineReferenceID.text,
         labourRegistrationDocumentDetails: [
           LabourRegistrationDocumentDetail(
             uniqueId: const Uuid().v4(),
             id: 0,
             labourRegistrationId: 0,
             documentName: 'Registration Document',
-            fileName: _registrationDoc != null
-                ? _registrationDoc!.path.split('/').last
-                : '', // Assuming filename is required
+            fileName: _registrationDoc?.path.split('/').last ?? '',
             fileContentType: '',
-            filePath: _registrationDoc != null
-                ? _registrationDoc!.path
-                : '', // Assuming path is required
+            filePath: _registrationDoc?.path ?? '',
             isActive: true,
             createdBy: userID,
             createdDate: DateTime.now(),
             lastModifiedBy: userID,
             lastModifiedDate: DateTime.now(),
-            // documentTypeId: 1, // Assuming document type ID is 1
-            // documentPath: _registrationDoc != null
-            //     ? _registrationDoc!.path
-            //     : '', // Assuming path is required
-            // documentFileName: _registrationDoc != null
-            //     ? _registrationDoc!.path.split('/').last
-            //     : '', // Assuming filename is required
           ),
         ],
       );
-      // Submit the registration data
-      bool success = await widget.labourRegistrationService
-          .submitLabourRegistration(registration);
+      // Debugging: Print the registration object
+      print("labourId: $labourId");
+      print("Registration Object: ${registration.id}");
+      // ✅ Save or Update
+      bool success;
+      if (registration.id == 0) {
+        success = await widget.labourRegistrationService
+            .submitLabourRegistration(registration);
+      } else {
+        success = await widget.labourRegistrationService
+            .updateLabourRegistration(registration);
+      }
 
-      // Show success or failure message
+      // ✅ After save/update: Hide form and refresh list
       if (success) {
+        setState(() {
+          showForm = false; // 👈 Form hide
+        });
+        _fetchLabours(); // 👈 Refresh list
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration Successful')),
+          SnackBar(content: Text('✅ Operation Successful')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration Failed')),
+          SnackBar(content: Text('❌ Operation Failed')),
         );
       }
     } else {
@@ -471,11 +595,6 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
                 (date) => setState(() => _regDate = date)),
             _textField("Form Sr. No",
                 controller: formSrNoController, readOnly: true),
-            // TextField(
-            //   controller: formSrNoController,
-            //   readOnly: true,
-            //   decoration: InputDecoration(labelText: "Form Sr. No"),
-            // ),
             DropdownButtonFormField<PartyModel>(
               value: selectedParty,
               onChanged: (PartyModel? newParty) {
@@ -500,7 +619,7 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
                 controller: contractorContactController,
                 validator: _validatePhone),
             _textField("Name Of Labour", controller: labourNameController),
-            _textField("Code Of Labour", controller: labourCodeController),
+            // _textField("Code Of Labour", controller: labourCodeController),
             _dateField("Labour Birth Date", _birthDate,
                 (date) => setState(() => _birthDate = date)),
             _dropdownField(
@@ -536,8 +655,8 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
               }).toList(),
             ),
             SizedBox(height: 16),
-            _fileUploadField(
-                "Labour Photo", _labourPhoto, () => _pickImage(true)),
+            // _fileUploadField(
+            //     "Labour Photo", _labourPhoto, () => _pickImage(true)),
             _textField("Aadhar No", controller: aadharController),
             _textField("PAN No", controller: panController),
             _textField("VoterID No", controller: voterIdController),
@@ -554,10 +673,17 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
                 selectedBloodGroup,
                 (val) => setState(() => selectedBloodGroup = val)),
             _dropdownField(
-                "Marital Status",
-                ["Single", "Married", "Divorced"],
-                selectedMaritalStatus,
-                (val) => setState(() => selectedMaritalStatus = val)),
+              "Marital Status",
+              ["Single", "Married", "Divorced"],
+              selectedMaritalStatus,
+              (val) {
+                setState(() {
+                  selectedMaritalStatus = val;
+                  maritalStatusId =
+                      _mapMaritalStatusStringToId(val); // If needed
+                });
+              },
+            ),
             DropdownButtonFormField<CountriesModel>(
               value: selectedCountry,
               onChanged: (CountriesModel? newValue) {
@@ -623,6 +749,7 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
                 );
               }).toList(),
             ),
+            SizedBox(height: 16),
             _dateField("Labour Arrival Date", _firstVaccineDate,
                 (date) => setState(() => _firstVaccineDate = date)),
             _textField("Name Of Labour", controller: firstVaccineReferenceID),
@@ -631,13 +758,16 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
             _textField("Name Of Labour", controller: secorndVaccineReferenceID),
             SizedBox(height: 16),
             _textField("Address", controller: addressController, maxLines: 3),
-            _fileUploadField(
-                "Document", _registrationDoc, () => _pickImage(false)),
+            // _fileUploadField(
+            //     "Document", _registrationDoc, () => _pickImage(false)),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: _submitForm, // ✅ yahan sirf method ka naam
               icon: Icon(Icons.save),
-              label: Text("Submit"),
+              // label: Text(registration.id == 0 ? "Save" : "Update"),
+              label: Text(selectedLabour == null || selectedLabour!.id == 0
+                  ? "Save"
+                  : "Update"),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             ),
           ],
@@ -651,28 +781,6 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     if (!RegExp(r'^\d{10}$').hasMatch(val)) return "Enter 10-digit number";
     return null;
   }
-
-  // Widget _textField(String label,
-  //     {TextInputType keyboard = TextInputType.text,
-  //     int maxLines = 1,
-  //     TextEditingController? controller,
-  //     bool readOnly = false,
-  //     String? Function(String?)? validator}) {
-  //   return Padding(
-  //     padding: const EdgeInsets.only(bottom: 16),
-  //     child: TextFormField(
-  //       controller: controller,
-  //       keyboardType: keyboard,
-  //       maxLines: maxLines,
-  //       // readOnly: readOnly,
-  //       decoration:
-  //           InputDecoration(labelText: label, border: OutlineInputBorder()),
-  //       filled: readOnly,
-  //       validator: validator ??
-  //           (val) => val == null || val.isEmpty ? "Required" : null,
-  //     ),
-  //   );
-  // }
 
   Widget _textField(String label,
       {TextInputType keyboard = TextInputType.text,
@@ -777,22 +885,56 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     );
   }
 
-  Widget _fileUploadField(String label, File? file, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Expanded(
-              child: Text(file != null
-                  ? file.path.split('/').last
-                  : "No file selected")),
-          ElevatedButton.icon(
-            onPressed: onTap,
-            icon: Icon(Icons.upload_file),
-            label: Text(label),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _fileUploadField(String label, File? imageFile, VoidCallback onTap) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(
+  //         label,
+  //         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+  //       ),
+  //       SizedBox(height: 10),
+  //       GestureDetector(
+  //         onTap: onTap,
+  //         child: Container(
+  //           width: 150,
+  //           height: 150,
+  //           decoration: BoxDecoration(
+  //             border: Border.all(color: Colors.grey),
+  //             borderRadius: BorderRadius.circular(8),
+  //           ),
+  //           child: imageFile != null
+  //               ? ClipRRect(
+  //                   borderRadius: BorderRadius.circular(8),
+  //                   child: Image.file(
+  //                     imageFile,
+  //                     fit: BoxFit.cover,
+  //                   ),
+  //                 )
+  //               : Center(
+  //                   child: Icon(
+  //                     Icons.camera_alt,
+  //                     size: 40,
+  //                     color: Colors.grey,
+  //                   ),
+  //                 ),
+  //         ),
+  //       ),
+  //       if (imageFile != null) ...[
+  //         SizedBox(height: 10),
+  //         Text(
+  //           "Preview:",
+  //           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+  //         ),
+  //         SizedBox(height: 8),
+  //         Image.file(
+  //           imageFile,
+  //           width: 100,
+  //           height: 100,
+  //           fit: BoxFit.cover,
+  //         ),
+  //       ]
+  //     ],
+  //   );
+  // }
 }

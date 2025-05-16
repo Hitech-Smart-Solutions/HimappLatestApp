@@ -272,4 +272,70 @@ class LabourRegistrationService {
       return false;
     }
   }
+
+  Future<bool> updateLabourRegistration(LabourRegistration data) async {
+    String? token = await SharedPrefsHelper.getToken();
+    print("Labour ID: ${data.id}");
+
+    if (token == null) {
+      print("❌ Token not found.");
+      return false;
+    }
+
+    final url = Uri.parse(
+        'http://192.168.1.130:8000/api/LabourRegistration/UpdateLabourRegistrationByID/${data.id}');
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+
+    final response = await http.put(
+      url,
+      headers: headers,
+      body: jsonEncode(data.toJson()),
+    );
+
+    if (response.statusCode == 200 ||
+        response.statusCode == 201 ||
+        response.statusCode == 204) {
+      print('✅ Labour Registration Update successful');
+      return true;
+    } else {
+      print('❌ Error: ${response.statusCode}');
+      print('Body: ${response.body}');
+      return false;
+    }
+  }
+
+  Future<LabourRegistration> getLabourById(int id) async {
+    String? token = await SharedPrefsHelper.getToken();
+    final url = Uri.parse(
+        'http://192.168.1.130:8000/api/LabourRegistration/GetLabourRegistrationMasterById/$id');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+
+    final response = await http.get(url, headers: headers);
+    print('Raw API Response: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> json = jsonDecode(response.body);
+
+      print("API Response: $json"); // ✅ You're already seeing this log
+
+      final valueData = json['value']; // ✅ extract just the value
+
+      if (valueData != null) {
+        print("Full Name: ${valueData['fullName']}");
+        print("Contact No: ${valueData['contactNo']}");
+        return LabourRegistration.fromJson(valueData); // ✅ CORRECT LINE
+      } else {
+        throw Exception("No data found for labour ID $id");
+      }
+    } else {
+      throw Exception('Failed to load Labour Registration');
+    }
+  }
 }
