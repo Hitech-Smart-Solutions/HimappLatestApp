@@ -4,24 +4,60 @@ import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:http/http.dart' as http;
 
 class SiteObservationService {
-  Future<List<SiteObservation>> fetchSiteObservation() async {
+  // Future<List<SiteObservation>> fetchSiteObservation() async {
+  //   String? token = await SharedPrefsHelper.getToken();
+  //   final response = await http.get(
+  //     Uri.parse(
+  //         'http://192.168.1.130:8000/api/SiteObservation/GetSiteObservationMaster'),
+  //     headers: {
+  //       'Authorization': 'Bearer $token', // 👈 Add this line
+  //       'Content-Type': 'application/json',
+  //     },
+  //   );
+
+  //   if (response.statusCode == 200) {
+  //     final List<dynamic> jsonData = jsonDecode(response.body);
+
+  //     // ✅ Convert JSON response to List<SiteObservation>
+  //     return jsonData.map((item) => SiteObservation.fromJson(item)).toList();
+  //   } else {
+  //     throw Exception('Failed to load site observations');
+  //   }
+  // }
+
+  Future<List<SiteObservation>> fetchSiteObservations({
+    required int projectId,
+    String sortColumn = 'ID desc',
+    int pageIndex = 0,
+    int pageSize = 10,
+    bool isActive = true,
+  }) async {
+    final uri = Uri.http(
+      '192.168.1.130:8000',
+      '/api/SiteObservation/GetSiteObservationByProjectID',
+      {
+        'ProjectID': projectId.toString(),
+        'SortColumn': sortColumn,
+        'PageIndex': pageIndex.toString(),
+        'PageSize': pageSize.toString(),
+        'IsActive': isActive.toString(),
+      },
+    );
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
-      Uri.parse(
-          'http://192.168.1.130:8000/api/SiteObservation/GetSiteObservationMaster'),
+      uri,
       headers: {
-        'Authorization': 'Bearer $token', // 👈 Add this line
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
       },
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> jsonData = jsonDecode(response.body);
-
-      // ✅ Convert JSON response to List<SiteObservation>
-      return jsonData.map((item) => SiteObservation.fromJson(item)).toList();
+      final data = json.decode(response.body);
+      final List<dynamic> table1 = data['Value']['Table1'];
+      return table1.map((e) => SiteObservation.fromJson(e)).toList();
     } else {
-      throw Exception('Failed to load site observations');
+      throw Exception('Failed to load labours');
     }
   }
 
@@ -359,11 +395,19 @@ class SiteObservationService {
   // Method to submit the site observation
   Future<bool> submitSiteObservation(
       SiteObservationModel siteObservation) async {
+    String? token = await SharedPrefsHelper.getToken();
+    if (token == null) {
+      print("❌ Token not found.");
+      return false;
+    }
     try {
       final response = await http.post(
         Uri.parse(
             'http://192.168.1.130:8000/api/SiteObservation/CreateSiteObservationMaster'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // ✅ Add token here},
+        },
         body: json.encode(siteObservation.toJson()), // Convert model to JSON
       );
       print("📦 JSON Payload:");
@@ -384,4 +428,37 @@ class SiteObservationService {
       return false;
     }
   }
+
+  // Future<bool> submitSiteObservation(
+  //     SiteObservationModel siteObservation) async {
+  //   String? token = await SharedPrefsHelper.getToken();
+
+  //   if (token == null) {
+  //     print("❌ Token not found.");
+  //     return false;
+  //   }
+
+  //   final url = Uri.parse(
+  //       'http://192.168.1.130:8000/api/SiteObservation/CreateSiteObservationMaster');
+
+  //   final headers = {
+  //     'Content-Type': 'application/json',
+  //     'Authorization': 'Bearer $token', // ✅ Add token here
+  //   };
+
+  //   final response = await http.post(
+  //     url,
+  //     headers: headers,
+  //     body: jsonEncode(data.toJson()),
+  //   );
+
+  //   if (response.statusCode == 200 || response.statusCode == 201) {
+  //     print('✅ Registration successful');
+  //     return true;
+  //   } else {
+  //     print('❌ Error: ${response.statusCode}');
+  //     print('Body: ${response.body}');
+  //     return false;
+  //   }
+  // }
 }

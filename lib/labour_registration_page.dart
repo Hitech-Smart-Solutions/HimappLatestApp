@@ -3,11 +3,14 @@ import 'package:himappnew/model/labour_registration_model.dart';
 import 'package:himappnew/model/project_model.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:himappnew/service/labour_registration_service.dart';
+import 'package:mime/mime.dart';
 import 'package:uuid/uuid.dart';
+import 'package:http_parser/http_parser.dart';
 
 class LabourRegistrationPage extends StatefulWidget {
   final String companyName;
@@ -42,7 +45,7 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
       _firstVaccineDate,
       _secorndVaccineDate;
   TimeOfDay? _arrivalTime;
-  File? _labourPhoto, _registrationDoc;
+  File? _labourPhoto, _registrationDoc, _pickedImage;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -65,6 +68,9 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   bool isCityLoading = false;
 
   bool readOnly = false;
+
+  // File? _registrationDoc;
+  bool _isUploading = false;
 
   // Controllers
   final TextEditingController formSrNoController = TextEditingController();
@@ -96,7 +102,7 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     'Female': 2,
     'Other': 3,
   };
-
+  final String? imageUrl = null;
   String? selectedGender;
   int? genderId;
   String? selectedBloodGroup;
@@ -132,15 +138,12 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   late TextEditingController fullNameController;
   late TextEditingController contactNoController;
 
-  Future<void> _pickImage(bool isPhoto) async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
       setState(() {
-        if (isPhoto) {
-          _labourPhoto = File(pickedFile.path);
-        } else {
-          _registrationDoc = File(pickedFile.path);
-        }
+        _pickedImage = File(image.path);
       });
     }
   }
@@ -157,11 +160,27 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
   @override
   void initState() {
     super.initState();
-    fetchProjects();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    await fetchProjects();
     _loadParties();
-    _fetchLabours();
+
+    int? projectID = await SharedPrefsHelper.getProjectID();
+    print(projectID);
+    if (projectID != null) {
+      Project? projectFromPrefs =
+          items.firstWhere((p) => p.id == projectID, orElse: () => items.first);
+      setState(() {
+        selectedProject = projectFromPrefs;
+      });
+      await _fetchLabours(projectFromPrefs.id);
+    }
+
     _loadLabourTypes();
     _loadCountries();
+
     final labour = widget.selectedLabour;
   }
 
@@ -199,13 +218,13 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     }
   }
 
-  Future<void> _fetchLabours() async {
+  Future<void> _fetchLabours(int projectId) async {
     setState(() => isLoading = true);
 
     try {
-      int? projectID = await SharedPrefsHelper.getProjectID();
+      // int? projectID = await SharedPrefsHelper.getProjectID();
       final fetched = await widget.labourRegistrationService.fetchLabours(
-        projectId: projectID!,
+        projectId: projectId,
         sortColumn: 'ID desc',
         pageSize: 10,
         pageIndex: 0,
@@ -339,12 +358,13 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
                 child: Text(project.name),
               );
             }).toList(),
-            onChanged: (Project? newProject) {
-              setState(() {
-                selectedProject = newProject;
-              });
+            onChanged: (Project? newProject) async {
               if (newProject != null) {
-                _fetchLabours(); // Fetch labours for selected project
+                setState(() {
+                  selectedProject = newProject;
+                });
+                await SharedPrefsHelper.setProjectID(newProject.id);
+                await _fetchLabours(newProject.id);
               }
             },
           ),
@@ -477,6 +497,46 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     );
   }
 
+  Future<void> _uploadImage() async {
+    if (_pickedImage == null) return;
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('http://192.168.1.130:8000/api/LabourRegistration/upload'),
+      );
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file', // 👈 this must match the backend field name
+          _pickedImage!.path,
+          contentType: MediaType(
+            'image',
+            lookupMimeType(_pickedImage!.path)!.split('/')[1],
+          ),
+        ),
+      );
+
+      var response = await request.send();
+
+      if (response.statusCode == 200) {
+        print("✅ Upload successful");
+      } else {
+        print("❌ Upload failed with status: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("🔥 Upload error: $e");
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
+    }
+  }
+
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       int? projectID = await SharedPrefsHelper.getProjectID();
@@ -568,7 +628,9 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
         setState(() {
           showForm = false; // 👈 Form hide
         });
-        _fetchLabours(); // 👈 Refresh list
+        if (projectID != null) {
+          _fetchLabours(projectID);
+        } // 👈 Refresh list
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('✅ Operation Successful')),
         );
@@ -758,9 +820,12 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
             _textField("Name Of Labour", controller: secorndVaccineReferenceID),
             SizedBox(height: 16),
             _textField("Address", controller: addressController, maxLines: 3),
-            // _fileUploadField(
-            //     "Document", _registrationDoc, () => _pickImage(false)),
+            _fileUploadField("Document", _registrationDoc, () => _pickImage),
             const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _pickImage,
+              child: Text("Pick Image"),
+            ),
             ElevatedButton.icon(
               onPressed: _submitForm, // ✅ yahan sirf method ka naam
               icon: Icon(Icons.save),
@@ -885,56 +950,56 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     );
   }
 
-  // Widget _fileUploadField(String label, File? imageFile, VoidCallback onTap) {
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       Text(
-  //         label,
-  //         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-  //       ),
-  //       SizedBox(height: 10),
-  //       GestureDetector(
-  //         onTap: onTap,
-  //         child: Container(
-  //           width: 150,
-  //           height: 150,
-  //           decoration: BoxDecoration(
-  //             border: Border.all(color: Colors.grey),
-  //             borderRadius: BorderRadius.circular(8),
-  //           ),
-  //           child: imageFile != null
-  //               ? ClipRRect(
-  //                   borderRadius: BorderRadius.circular(8),
-  //                   child: Image.file(
-  //                     imageFile,
-  //                     fit: BoxFit.cover,
-  //                   ),
-  //                 )
-  //               : Center(
-  //                   child: Icon(
-  //                     Icons.camera_alt,
-  //                     size: 40,
-  //                     color: Colors.grey,
-  //                   ),
-  //                 ),
-  //         ),
-  //       ),
-  //       if (imageFile != null) ...[
-  //         SizedBox(height: 10),
-  //         Text(
-  //           "Preview:",
-  //           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-  //         ),
-  //         SizedBox(height: 8),
-  //         Image.file(
-  //           imageFile,
-  //           width: 100,
-  //           height: 100,
-  //           fit: BoxFit.cover,
-  //         ),
-  //       ]
-  //     ],
-  //   );
-  // }
+  Widget _fileUploadField(String label, File? imageFile, VoidCallback onTap) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        SizedBox(height: 10),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 150,
+            height: 150,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: imageFile != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      imageUrl ?? '',
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : Center(
+                    child: Icon(
+                      Icons.camera_alt,
+                      size: 40,
+                      color: Colors.grey,
+                    ),
+                  ),
+          ),
+        ),
+        if (imageFile != null) ...[
+          SizedBox(height: 10),
+          Text(
+            "Preview:",
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          SizedBox(height: 8),
+          Image.file(
+            imageFile,
+            width: 100,
+            height: 100,
+            fit: BoxFit.cover,
+          ),
+        ]
+      ],
+    );
+  }
 }

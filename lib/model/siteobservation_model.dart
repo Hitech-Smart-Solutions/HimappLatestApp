@@ -1,26 +1,38 @@
 class SiteObservation {
+  final int id;
   final String siteObservationCode;
   final String observationDescription;
-  final String actionToBeTaken;
+  final String observationType;
+  final String issueType;
+  final String functionType;
+  final String observationStatus;
+  final String projectName;
+  final DateTime transactionDate;
 
   SiteObservation({
+    required this.id,
     required this.siteObservationCode,
     required this.observationDescription,
-    required this.actionToBeTaken,
+    required this.observationType,
+    required this.issueType,
+    required this.functionType,
+    required this.observationStatus,
+    required this.projectName,
+    required this.transactionDate,
   });
 
   factory SiteObservation.fromJson(Map<String, dynamic> json) {
     return SiteObservation(
-      siteObservationCode: json['siteObservationCode'] ?? 'No Code',
-      observationDescription:
-          json['observationDescription'] ?? 'No Description',
-      actionToBeTaken: json['actionToBeTaken'] ?? 'No Action',
+      id: json['ID'],
+      siteObservationCode: json['SiteObservationCode'] ?? 'N/A',
+      observationDescription: json['ObservationDescription'] ?? 'N/A',
+      observationType: json['ObservationType'] ?? 'N/A',
+      issueType: json['IssueType'] ?? 'N/A',
+      functionType: json['FunctionType'] ?? 'N/A',
+      observationStatus: json['ObservationStatus'] ?? 'N/A',
+      projectName: json['ProjectName'] ?? 'N/A',
+      transactionDate: DateTime.parse(json['TrancationDate']),
     );
-  }
-
-  @override
-  String toString() {
-    return 'SiteObservation(code: $siteObservationCode, desc: $observationDescription, action: $actionToBeTaken)';
   }
 }
 

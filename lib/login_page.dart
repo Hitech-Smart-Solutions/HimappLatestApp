@@ -6,7 +6,7 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'service/company_service.dart';
 import 'service/login_service.dart';
-import 'site_observation_page.dart';
+import 'site_observation_safety.dart';
 
 class MyCustomForm extends StatefulWidget {
   final bool isDarkMode;

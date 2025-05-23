@@ -8,8 +8,9 @@ import 'package:himappnew/service/labour_registration_service.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
+import 'package:himappnew/site_observation_quality.dart';
 import 'login_page.dart';
-import 'site_observation_page.dart';
+import 'site_observation_safety.dart';
 
 class DashboardPage extends StatelessWidget {
   final String companyName;
@@ -379,16 +380,32 @@ class DashboardPage extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.assignment, color: Colors.orange),
-                title: const Text('Site Observation'),
+                title: const Text('Site Observation - Safety'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => SiteObservationPage(
+                      builder: (_) => SiteObservationSafety(
                         companyName: companyName,
                         projectService: projectService,
                         siteObservationService: siteObservationService,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.assignment, color: Colors.red),
+                title: const Text('Site Observation - Quality'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SiteObservationQuality(
+                        siteObservationService: SiteObservationService(),
+                        projectService: projectService,
                       ),
                     ),
                   );

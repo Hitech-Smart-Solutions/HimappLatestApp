@@ -37,6 +37,12 @@ class SharedPrefsHelper {
     return prefs.getInt('selectedCompanyId');
   }
 
+  static const _projectIDKey = 'projectID';
+  static Future<void> setProjectID(int projectID) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_projectIDKey, projectID);
+  }
+
 // Retrieve project ID from SharedPreferences
   static Future<int?> getProjectID() async {
     final prefs = await SharedPreferences.getInstance();
