@@ -3,7 +3,8 @@ import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:http/http.dart' as http;
 
 class LoginService {
-  final String apiUrl = "http://192.168.1.130:8000/api/UserMaster/UserLogin";
+  final String apiUrl =
+      "https://d94acvrm8bvo5.cloudfront.net/api/UserMaster/UserLogin";
   String token =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNhIiwibmJmIjoxNzQzNTA2NDg0LCJleHAiOjE3NDg3NzY4ODQsImlhdCI6MTc0MzUwNjQ4NCwiaXNzIjoibG9jYWxob3N0IiwiYXVkIjoibG9jYWxob3N0In0.FWB3drzcevP4m0KiHecDu0Xuer1yCNxVGoOCUl26do0"; // Manually added token
   // Login function

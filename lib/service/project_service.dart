@@ -6,7 +6,7 @@ class ProjectService {
   Future<List<Project>> fetchProject(int userID, int companyID) async {
     final response = await http.get(
       Uri.parse(
-        'http://192.168.1.130:8000/api/UserRolePermission/GetProjectPermissionByUserandCompanyID/$userID/$companyID',
+        'https://d94acvrm8bvo5.cloudfront.net/api/UserRolePermission/GetProjectPermissionByUserandCompanyID/$userID/$companyID',
       ),
     );
 

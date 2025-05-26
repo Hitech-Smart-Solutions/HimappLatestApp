@@ -8,7 +8,7 @@ class SiteObservationService {
   //   String? token = await SharedPrefsHelper.getToken();
   //   final response = await http.get(
   //     Uri.parse(
-  //         'http://192.168.1.130:8000/api/SiteObservation/GetSiteObservationMaster'),
+  //         'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationMaster'),
   //     headers: {
   //       'Authorization': 'Bearer $token', // 👈 Add this line
   //       'Content-Type': 'application/json',
@@ -32,8 +32,8 @@ class SiteObservationService {
     int pageSize = 10,
     bool isActive = true,
   }) async {
-    final uri = Uri.http(
-      '192.168.1.130:8000',
+    final uri = Uri.https(
+      'd94acvrm8bvo5.cloudfront.net',
       '/api/SiteObservation/GetSiteObservationByProjectID',
       {
         'ProjectID': projectId.toString(),
@@ -64,7 +64,8 @@ class SiteObservationService {
   Future<List<IssueType>> fetchIssueTypes() async {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
-      Uri.parse('http://192.168.1.130:8000/api/SiteObservation/GetIssueType'),
+      Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetIssueType'),
       headers: {
         'Authorization': 'Bearer $token', // 👈 Add this line
         'Content-Type': 'application/json',
@@ -86,7 +87,7 @@ class SiteObservationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/ActivityMaster/GetActivitiesByCompanyIDandScreenTypeID/$companyID/$screentypeID'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/ActivityMaster/GetActivitiesByCompanyIDandScreenTypeID/$companyID/$screentypeID'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -121,7 +122,7 @@ class SiteObservationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/SiteObservation/GetObservationsByCompanyandfucntionID/$companyID/$screentypeID'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetObservationsByCompanyandfucntionID/$companyID/$screentypeID'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -154,7 +155,7 @@ class SiteObservationService {
 
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/SiteObservation/GetObservationType'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetObservationType'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -182,7 +183,7 @@ class SiteObservationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/ProjectSectionMapping/GetSectionsByProjectID/$projectID'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/ProjectSectionMapping/GetSectionsByProjectID/$projectID'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -218,7 +219,7 @@ class SiteObservationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/ProjectFloorMapping/GetFloorsByProjectID/$projectID'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/ProjectFloorMapping/GetFloorsByProjectID/$projectID'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -254,7 +255,7 @@ class SiteObservationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/ProjectPartMapping/GetPartsByProjectID/$projectID'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/ProjectPartMapping/GetPartsByProjectID/$projectID'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -290,7 +291,7 @@ class SiteObservationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/ProjectElementMapping/GetElementsByProjectID/$projectID'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/ProjectElementMapping/GetElementsByProjectID/$projectID'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -326,7 +327,7 @@ class SiteObservationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/SiteObservation/GetPartyMasters/'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetPartyMasters/'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -359,7 +360,8 @@ class SiteObservationService {
   Future<List<User>> fetchUserList() async {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
-      Uri.parse('http://192.168.1.130:8000/api/UserMaster/GetUsers/'),
+      Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/UserMaster/GetUsers/'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -390,7 +392,7 @@ class SiteObservationService {
   }
 
   // final String apiUrl =
-  //     'http://192.168.1.130:8000/api/UserMaster/GetUsers/'; // Replace with your API URL
+  //     'https://d94acvrm8bvo5.cloudfront.net/api/UserMaster/GetUsers/'; // Replace with your API URL
 
   // Method to submit the site observation
   Future<bool> submitSiteObservation(
@@ -403,7 +405,7 @@ class SiteObservationService {
     try {
       final response = await http.post(
         Uri.parse(
-            'http://192.168.1.130:8000/api/SiteObservation/CreateSiteObservationMaster'),
+            'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/CreateSiteObservationMaster'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token', // ✅ Add token here},
@@ -439,7 +441,7 @@ class SiteObservationService {
   //   }
 
   //   final url = Uri.parse(
-  //       'http://192.168.1.130:8000/api/SiteObservation/CreateSiteObservationMaster');
+  //       'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/CreateSiteObservationMaster');
 
   //   final headers = {
   //     'Content-Type': 'application/json',

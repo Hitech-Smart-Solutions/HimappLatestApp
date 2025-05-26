@@ -737,47 +737,49 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // 🔸 Company Dropdown
-            DropdownButton<String>(
-              value: selectedCompany,
-              icon: Icon(Icons.arrow_downward),
-              iconSize: 24,
-              elevation: 16,
-              style: TextStyle(color: Colors.black),
-              onChanged: (String? newValue) async {
-                setState(() {
-                  selectedCompany = newValue;
-                });
+        // title: Row(
+        //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        //   children: [
+        //     // 🔸 Company Dropdown
+        //     DropdownButton<String>(
+        //       value: selectedCompany,
+        //       icon: Icon(Icons.arrow_downward),
+        //       iconSize: 24,
+        //       elevation: 16,
+        //       style: TextStyle(color: Colors.black),
+        //       onChanged: (String? newValue) async {
+        //         setState(() {
+        //           selectedCompany = newValue;
+        //         });
 
-                // 👉 Find selected company object
-                Company? selected = companies.firstWhere(
-                  (c) => c.name == newValue,
-                  orElse: () => companies.first,
-                );
+        //         // 👉 Find selected company object
+        //         Company? selected = companies.firstWhere(
+        //           (c) => c.name == newValue,
+        //           orElse: () => companies.first,
+        //         );
 
-                // 👉 Save company ID
-                await SharedPrefsHelper.saveCompanyId(selected.id);
+        //         // 👉 Save company ID
+        //         await SharedPrefsHelper.saveCompanyId(selected.id);
 
-                // 👉 Fetch related projects
-                await fetchProjects();
-              },
-              items: companies.map((company) {
-                return DropdownMenuItem<String>(
-                  value: company.name,
-                  child: Text(
-                    company.name,
-                    style: TextStyle(color: Colors.black),
-                  ),
-                );
-              }).toList(),
-              dropdownColor: Colors.white,
-            ),
-          ],
-        ),
+        //         // 👉 Fetch related projects
+        //         await fetchProjects();
+        //       },
+        //       items: companies.map((company) {
+        //         return DropdownMenuItem<String>(
+        //           value: company.name,
+        //           child: Text(
+        //             company.name,
+        //             style: TextStyle(color: Colors.black),
+        //           ),
+        //         );
+        //       }).toList(),
+        //       dropdownColor: Colors.white,
+        //     ),
+        //   ],
+        // ),
+        title: Text('Site Observation - Quality'),
         backgroundColor: Colors.blue,
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -837,38 +839,72 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                         SiteObservation observation =
                                             observations[index];
                                         return Card(
-                                          margin: EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 6),
-                                          elevation: 4,
-                                          child: ListTile(
-                                            title: Text(
-                                              observation
-                                                  .observationDescription,
-                                              style: TextStyle(fontSize: 18),
-                                            ),
-                                            subtitle: Column(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(12.0),
+                                            child: Column(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
+                                              // mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                Text(observation
-                                                    .observationDescription),
                                                 Text(
-                                                    'Status: ${observation.observationStatus}'),
+                                                  observation
+                                                      .siteObservationCode,
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16),
+                                                ),
+                                                SizedBox(height: 8),
+
+                                                // 2-column layout like Bootstrap col-md-6
+                                                Wrap(
+                                                  spacing: 16,
+                                                  runSpacing: 12,
+                                                  children: [
+                                                    _infoBox(
+                                                        "ObservationType",
+                                                        observation
+                                                            .observationType),
+                                                    _infoBox("IssueType",
+                                                        observation.issueType),
+                                                    _infoBox(
+                                                        "Status",
+                                                        observation
+                                                            .observationStatus),
+                                                    _infoBox(
+                                                        "Project",
+                                                        observation
+                                                            .projectName),
+                                                    _infoBox(
+                                                        "Date",
+                                                        observation
+                                                            .transactionDate
+                                                            .toLocal()
+                                                            .toString()
+                                                            .split(' ')[0]),
+                                                  ],
+                                                ),
+
+                                                SizedBox(height: 8),
                                                 Text(
-                                                    'Project: ${observation.projectName}'),
-                                                Text(
-                                                    'Date: ${observation.transactionDate.toLocal().toString().split(' ')[0]}'),
+                                                  observation
+                                                      .observationDescription,
+                                                  style:
+                                                      TextStyle(fontSize: 14),
+                                                  softWrap: true,
+                                                  overflow:
+                                                      TextOverflow.visible,
+                                                ),
                                               ],
                                             ),
-                                            leading: Icon(Icons.article,
-                                                color: Colors.blue),
                                           ),
                                         );
                                       },
                                     ))
                               : Card(
-                                  margin: EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 8),
+                                  margin: EdgeInsets.only(top: 8),
+                                  // margin: EdgeInsets.symmetric(
+                                  //     horizontal: 16, vertical: 8),
                                   elevation: 4,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -878,16 +914,14 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                     child: Form(
                                       key: _formKey,
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            "Add New Observation",
-                                            style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                          SizedBox(height: 10),
+                                          // Text(
+                                          //   "Add New Observation",
+                                          //   style: TextStyle(
+                                          //       fontSize: 18,
+                                          //       fontWeight: FontWeight.bold),
+                                          // ),
+                                          // SizedBox(height: 10),
                                           TextFormField(
                                             controller: _dateController,
                                             decoration: InputDecoration(
@@ -1331,6 +1365,26 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                 child: Icon(showObservations ? Icons.add : Icons.list),
                 backgroundColor: Colors.blue,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoBox(String label, String value) {
+    return SizedBox(
+      width: 160, // You can tweak this to fit 2 columns nicely
+      child: RichText(
+        text: TextSpan(
+          text: '$label: ',
+          style: TextStyle(
+              fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14),
+          children: [
+            TextSpan(
+              text: value,
+              style:
+                  TextStyle(fontWeight: FontWeight.normal, color: Colors.black),
             ),
           ],
         ),

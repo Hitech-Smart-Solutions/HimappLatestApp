@@ -11,7 +11,7 @@ class LabourRegistrationService {
   // Future<List<LabourModel>> fetchLabours() async {
   //   final response = await http.get(
   //     Uri.parse(
-  //       'http://192.168.1.130:8000/api/LabourRegistration/GetLabourRegistrations',
+  //       'https://d94acvrm8bvo5.cloudfront.net/api/LabourRegistration/GetLabourRegistrations',
   //     ),
   //   );
 
@@ -28,7 +28,7 @@ class LabourRegistrationService {
 
   //   final response = await http.get(
   //     Uri.parse(
-  //         'http://192.168.1.130:8000/api/LabourRegistration/GetLabourRegistrationByProjectID?ProjectID=32796&SortColumn=ID%20desc&PageIndex=0&PageSize=10&IsActive=true'),
+  //         'https://d94acvrm8bvo5.cloudfront.net/api/LabourRegistration/GetLabourRegistrationByProjectID?ProjectID=32796&SortColumn=ID%20desc&PageIndex=0&PageSize=10&IsActive=true'),
   //     headers: {
   //       'Authorization': 'Bearer $token',
   //       'Content-Type': 'application/json',
@@ -62,8 +62,8 @@ class LabourRegistrationService {
     int pageSize = 10,
     bool isActive = true,
   }) async {
-    final uri = Uri.http(
-      '192.168.1.130:8000',
+    final uri = Uri.https(
+      'd94acvrm8bvo5.cloudfront.net',
       '/api/LabourRegistration/GetLabourRegistrationByProjectID',
       {
         'ProjectID': projectId.toString(),
@@ -96,7 +96,7 @@ class LabourRegistrationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/SiteObservation/GetPartyMasters'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetPartyMasters'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ class LabourRegistrationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/LabourCategoryType/GetLabourCategories'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/LabourCategoryType/GetLabourCategories'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -134,7 +134,8 @@ class LabourRegistrationService {
   Future<List<CountriesModel>> fetchCountries() async {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
-      Uri.parse('http://192.168.1.130:8000/api/Country/GetCountries'),
+      Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/Country/GetCountries'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -167,7 +168,7 @@ class LabourRegistrationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/State/GetStatesByCountryID/$CountryID'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/State/GetStatesByCountryID/$CountryID'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -200,7 +201,7 @@ class LabourRegistrationService {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'http://192.168.1.130:8000/api/State/GetCitiesByStateID/$stateId'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/State/GetCitiesByStateID/$stateId'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -217,7 +218,7 @@ class LabourRegistrationService {
   // Future<List<Project>> fetchProject(int userID, int companyID) async {
   //   final response = await http.get(
   //     Uri.parse(
-  //       'http://192.168.1.130:8000/api/UserRolePermission/GetProjectPermissionByUserandCompanyID/$userID/$companyID',
+  //       'https://d94acvrm8bvo5.cloudfront.net/api/UserRolePermission/GetProjectPermissionByUserandCompanyID/$userID/$companyID',
   //     ),
   //   );
 
@@ -250,7 +251,7 @@ class LabourRegistrationService {
     }
 
     final url = Uri.parse(
-        'http://192.168.1.130:8000/api/LabourRegistration/CreateLabourRegistrationMaster');
+        'https://d94acvrm8bvo5.cloudfront.net/api/LabourRegistration/CreateLabourRegistrationMaster');
 
     final headers = {
       'Content-Type': 'application/json',
@@ -283,7 +284,7 @@ class LabourRegistrationService {
     }
 
     final url = Uri.parse(
-        'http://192.168.1.130:8000/api/LabourRegistration/UpdateLabourRegistrationByID/${data.id}');
+        'https://d94acvrm8bvo5.cloudfront.net/api/LabourRegistration/UpdateLabourRegistrationByID/${data.id}');
 
     final headers = {
       'Content-Type': 'application/json',
@@ -311,7 +312,7 @@ class LabourRegistrationService {
   Future<LabourRegistration> getLabourById(int id) async {
     String? token = await SharedPrefsHelper.getToken();
     final url = Uri.parse(
-        'http://192.168.1.130:8000/api/LabourRegistration/GetLabourRegistrationMasterById/$id');
+        'https://d94acvrm8bvo5.cloudfront.net/api/LabourRegistration/GetLabourRegistrationMasterById/$id');
     final headers = {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',

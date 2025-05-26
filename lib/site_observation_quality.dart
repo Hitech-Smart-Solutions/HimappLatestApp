@@ -793,6 +793,7 @@ class _SiteObservationQualityState extends State<SiteObservationQuality> {
       appBar: AppBar(
         title: Text('Site Observation - Quality'),
         backgroundColor: Colors.blue,
+        centerTitle: true,
       ),
       body: Padding(
         padding: EdgeInsets.all(16),
@@ -849,7 +850,7 @@ class _SiteObservationQualityState extends State<SiteObservationQuality> {
                             style: TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          SizedBox(height: 4),
+                          SizedBox(height: 8),
 
                           // 2-column layout like Bootstrap col-md-6
                           Wrap(
@@ -869,7 +870,7 @@ class _SiteObservationQualityState extends State<SiteObservationQuality> {
                             ],
                           ),
 
-                          // SizedBox(height: 12),
+                          SizedBox(height: 8),
                           Text(
                             obs.observationDescription,
                             style: TextStyle(fontSize: 14),
