@@ -555,3 +555,59 @@ class SiteObservationActivity {
     };
   }
 }
+
+class NCRObservation {
+  final String uniqueID;
+  final int id;
+  final DateTime trancationDate;
+  final String siteObservationCode;
+  final String? observationRaisedBy;
+  final String observationType;
+  final String? issueType;
+  final DateTime dueDate;
+  final String observationDescription;
+  final bool complianceRequired;
+  final bool escalationRequired;
+  final String? actionToBeTaken;
+  final String? contractorName;
+  final String statusName;
+  final String? assignedUserName;
+
+  NCRObservation({
+    required this.uniqueID,
+    required this.id,
+    required this.trancationDate,
+    required this.siteObservationCode,
+    required this.observationRaisedBy,
+    required this.observationType,
+    required this.issueType,
+    required this.dueDate,
+    required this.observationDescription,
+    required this.complianceRequired,
+    required this.escalationRequired,
+    required this.actionToBeTaken,
+    required this.contractorName,
+    required this.statusName,
+    required this.assignedUserName,
+  });
+
+  factory NCRObservation.fromJson(Map<String, dynamic> json) {
+    return NCRObservation(
+      uniqueID: json['uniqueID'] ?? '',
+      id: json['id'] ?? 0,
+      trancationDate: DateTime.parse(json['trancationDate']),
+      siteObservationCode: json['siteObservationCode'] ?? '',
+      observationRaisedBy: json['observationRaisedBy'] ?? '',
+      observationType: json['observationType'] ?? '',
+      issueType: json['issueType'] ?? '',
+      dueDate: DateTime.parse(json['dueDate']),
+      observationDescription: json['observationDescription'],
+      complianceRequired: json['complianceRequired'] ?? false,
+      escalationRequired: json['escalationRequired'] ?? false,
+      actionToBeTaken: json['actionToBeTaken'] ?? '',
+      contractorName: json['contractorName'] ?? '',
+      statusName: json['statusName'] ?? '',
+      assignedUserName: json['assignedUserName'] ?? '',
+    );
+  }
+}

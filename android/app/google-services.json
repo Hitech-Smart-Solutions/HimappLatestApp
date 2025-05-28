@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "550664948512",
+    "project_id": "hi-mappnew",
+    "storage_bucket": "hi-mappnew.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550664948512:android:38ba1202b64167103d2545",
+        "android_client_info": {
+          "package_name": "com.example.himappnew"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaF0x00XCk0zagQPkB1ymPleUS2KI_4Aw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

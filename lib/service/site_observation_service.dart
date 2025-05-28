@@ -463,4 +463,40 @@ class SiteObservationService {
   //     return false;
   //   }
   // }
+
+  Future<List<NCRObservation>> fetchNCRObservations(int userId) async {
+    String? token = await SharedPrefsHelper.getToken();
+    print("📤 Token: $token");
+    print("📤 Calling API with UserId: $userId");
+
+    final response = await http.get(
+      Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationSafetyByUserID?UserId=$userId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    print("📥 API Status: ${response.statusCode}");
+    print("📥 API Response Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      try {
+        final List<dynamic> jsonData = jsonDecode(response.body);
+        print("🔍 JSON Length: ${jsonData.length}");
+
+        if (jsonData.isEmpty) {
+          print('⚠️ No observations returned for userId $userId');
+        }
+
+        return jsonData.map((item) => NCRObservation.fromJson(item)).toList();
+      } catch (e) {
+        print("❌ JSON Parsing Error: $e");
+        throw Exception('Failed to load Observation');
+      }
+    } else {
+      throw Exception('Failed to load Observation: ${response.statusCode}');
+    }
+  }
 }

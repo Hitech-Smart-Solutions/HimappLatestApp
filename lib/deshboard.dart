@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:animated_widgets/widgets/scale_animated.dart';
 import 'package:himappnew/labour_registration_page.dart';
+import 'package:himappnew/observation_ncr.dart';
 import 'package:himappnew/service/labour_registration_service.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
@@ -48,8 +49,6 @@ class DashboardPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildParallaxHeader(), // ⬅️ Add this here
-            SizedBox(height: 16),
             _buildGreetingCard(userName),
             const SizedBox(height: 20),
             _buildStatsCards(context),
@@ -69,29 +68,6 @@ class DashboardPage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildParallaxHeader() {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Image.asset("images/parallax_bg.jpg", fit: BoxFit.cover),
-        ),
-        Container(
-          height: 150,
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.4),
-          ),
-          child: const Text(
-            "✨ Welcome to your Smart Dashboard",
-            style: TextStyle(
-                color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-        ),
-      ],
     );
   }
 
@@ -116,7 +92,6 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // Stats Cards
   Widget _buildStatsCards(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     double cardWidth = (screenWidth - 48) / 2;
@@ -131,12 +106,30 @@ class DashboardPage extends StatelessWidget {
             value: "12",
             color: Colors.cyanAccent,
             width: cardWidth),
-        _buildNeonGlassCard(
+        GestureDetector(
+          onTap: () async {
+            final userId = await SharedPrefsHelper.getUserId();
+            print("🟡 UserID before navigating: $userId");
+            if (userId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ObservationNCRPage(
+                    userId: userId,
+                    siteObservationService: SiteObservationService(),
+                  ),
+                ),
+              );
+            }
+          },
+          child: _buildNeonGlassCard(
             icon: Icons.visibility,
             title: "Observations",
             value: "5",
             color: Colors.orangeAccent,
-            width: cardWidth),
+            width: cardWidth,
+          ),
+        ),
         _buildNeonGlassCard(
             icon: Icons.pending_actions,
             title: "Pending",

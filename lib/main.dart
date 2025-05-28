@@ -1,5 +1,7 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:himappnew/deshboard.dart';
+import 'package:himappnew/service/firebase_messaging_service.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'login_page.dart'; // Your Login Page
@@ -7,10 +9,10 @@ import 'shared_prefs_helper.dart'; // Import SharedPrefsHelper for saving and fe
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await Firebase.initializeApp();
+  await FirebaseMessagingService.initialize();
   // Token ko SharedPreferences se fetch karo
   final token = await getToken();
-
   runApp(MyApp(token: token));
 }
 

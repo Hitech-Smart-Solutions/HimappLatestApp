@@ -193,7 +193,7 @@ class _MyCustomFormState extends State<MyCustomForm> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  'images/hitech_Logo.png',
+                  'assets/images/hitech_Logo.png',
                   width: 150,
                   height: 150,
                 ),
