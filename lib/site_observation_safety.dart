@@ -501,7 +501,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     try {
       // int? projectID = await SharedPrefsHelper.getProjectID();
       final fetched =
-          await widget._siteObservationService.fetchSiteObservations(
+          await widget._siteObservationService.fetchSiteObservationsSafety(
         projectId: projectId,
         sortColumn: 'ID desc',
         pageSize: 10,

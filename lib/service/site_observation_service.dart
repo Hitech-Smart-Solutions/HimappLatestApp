@@ -25,7 +25,7 @@ class SiteObservationService {
   //   }
   // }
 
-  Future<List<SiteObservation>> fetchSiteObservations({
+  Future<List<SiteObservation>> fetchSiteObservationsSafety({
     required int projectId,
     String sortColumn = 'ID desc',
     int pageIndex = 0,
@@ -34,7 +34,43 @@ class SiteObservationService {
   }) async {
     final uri = Uri.https(
       'd94acvrm8bvo5.cloudfront.net',
-      '/api/SiteObservation/GetSiteObservationByProjectID',
+      '/api/SiteObservation/GetSiteObservationSafetyByProjectID',
+      {
+        'ProjectID': projectId.toString(),
+        'SortColumn': sortColumn,
+        'PageIndex': pageIndex.toString(),
+        'PageSize': pageSize.toString(),
+        'IsActive': isActive.toString(),
+      },
+    );
+    String? token = await SharedPrefsHelper.getToken();
+    final response = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final List<dynamic> table1 = data['Value']['Table1'];
+      return table1.map((e) => SiteObservation.fromJson(e)).toList();
+    } else {
+      throw Exception('Failed to load labours');
+    }
+  }
+
+  Future<List<SiteObservation>> fetchSiteObservationsQuality({
+    required int projectId,
+    String sortColumn = 'ID desc',
+    int pageIndex = 0,
+    int pageSize = 10,
+    bool isActive = true,
+  }) async {
+    final uri = Uri.https(
+      'd94acvrm8bvo5.cloudfront.net',
+      '/api/SiteObservation/GetSiteObservationQualityByProjectID',
       {
         'ProjectID': projectId.toString(),
         'SortColumn': sortColumn,
@@ -471,7 +507,7 @@ class SiteObservationService {
 
     final response = await http.get(
       Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationSafetyByUserID?UserId=$userId'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationSafetyByUserID/$userId'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -491,6 +527,45 @@ class SiteObservationService {
         }
 
         return jsonData.map((item) => NCRObservation.fromJson(item)).toList();
+      } catch (e) {
+        print("❌ JSON Parsing Error: $e");
+        throw Exception('Failed to load Observation');
+      }
+    } else {
+      throw Exception('Failed to load Observation: ${response.statusCode}');
+    }
+  }
+
+  Future<List<GetSiteObservationMasterById>> fetchGetSiteObservationMasterById(
+      int Id) async {
+    String? token = await SharedPrefsHelper.getToken();
+    print("📤 Token: $token");
+    print("📤 Calling API with UserId: $Id");
+
+    final response = await http.get(
+      Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationMasterById/$Id'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    print("📥 API Status: ${response.statusCode}");
+    print("📥 API Response Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      try {
+        final List<dynamic> jsonData = jsonDecode(response.body);
+        print("🔍 JSON Length: ${jsonData.length}");
+
+        if (jsonData.isEmpty) {
+          print('⚠️ No observations returned for userId $Id');
+        }
+
+        return jsonData
+            .map((item) => GetSiteObservationMasterById.fromJson(item))
+            .toList();
       } catch (e) {
         print("❌ JSON Parsing Error: $e");
         throw Exception('Failed to load Observation');

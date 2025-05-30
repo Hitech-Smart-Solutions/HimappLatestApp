@@ -311,7 +311,8 @@ class _SiteObservationQualityState extends State<SiteObservationQuality> {
     print("Project ID: $projectId");
     try {
       // int? projectID = await SharedPrefsHelper.getProjectID();
-      final fetched = await widget.siteObservationService.fetchSiteObservations(
+      final fetched =
+          await widget.siteObservationService.fetchSiteObservationsQuality(
         projectId: projectId,
         sortColumn: 'ID desc',
         pageSize: 10,

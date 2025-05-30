@@ -611,3 +611,72 @@ class NCRObservation {
     );
   }
 }
+
+class GetSiteObservationMasterById {
+  // Existing fields
+  final String observationCode;
+  final String description;
+  final String observationRaisedBy;
+  // Add the activityDTO field:
+  final List<ActivityDTO> activityDTO;
+
+  GetSiteObservationMasterById({
+    required this.observationCode,
+    required this.description,
+    required this.observationRaisedBy,
+    required this.activityDTO,
+  });
+
+  factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
+    return GetSiteObservationMasterById(
+      observationCode: json['siteObservationCode'] ?? '',
+      description: json['observationDescription'] ?? '',
+      observationRaisedBy: json['observationRaisedBy'] ?? '',
+      activityDTO: (json['activityDTO'] as List<dynamic>?)
+              ?.map((item) => ActivityDTO.fromJson(item))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class ActivityDTO {
+  final int id;
+  final int siteObservationID;
+  final String actionName;
+  final String comments;
+  final String documentName;
+  final String fromStatusName;
+  final String toStatusName;
+  final String? assignedUserName;
+  final String createdBy;
+  final DateTime createdDate;
+
+  ActivityDTO({
+    required this.id,
+    required this.siteObservationID,
+    required this.actionName,
+    required this.comments,
+    required this.documentName,
+    required this.fromStatusName,
+    required this.toStatusName,
+    this.assignedUserName,
+    required this.createdBy,
+    required this.createdDate,
+  });
+
+  factory ActivityDTO.fromJson(Map<String, dynamic> json) {
+    return ActivityDTO(
+      id: json['id'],
+      siteObservationID: json['siteObservationID'],
+      actionName: json['actionName'] ?? '',
+      comments: json['comments'] ?? '',
+      documentName: json['documentName'] ?? '',
+      fromStatusName: json['fromStatusName'] ?? '',
+      toStatusName: json['toStatusName'] ?? '',
+      assignedUserName: json['assignedUserName'],
+      createdBy: json['createdBy'] ?? '',
+      createdDate: DateTime.parse(json['createdDate']),
+    );
+  }
+}

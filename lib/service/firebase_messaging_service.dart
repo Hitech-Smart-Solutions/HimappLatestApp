@@ -19,7 +19,12 @@ class FirebaseMessagingService {
 
     // Foreground message handler
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Foreground message: ${message.notification?.title}');
+      // print('Foreground message: ${message.notification?.title}');
+      if (message.notification != null) {
+        // Manually show using flutter_local_notifications here
+        print('Message title: ${message.notification!.title}');
+        print('Message body: ${message.notification!.body}');
+      }
     });
 
     // Background handler when app is opened via notification

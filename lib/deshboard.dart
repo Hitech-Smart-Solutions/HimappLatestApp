@@ -166,9 +166,9 @@ class DashboardPage extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.8),
-              blurRadius: 20,
-              spreadRadius: 1,
+              color: Colors.black.withOpacity(0.1), // soft neutral shadow
+              blurRadius: 10,
+              offset: Offset(0, 4),
             ),
           ],
         ),
