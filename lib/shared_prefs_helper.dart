@@ -93,4 +93,24 @@ class SharedPrefsHelper {
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNhIiwibmJmIjoxNzQyNDc4MjgxLCJleHAiOjE3NDc3NDg2ODEsImlhdCI6MTc0MjQ3ODI4MSwiaXNzIjoibG9jYWxob3N0IiwiYXVkIjoibG9jYWxob3N0In0.ic39ZtVmb4fX3VbJ8Uw5mroCgHVl8ZZmhQruPBjDw3g";
     await saveToken(token);
   }
+
+  static const String _fcmTokenKey = 'fcm_token';
+
+  /// Save FCM token
+  static Future<void> saveFcmToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_fcmTokenKey, token);
+  }
+
+  /// Retrieve FCM token
+  static Future<String?> getFcmToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_fcmTokenKey);
+  }
+
+  /// Optional: Clear FCM token
+  static Future<void> clearFcmToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_fcmTokenKey);
+  }
 }

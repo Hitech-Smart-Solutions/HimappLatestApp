@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:animated_widgets/widgets/scale_animated.dart';
@@ -12,6 +13,7 @@ import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:himappnew/site_observation_quality.dart';
 import 'login_page.dart';
 import 'site_observation_safety.dart';
+import 'package:himappnew/service/firebase_messaging_service.dart';
 
 class DashboardPage extends StatelessWidget {
   final String companyName;
@@ -20,8 +22,9 @@ class DashboardPage extends StatelessWidget {
   final SiteObservationService siteObservationService;
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
+  final firebaseService = FirebaseMessagingService();
 
-  const DashboardPage({
+  DashboardPage({
     super.key,
     required this.companyName,
     required this.userName,
@@ -65,6 +68,35 @@ class DashboardPage extends StatelessWidget {
             Text("Reminders",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             _buildRemindersList(),
+            const SizedBox(height: 20),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await FirebaseMessaging.instance.requestPermission();
+                  final token = await FirebaseMessaging.instance.getToken();
+                  print("📱 Firebase Token Dash oard: $token");
+                  final userId = await SharedPrefsHelper.getUserId();
+                  print('UserIDDDDD : $userId');
+                  if (token != null && userId != null) {
+                    await firebaseService.updateUserMobileAppTokenPut(
+                      userId: userId,
+                      webTokenID: "from_web_or_blank",
+                      mobileAppTokenID: token,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('✅ Token updated on server')),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('⚠️ Failed to get token or user ID')),
+                    );
+                  }
+                },
+                icon: Icon(Icons.notifications_active),
+                label: Text("Save Notification Token"),
+              ),
+            ),
           ],
         ),
       ),

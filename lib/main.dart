@@ -13,6 +13,7 @@ void main() async {
   await FirebaseMessagingService.initialize();
   // Token ko SharedPreferences se fetch karo
   final token = await getToken();
+  print('Fetched token: $token');
   runApp(MyApp(token: token));
 }
 
