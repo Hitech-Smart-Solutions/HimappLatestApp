@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart';
+import 'package:http_parser/http_parser.dart';
 
 class SiteObservationService {
   // Future<List<SiteObservation>> fetchSiteObservation() async {
@@ -500,6 +504,65 @@ class SiteObservationService {
   //   }
   // }
 
+  Future<List<Activity>> fatchActivityByCompanyIdAndScreenTypeId(
+      int companyID, int screentypeID) async {
+    try {
+      final String? token = await SharedPrefsHelper.getToken();
+
+      final Uri url = Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/ActivityMaster/GetActivitiesByCompanyIDandScreenTypeID/$companyID/$screentypeID',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        final List<dynamic> jsonData = jsonResponse['value'] ?? [];
+
+        return jsonData.map((item) => Activity.fromJson(item)).toList();
+      } else {
+        throw Exception(
+            'Failed to load activities. Status Code: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching activities: $e');
+    }
+  }
+
+  Future<List<RootCause>> fatchRootCausesByActivityID(int activityID) async {
+    try {
+      final String? token = await SharedPrefsHelper.getToken();
+
+      final Uri url = Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/RootCause/GetRootCauseByActivityID/$activityID',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonData = json.decode(response.body);
+        return jsonData.map((item) => RootCause.fromJson(item)).toList();
+      } else {
+        throw Exception(
+            'Failed to load root causes. Status Code: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching root causes: $e');
+    }
+  }
+
   Future<List<NCRObservation>> fetchNCRObservations(int userId) async {
     String? token = await SharedPrefsHelper.getToken();
     print("📤 Token: $token");
@@ -572,6 +635,153 @@ class SiteObservationService {
       }
     } else {
       throw Exception('Failed to load Observation: ${response.statusCode}');
+    }
+  }
+
+  Future<String?> uploadFile(File file) async {
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(
+            'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/upload'),
+      );
+
+      String? token = await SharedPrefsHelper.getToken();
+      print('🔑 Token: $token');
+
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      });
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          file.path,
+          filename: basename(file.path),
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+
+      print('📤 Sending request to: ${request.url}');
+      print('📎 File path: ${file.path}');
+      print('📎 File name: ${basename(file.path)}');
+
+      var response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      print('📥 Status Code: ${response.statusCode}');
+      print('📥 Response Body: $responseBody');
+
+      if (response.statusCode == 200) {
+        // Response format: "file uploaded|<url>"
+        final parts = responseBody.split('|');
+        if (parts.length == 2) {
+          final uploadedUrl = parts[1].trim();
+          return uploadedUrl; // ✅ Return the URL
+        } else {
+          print('❌ Unexpected response format');
+          return null;
+        }
+      } else {
+        print('❌ Upload failed: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Exception during upload: $e');
+      return null;
+    }
+  }
+
+  Future<void> sendSiteObservationActivity(
+      List<ActivityDTO> activities, int siteObservationID) async {
+    final url = Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/AddSiteObservationActivity/$siteObservationID');
+
+    // Convert your ActivityDTO list to JSON list
+    final body = jsonEncode(activities.map((a) => a.toJson()).toList());
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('Activity posted successfully!');
+      } else {
+        print('Failed to post activity: ${response.statusCode}');
+        print('Response body: ${response.body}');
+      }
+    } catch (e) {
+      print('Error posting activity: $e');
+    }
+  }
+
+  Future<bool> updateSiteObservationByID(UpdateSiteObservation data) async {
+    String? token = await SharedPrefsHelper.getToken();
+    final url = Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/UpdateSiteObservationByID/${data.id}');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(data.toJson()),
+    );
+    print("Sending payload: ${jsonEncode(data.toJson())}");
+    print("Sending to URL: $url");
+    // print("GET Status123: ${response.statusCode}");
+    // print("Body123: ${response.body}");
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      print("Update successful!");
+      return true;
+    } else {
+      print("Failed to update: ${response.statusCode} ${response.body}");
+      return false;
+    }
+  }
+
+  Future<List<UserList>> fetchUsersForList({
+    required int projectId,
+    String sortColumn = 'ID desc',
+    int pageIndex = 0,
+    int pageSize = 10,
+    bool isActive = true,
+  }) async {
+    final uri = Uri.https(
+      'd94acvrm8bvo5.cloudfront.net',
+      '/api/UserMaster/GetUsersForList',
+      {
+        'CompanyID': projectId.toString(),
+        'SortColumn': sortColumn,
+        'PageIndex': pageIndex.toString(),
+        'PageSize': pageSize.toString(),
+        'IsActive': isActive.toString(),
+      },
+    );
+
+    final token = await SharedPrefsHelper.getToken();
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final List<dynamic> users = data['Value']['Table1'];
+      return users.map((e) => UserList.fromJson(e)).toList();
+    } else {
+      throw Exception('Failed to fetch users');
     }
   }
 }

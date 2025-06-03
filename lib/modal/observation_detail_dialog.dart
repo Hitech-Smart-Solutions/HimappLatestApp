@@ -1,13 +1,28 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:flutter/services.dart';
+import 'package:himappnew/service/site_observation_service.dart';
+import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_mentions/flutter_mentions.dart';
+import 'package:himappnew/constants.dart';
 
 class ObservationDetailDialog extends StatefulWidget {
   final GetSiteObservationMasterById detail;
-
-  const ObservationDetailDialog({super.key, required this.detail});
+  final SiteObservationService siteObservationService;
+  final int siteObservationId;
+  // final int activityId;
+  // final int projectId;
+  const ObservationDetailDialog({
+    super.key,
+    required this.detail,
+    required this.siteObservationService,
+    required this.siteObservationId,
+    // required this.activityId
+    // required this.projectId,
+  });
 
   @override
   State<ObservationDetailDialog> createState() =>
@@ -23,6 +38,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   bool isStatusEnabled = false;
   String url = AppSettings.url;
 
+  List<User> selectedUsers = [];
+
   final _formKey = GlobalKey<FormState>();
   // Static controllers for form fields
   final TextEditingController rootCauseController = TextEditingController();
@@ -33,36 +50,61 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
       TextEditingController();
   final TextEditingController _activityCommentController =
       TextEditingController();
+// final FlutterMentionsController _mentionController = FlutterMentionsController();
 
+  late int editingUserId;
+  // late int projectId;
+  bool assigned = true;
+  List<ActivityDTO> activities = [];
+  final GlobalKey<FlutterMentionsState> mentionsKey =
+      GlobalKey<FlutterMentionsState>();
+  // final mentionData = userList.map((e) => e.toMentionMap()).toList();
+  List<Map<String, String>> userList = [];
+
+  List<RootCause> rootCauses = [];
+  RootCause? selectedRootCause;
+  bool isLoading = false;
+
+  // final int activityId;
+  int? activityIds = 0; // Default value, can be set later
+  int? userId;
+  // List<int> activityIds = [];
+  List<String> uploadedFiles = [];
+  bool isButtonDisabled = false;
   @override
   void initState() {
     super.initState();
+    _loadActivityByCompanyIdAndScreenTypeId();
+    _loadRootCauses();
+    String statusValue = widget.detail.statusName ?? '';
 
-    bool assigned = true; // your assigned logic here
-
-    // Debug print to find the available fields in your detail object
-    print(widget.detail.toString());
-
-    // Replace 'statusField' below with the actual property name from your model
-    String statusValue = ''; // default fallback
-
-    // For example, if your model has a 'status' property
-    // statusValue = widget.detail.status;
-
-    // If you don't know the exact property, try to find it here
-    // For now, let's assign it manually or via a constructor parameter
-
-    // Example (replace with actual property):
-    // statusValue = widget.detail.observationCode; // maybe this?
+    assigned = widget.detail.assignedUserID != null &&
+        widget.detail.assignedUserID != 0;
 
     setObservationStatusDropdown(
-      {
-        "ObservationStatus": statusValue,
-      },
+      {"ObservationStatus": statusValue},
       assigned,
     );
 
-    setState(() {});
+    editingUserId = widget.siteObservationId;
+    initData();
+  }
+
+  Future<void> initData() async {
+    // await SharedPrefsHelper.saveProjectID(123);
+    // await SharedPrefsHelper.saveProjectID(projectId);
+    int? projectId = await SharedPrefsHelper.getProjectID();
+    // print("📤 Project ID fetched in initData: $projectId");
+
+    if (projectId == null) {
+      // Handle missing projectId (show alert, skip fetchUsers, etc.)
+      // print("⚠️ Project ID is null. Aborting fetchUsers.");
+      return;
+    }
+    // print("✅ Got Project ID: $projectId");
+    await fetchUsers(); // Only fetch after getting valid ProjectID
+
+    userId = await SharedPrefsHelper.getUserId();
   }
 
   @override
@@ -75,16 +117,71 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   }
 
   void _sendActivityComment() {
-    final comment = _activityCommentController.text.trim();
-    if (comment.isEmpty) return;
+    // final mentions = mentionsKey.currentState?.markupText ?? "";
+    final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
 
-    // Yahan pe apna send logic ya backend call kar sakte hain
-    print("Send comment: $comment");
+    final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
+    final matches = mentionRegex.allMatches(markupText);
 
-    // Clear textfield
-    _activityCommentController.clear();
+    List<User> selectedUsers = matches.map((match) {
+      return User(
+        // uniqueId: '',
+        id: int.parse(match.group(2)!),
+        userName: match.group(1)!,
+        // password: '',
+        // firstName: '',
+        // lastName: '',
+        // mobileNumber: '',
+        // emailId: '',
+        // userTypeId: 0,
+        // reportingUserId: 0,
+        // statusId: 1,
+        // isActive: true,
+        // createdBy: 0,
+        // createdDate: DateTime.now(),
+        // lastModifiedBy: 0,
+        // lastModifiedDate: DateTime.now(),
+      );
+    }).toList();
 
-    // Optionally, update UI or refresh activity list
+    List<ActivityDTO> activities = [];
+
+    for (var user in selectedUsers) {
+      activities.add(ActivityDTO(
+        id: 0,
+        siteObservationID: editingUserId,
+        actionID: 1,
+        actionName: "Assigned",
+        comments: "",
+        documentName: "",
+        fromStatusID: 0,
+        toStatusID: 0,
+        assignedUserID: user.id,
+        assignedUserName: user.userName,
+        createdBy: "",
+        createdDate: DateTime.now(),
+      ));
+    }
+
+    if (_activityCommentController.text.trim().isNotEmpty) {
+      activities.add(ActivityDTO(
+        id: 0,
+        siteObservationID: editingUserId,
+        actionID: 2,
+        actionName: "Commented",
+        comments: _activityCommentController.text.trim(),
+        documentName: "",
+        fromStatusID: 0,
+        toStatusID: 0,
+        assignedUserID: 0,
+        assignedUserName: null,
+        createdBy: "",
+        createdDate: DateTime.now(),
+      ));
+    }
+
+    UpdateSiteObservation updatedData = getUpdatedDataFromForm(uploadedFiles);
+    updatedData.activityDTO.addAll(activities);
   }
 
   void setObservationStatusDropdown(Map<String, dynamic> ele, bool assigned) {
@@ -114,6 +211,140 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
       ];
       selectedStatus = null;
       isStatusEnabled = true;
+    }
+  }
+
+  bool _isLoading = false;
+
+  fetchUsers() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      int? projectID = await SharedPrefsHelper.getProjectID();
+
+      // print("Project ID O servation: $projectID");
+      if (projectID == null) throw Exception("Project ID not found");
+
+      final response = await SiteObservationService().fetchUsersForList(
+        projectId: projectID,
+      );
+
+      setState(() {
+        userList = response
+            .map((u) => {
+                  'id': u.id.toString(),
+                  'display': u.userName,
+                  'full_name': '${u.firstName} ${u.lastName}',
+                })
+            .toList();
+      });
+    } catch (e) {
+      print('Error fetching users: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  UpdateSiteObservation getUpdatedDataFromForm(List<String> uploadedFiles) {
+    int id = widget.detail.id;
+    int rootCauseID = selectedRootCause?.id ?? 0;
+
+    List<ActivityDTO> activities = [];
+
+    // Assigned action (static entry like Angular)
+    activities.add(
+      ActivityDTO(
+        id: 0,
+        siteObservationID: id,
+        actionID: SiteObservationActions.Assigned,
+        actionName: '', // ✅ Required field
+        comments: '',
+        documentName: '',
+        fromStatusID: 0,
+        toStatusID: SiteObservationStatus.ReadyToInspect,
+        assignedUserID: widget.detail.createdBy,
+        assignedUserName: null, // Optional
+        createdBy: userId!.toString(), // ✅ createdBy is a String in your model
+        createdDate: DateTime.now(),
+      ),
+    );
+
+    // Add file uploads if available
+    for (String fileName in uploadedFiles) {
+      activities.add(
+        ActivityDTO(
+          id: 0,
+          siteObservationID: id,
+          actionID: SiteObservationActions.DocUploaded,
+          actionName: '', // ✅ Must provide even if empty
+          comments: '',
+          documentName: fileName,
+          fromStatusID: 0,
+          toStatusID: 0,
+          assignedUserID: userId!,
+          assignedUserName: null,
+          createdBy: userId!.toString(), // ✅ Ensure it's a String
+          createdDate: DateTime.now(),
+        ),
+      );
+    }
+
+    return UpdateSiteObservation(
+      id: id,
+      rootCauseID: rootCauseID,
+      corretiveActionToBeTaken: correctiveActionController.text,
+      preventiveActionTaken: preventiveActionController.text,
+      reworkCost: int.tryParse(reworkCostController.text) ?? 0,
+      statusID: 3,
+      lastModifiedBy: userId!,
+      lastModifiedDate: DateTime.now(),
+      activityDTO: activities,
+    );
+  }
+
+  Future<void> _loadActivityByCompanyIdAndScreenTypeId() async {
+    setState(() => isLoading = true);
+    try {
+      int? companyId = await SharedPrefsHelper.getCompanyId();
+      int functionID = ScreenTypes.Safety;
+
+      List<Activity> activities = await SiteObservationService()
+          .fatchActivityByCompanyIdAndScreenTypeId(companyId!, functionID);
+
+      if (activities.isNotEmpty) {
+        activityIds = activities.first.id; // 👈 yahi Angular jaisa kaam hai
+        // print('Selected Activity ID: $activityIds');
+        await _loadRootCauses(); // root cause load karo single ID ke liye
+      }
+
+      await _loadRootCauses(); // ✅ wait for loading
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load activities: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _loadRootCauses() async {
+    if (activityIds == null) return; // safety check
+
+    setState(() => isLoading = true);
+    try {
+      rootCauses = await SiteObservationService()
+          .fatchRootCausesByActivityID(activityIds!);
+      // print("Fetched root causes: ${rootCauses.length}");
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load root causes: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
@@ -210,7 +441,42 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                               const SizedBox(height: 8),
                               Text("Description: ${widget.detail.description}"),
                               const SizedBox(height: 8),
-                              Text("Type: ${widget.detail.observationCode}"),
+                              Text(
+                                  "Observation Date: ${widget.detail.trancationDate}"),
+                              const SizedBox(height: 8),
+                              Text(
+                                  "Created Date: ${widget.detail.createdDate}"),
+                              const SizedBox(height: 8),
+                              Text(
+                                  "Observation Type: ${widget.detail.observationType}"),
+                              const SizedBox(height: 8),
+                              Text("Issue Type: ${widget.detail.issueType}"),
+                              // const SizedBox(height: 8),
+                              // Text("Created By: ${widget.detail.cre}"),
+                              const SizedBox(height: 8),
+                              Text("Due Date: ${widget.detail.dueDate}"),
+                              const SizedBox(height: 8),
+                              Text("Activity: ${widget.detail.activityName}"),
+                              const SizedBox(height: 8),
+                              Text("Section: ${widget.detail.sectionName}"),
+                              const SizedBox(height: 8),
+                              Text("Floor: ${widget.detail.floorName}"),
+                              const SizedBox(height: 8),
+                              Text("Part: ${widget.detail.partName}"),
+                              const SizedBox(height: 8),
+                              Text("Element: ${widget.detail.elementName}"),
+                              const SizedBox(height: 8),
+                              Text(
+                                  "Contractor: ${widget.detail.contractorName}"),
+                              const SizedBox(height: 8),
+                              Text(
+                                  "Compliance Required: ${widget.detail.complianceRequired}"),
+                              const SizedBox(height: 8),
+                              Text(
+                                  "Escalation Required: ${widget.detail.escalationRequired}"),
+                              const SizedBox(height: 8),
+                              Text(
+                                  "Action To Be Taken: ${widget.detail.actionToBeTaken}"),
                               const SizedBox(height: 8),
                               Text(
                                   "Raised By: ${widget.detail.observationRaisedBy}"),
@@ -270,10 +536,72 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                 final ImagePicker picker = ImagePicker();
                                 final XFile? pickedFile = await picker
                                     .pickImage(source: ImageSource.gallery);
+
                                 if (pickedFile != null) {
-                                  print(
-                                      "Selected image path: ${pickedFile.path}");
-                                  // Yahan add karna hai image ko list me aur update karna UI ko
+                                  File imageFile = File(pickedFile.path);
+
+                                  final uploadedFileName =
+                                      await SiteObservationService()
+                                          .uploadFile(imageFile);
+
+                                  if (uploadedFileName != null) {
+                                    setState(() {
+                                      widget.detail.activityDTO.add(
+                                        ActivityDTO(
+                                          id: 0,
+                                          siteObservationID: widget.detail.id,
+                                          actionID: 0,
+                                          actionName: '',
+                                          comments: '',
+                                          documentName: uploadedFileName,
+                                          fromStatusID: 0,
+                                          toStatusID: 0,
+                                          assignedUserID: 0,
+                                          assignedUserName: null,
+                                          createdBy: 'You',
+                                          createdDate: DateTime.now(),
+                                        ),
+                                      );
+                                    });
+
+                                    /// 👇👇 Yahan Add Karo Update Call 👇👇
+                                    UpdateSiteObservation updatedData =
+                                        getUpdatedDataFromForm(uploadedFiles);
+                                    // print(
+                                    //     "Updating with activities count: ${updatedData.activityDTO.length}");
+                                    updatedData.activityDTO.forEach((act) {
+                                      // print(
+                                      //     "Activity siteObservationID: ${act.siteObservationID}, documentName: ${act.documentName}");
+                                    });
+                                    bool success =
+                                        await SiteObservationService()
+                                            .updateSiteObservationByID(
+                                                updatedData);
+
+                                    if (success) {
+                                      // print(
+                                      //     "✅ Update successful after file upload");
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                "File uploaded and updated successfully!")),
+                                      );
+                                    } else {
+                                      // print(
+                                      //     "❌ Failed to update after file upload");
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                "Upload done but update failed!")),
+                                      );
+                                    }
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text("Upload failed.")),
+                                    );
+                                  }
                                 }
                               },
                               icon: const Icon(Icons.upload_file),
@@ -298,7 +626,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                                 activity.documentName);
                                           },
                                           child: Container(
-                                            width: double.infinity,
+                                            height: 150,
+                                            width: 150,
                                             decoration: BoxDecoration(
                                               border: Border.all(
                                                 color: Colors.grey.shade300,
@@ -307,19 +636,23 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                             ),
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              child: Image.network(
-                                                isImage(activity.documentName)
-                                                    ? "$url/${activity.documentName}"
-                                                    : "assets/default-image.png",
-                                                fit: BoxFit.fitWidth,
-                                                width: double.infinity,
-                                                errorBuilder: (context, error,
-                                                        stackTrace) =>
-                                                    const Icon(
-                                                        Icons.broken_image),
+                                            child: SizedBox(
+                                              height:
+                                                  150, // 👈 Image ki height fix
+                                              width: double.infinity,
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                child: Image.network(
+                                                  isImage(activity.documentName)
+                                                      ? "$url/${activity.documentName}"
+                                                      : "assets/default-image.png",
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                          stackTrace) =>
+                                                      const Icon(
+                                                          Icons.broken_image),
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -334,171 +667,177 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                       ),
 
                       // Activity Tab
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.5,
+                      Portal(
+                          child: SingleChildScrollView(
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
                             children: [
-                              Expanded(
-                                child: widget.detail.activityDTO.isEmpty
-                                    ? const Center(
-                                        child: Text("No activity recorded."))
-                                    : ListView.builder(
-                                        itemCount:
-                                            widget.detail.activityDTO.length,
-                                        itemBuilder: (context, index) {
-                                          final activity =
-                                              widget.detail.activityDTO[index];
-                                          return Card(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            elevation: 3,
-                                            child: Column(
-                                              children: [
-                                                const Divider(height: 1),
-                                                ListTile(
-                                                  leading: CircleAvatar(
-                                                    child: Text(
-                                                      (activity.assignedUserName
-                                                                  ?.isNotEmpty ??
-                                                              false)
-                                                          ? activity
-                                                              .assignedUserName![
-                                                                  0]
-                                                              .toUpperCase()
-                                                          : '?',
-                                                    ),
+                              widget.detail.activityDTO.isEmpty
+                                  ? const Center(
+                                      child: Text("No activity recorded."))
+                                  : ListView.builder(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      itemCount:
+                                          widget.detail.activityDTO.length,
+                                      itemBuilder: (context, index) {
+                                        final activity =
+                                            widget.detail.activityDTO[index];
+                                        return Card(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          elevation: 3,
+                                          child: Column(
+                                            children: [
+                                              const Divider(height: 1),
+                                              ListTile(
+                                                leading: CircleAvatar(
+                                                  child: Text(
+                                                    (activity.assignedUserName
+                                                                ?.isNotEmpty ??
+                                                            false)
+                                                        ? activity
+                                                            .assignedUserName![
+                                                                0]
+                                                            .toUpperCase()
+                                                        : '?',
                                                   ),
-                                                  title: Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                            activity.assignedUserName ??
-                                                                '',
-                                                            style: const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold),
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis),
+                                                ),
+                                                title: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        activity.assignedUserName ??
+                                                            '',
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                       ),
-                                                      const SizedBox(width: 8),
-                                                      Flexible(
-                                                        child: Text(
-                                                          activity.createdDate
-                                                              .toLocal()
-                                                              .toString()
-                                                              .split('.')[0],
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: Colors
-                                                                      .grey),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Flexible(
+                                                      child: Text(
+                                                        activity.createdDate
+                                                            .toLocal()
+                                                            .toString()
+                                                            .split('.')[0],
+                                                        style: const TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.grey),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                subtitle: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const SizedBox(height: 4),
+                                                    Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            activity.actionName ==
+                                                                    'Commented'
+                                                                ? Colors.pink
+                                                                    .shade100
+                                                                : Colors.orange
+                                                                    .shade100,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        activity.actionName,
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                         ),
                                                       ),
-                                                    ],
-                                                  ),
-                                                  subtitle: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const SizedBox(height: 4),
-                                                      Container(
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    if (activity
+                                                        .comments.isNotEmpty)
+                                                      Text(activity.comments),
+                                                    if (activity.assignedUserName !=
+                                                            null &&
+                                                        activity
+                                                            .assignedUserName!
+                                                            .isNotEmpty)
+                                                      Padding(
                                                         padding:
                                                             const EdgeInsets
-                                                                .symmetric(
-                                                                horizontal: 8,
-                                                                vertical: 2),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: activity
-                                                                      .actionName ==
-                                                                  'Commented'
-                                                              ? Colors
-                                                                  .pink.shade100
-                                                              : Colors.orange
-                                                                  .shade100,
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(12),
-                                                        ),
-                                                        child: Text(
-                                                          activity.actionName,
-                                                          style: const TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold),
+                                                                .only(top: 4),
+                                                        child: Row(
+                                                          children: [
+                                                            const Icon(
+                                                                Icons.person,
+                                                                size: 16),
+                                                            const SizedBox(
+                                                                width: 4),
+                                                            Text(activity
+                                                                .assignedUserName!),
+                                                          ],
                                                         ),
                                                       ),
-                                                      const SizedBox(height: 6),
-                                                      if (activity
-                                                          .comments.isNotEmpty)
-                                                        Text(activity.comments),
-                                                      if (activity.assignedUserName !=
-                                                              null &&
-                                                          activity
-                                                              .assignedUserName!
-                                                              .isNotEmpty)
-                                                        Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .only(top: 4),
-                                                          child: Row(
-                                                            children: [
-                                                              const Icon(
-                                                                  Icons.person,
-                                                                  size: 16),
-                                                              const SizedBox(
-                                                                  width: 4),
-                                                              Text(activity
-                                                                  .assignedUserName!),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      if (activity.documentName
-                                                          .isNotEmpty)
-                                                        Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  top: 14),
-                                                          child:
-                                                              GestureDetector(
-                                                            onTap: () {
-                                                              openImageModal(
-                                                                  activity
-                                                                      .documentName); // You can define this method
-                                                            },
-                                                            child: Container(
-                                                              width: 100,
-                                                              height: 100,
-                                                              decoration:
-                                                                  BoxDecoration(
-                                                                border: Border.all(
-                                                                    color: Colors
-                                                                        .grey
-                                                                        .shade300,
-                                                                    width: 2),
-                                                                borderRadius:
-                                                                    BorderRadius
-                                                                        .circular(
-                                                                            12),
-                                                              ),
-                                                              child: ClipRRect(
-                                                                borderRadius:
-                                                                    BorderRadius
-                                                                        .circular(
-                                                                            10),
+                                                    if (activity.documentName
+                                                        .isNotEmpty)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .only(top: 14),
+                                                        child: GestureDetector(
+                                                          onTap: () {
+                                                            openImageModal(activity
+                                                                .documentName);
+                                                          },
+                                                          child: Container(
+                                                            width: 100,
+                                                            height: 100,
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              border: Border.all(
+                                                                  color: Colors
+                                                                      .grey
+                                                                      .shade300,
+                                                                  width: 2),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          12),
+                                                            ),
+                                                            child: ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          10),
+                                                              child:
+                                                                  ConstrainedBox(
+                                                                constraints:
+                                                                    BoxConstraints(
+                                                                  maxHeight:
+                                                                      150,
+                                                                  maxWidth:
+                                                                      MediaQuery.of(
+                                                                              context)
+                                                                          .size
+                                                                          .width,
+                                                                ),
                                                                 child: Image
                                                                     .network(
                                                                   isImage(activity
@@ -518,45 +857,94 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                                             ),
                                                           ),
                                                         ),
-                                                    ],
-                                                  ),
+                                                      ),
+                                                  ],
                                                 ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                              ),
-                              const Divider(),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _activityCommentController,
-                                      maxLines: 2,
-                                      decoration: InputDecoration(
-                                        hintText:
-                                            "Add comment and assign user...",
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 8),
-                                        border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12)),
-                                      ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton(
-                                    onPressed: _sendActivityComment,
-                                    child: const Text("Send"),
+                              const Divider(),
+                              Stack(
+                                clipBehavior: Clip
+                                    .none, // Allow overlay to overflow outside Stack bounds
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Container(
+                                          constraints:
+                                              BoxConstraints(maxHeight: 250),
+                                          child: FlutterMentions(
+                                            key: mentionsKey,
+                                            // controller: _mentionController,
+                                            // controller:
+                                            //     _activityCommentController,
+                                            maxLines: 5,
+                                            minLines: 2,
+                                            suggestionPosition:
+                                                SuggestionPosition.Top,
+                                            decoration: InputDecoration(
+                                              hintText:
+                                                  "Add comment and assign user...",
+                                              contentPadding:
+                                                  EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 12),
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            mentions: [
+                                              Mention(
+                                                trigger: '@',
+                                                style: TextStyle(
+                                                    color: Colors.blue),
+                                                matchAll: true,
+                                                data: userList,
+                                                suggestionBuilder: (data) {
+                                                  return ListTile(
+                                                    leading: CircleAvatar(
+                                                      child: Text(
+                                                          data['display'][0]
+                                                              .toUpperCase()),
+                                                    ),
+                                                    title:
+                                                        Text(data['display']),
+                                                    subtitle:
+                                                        Text(data['full_name']),
+                                                  );
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 20),
+                                      ElevatedButton(
+                                        onPressed: _sendActivityComment,
+                                        style: ElevatedButton.styleFrom(
+                                          minimumSize: Size(70, 48),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        child: Text("Send"),
+                                      ),
+                                    ],
                                   ),
                                 ],
-                              ),
+                              )
                             ],
                           ),
                         ),
-                      )
+                      )),
                     ],
                   ),
                 ),
@@ -595,18 +983,25 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
     showDialog(
       context: context,
+      barrierColor: Colors.black54, // Dim background for focus on image
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16), // Padding from screen edges
         child: GestureDetector(
           onTap: () => Navigator.pop(context),
           child: InteractiveViewer(
+            panEnabled: true,
+            minScale: 1,
+            maxScale: 4,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.network(
                 imageUrl,
                 fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.broken_image, size: 100),
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.broken_image,
+                    size: 100,
+                    color: Colors.grey),
               ),
             ),
           ),
@@ -621,18 +1016,22 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (selectedStatus == "Ready To Inspect") ...[
-            TextFormField(
-              controller: rootCauseController,
+            DropdownButtonFormField<RootCause>(
+              value: selectedRootCause,
               decoration: const InputDecoration(
-                labelText: 'Root Cause',
-                hintText: 'Select Root Cause',
+                labelText: 'Select Root Cause',
                 border: OutlineInputBorder(),
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Root Cause is required';
-                }
-                return null;
+              items: rootCauses.map((RootCause cause) {
+                return DropdownMenuItem<RootCause>(
+                  value: cause,
+                  child: Text(cause.rootCauseDesc),
+                );
+              }).toList(),
+              onChanged: (RootCause? newValue) {
+                setState(() {
+                  selectedRootCause = newValue;
+                });
               },
             ),
             const SizedBox(height: 12),
@@ -680,17 +1079,42 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    // All validations passed
-                    print("Saving Root Cause Data...");
-                    setState(() {
-                      isEditingRootCause = false;
-                    });
-                  } else {
-                    print("Validation failed.");
-                  }
-                },
+                onPressed: isButtonDisabled
+                    ? null // disables the button
+                    : () async {
+                        if (_formKey.currentState?.validate() ?? false) {
+                          setState(() {
+                            isEditingRootCause = false;
+                            isButtonDisabled = true; // disable the button
+                          });
+
+                          UpdateSiteObservation updatedData =
+                              getUpdatedDataFromForm(uploadedFiles);
+                          print(updatedData.toJson());
+
+                          bool success = await SiteObservationService()
+                              .updateSiteObservationByID(updatedData);
+
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Update successful!')),
+                            );
+                            // Optional: Keep button disabled or navigate away
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('Update failed! Please try again.')),
+                            );
+                            setState(() {
+                              isButtonDisabled = false; // re-enable on failure
+                            });
+                          }
+                        } else {
+                          print("Validation failed.");
+                        }
+                      },
                 child: const Text('Update'),
               ),
             ),

@@ -308,93 +308,130 @@ class Party {
 }
 
 class User {
-  String uniqueId;
+  // String uniqueId;
   int id;
   String userName;
-  String password;
-  String firstName;
-  String lastName;
-  String mobileNumber;
-  String emailId;
-  int userTypeId;
-  int reportingUserId;
-  String? webTokenID;
-  String? mobileAppTokenID;
-  int statusId;
-  bool isActive;
-  int createdBy;
-  DateTime createdDate;
-  int lastModifiedBy;
-  DateTime lastModifiedDate;
+  // String password;
+  // String firstName;
+  // String lastName;
+  // String mobileNumber;
+  // String emailId;
+  // int userTypeId;
+  // int reportingUserId;
+  // String? webTokenID;
+  // String? mobileAppTokenID;
+  // int statusId;
+  // bool isActive;
+  // int createdBy;
+  // DateTime createdDate;
+  // int lastModifiedBy;
+  // DateTime lastModifiedDate;
 
   // Constructor
   User({
-    required this.uniqueId,
+    // required this.uniqueId,
     required this.id,
     required this.userName,
-    required this.password,
-    required this.firstName,
-    required this.lastName,
-    required this.mobileNumber,
-    required this.emailId,
-    required this.userTypeId,
-    required this.reportingUserId,
-    this.webTokenID,
-    this.mobileAppTokenID,
-    required this.statusId,
-    required this.isActive,
-    required this.createdBy,
-    required this.createdDate,
-    required this.lastModifiedBy,
-    required this.lastModifiedDate,
+    // required this.password,
+    // required this.firstName,
+    // required this.lastName,
+    // required this.mobileNumber,
+    // required this.emailId,
+    // required this.userTypeId,
+    // required this.reportingUserId,
+    // this.webTokenID,
+    // this.mobileAppTokenID,
+    // required this.statusId,
+    // required this.isActive,
+    // required this.createdBy,
+    // required this.createdDate,
+    // required this.lastModifiedBy,
+    // required this.lastModifiedDate,
   });
 
   // Convert a JSON object to a User object
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      uniqueId: json['uniqueId'],
+      // uniqueId: json['uniqueId'],
       id: json['id'],
       userName: json['userName'],
-      password: json['password'],
-      firstName: json['firstName'],
-      lastName: json['lastName'],
-      mobileNumber: json['mobileNumber'],
-      emailId: json['emailId'],
-      userTypeId: json['userTypeId'],
-      reportingUserId: json['reportingUserId'],
-      webTokenID: json['webTokenID'], // Can be null
-      mobileAppTokenID: json['mobileAppTokenID'], // Can be null
-      statusId: json['statusId'],
-      isActive: json['isActive'],
-      createdBy: json['createdBy'],
-      createdDate: DateTime.parse(json['createdDate']),
-      lastModifiedBy: json['lastModifiedBy'],
-      lastModifiedDate: DateTime.parse(json['lastModifiedDate']),
+      // password: json['password'],
+      // firstName: json['firstName'],
+      // lastName: json['lastName'],
+      // mobileNumber: json['mobileNumber'],
+      // emailId: json['emailId'],
+      // userTypeId: json['userTypeId'],
+      // reportingUserId: json['reportingUserId'],
+      // webTokenID: json['webTokenID'], // Can be null
+      // mobileAppTokenID: json['mobileAppTokenID'], // Can be null
+      // statusId: json['statusId'],
+      // isActive: json['isActive'],
+      // createdBy: json['createdBy'],
+      // createdDate: DateTime.parse(json['createdDate']),
+      // lastModifiedBy: json['lastModifiedBy'],
+      // lastModifiedDate: DateTime.parse(json['lastModifiedDate']),
     );
   }
 
   // Convert a User object to a JSON object
   Map<String, dynamic> toJson() {
     return {
-      'uniqueId': uniqueId,
+      // 'uniqueId': uniqueId,
       'id': id,
       'userName': userName,
-      'password': password,
-      'firstName': firstName,
-      'lastName': lastName,
-      'mobileNumber': mobileNumber,
-      'emailId': emailId,
-      'userTypeId': userTypeId,
-      'reportingUserId': reportingUserId,
-      'webTokenID': webTokenID,
-      'mobileAppTokenID': mobileAppTokenID,
-      'statusId': statusId,
-      'isActive': isActive,
-      'createdBy': createdBy,
-      'createdDate': createdDate.toIso8601String(),
-      'lastModifiedBy': lastModifiedBy,
-      'lastModifiedDate': lastModifiedDate.toIso8601String(),
+      // 'password': password,
+      // 'firstName': firstName,
+      // 'lastName': lastName,
+      // 'mobileNumber': mobileNumber,
+      // 'emailId': emailId,
+      // 'userTypeId': userTypeId,
+      // 'reportingUserId': reportingUserId,
+      // 'webTokenID': webTokenID,
+      // 'mobileAppTokenID': mobileAppTokenID,
+      // 'statusId': statusId,
+      // 'isActive': isActive,
+      // 'createdBy': createdBy,
+      // 'createdDate': createdDate.toIso8601String(),
+      // 'lastModifiedBy': lastModifiedBy,
+      // 'lastModifiedDate': lastModifiedDate.toIso8601String(),
     };
+  }
+}
+
+class Activity {
+  final int id;
+  final String activityName;
+
+  Activity({
+    required this.id,
+    required this.activityName,
+  });
+
+  factory Activity.fromJson(Map<String, dynamic> json) {
+    return Activity(
+      id: json['id'],
+      activityName: json['activityName'],
+    );
+  }
+}
+
+class RootCause {
+  final int id;
+  final String rootCauseDesc;
+  final bool selected;
+
+  RootCause({
+    required this.id,
+    required this.rootCauseDesc,
+    required this.selected,
+  });
+
+  factory RootCause.fromJson(Map<String, dynamic> json) {
+    return RootCause(
+      id: json['id'],
+      rootCauseDesc: json['rootCauseDesc'],
+      selected: json['selected'],
+    );
   }
 }
 
@@ -589,6 +626,7 @@ class NCRObservation {
     required this.contractorName,
     required this.statusName,
     required this.assignedUserName,
+    // required this.createdDate,
   });
 
   factory NCRObservation.fromJson(Map<String, dynamic> json) {
@@ -608,30 +646,97 @@ class NCRObservation {
       contractorName: json['contractorName'] ?? '',
       statusName: json['statusName'] ?? '',
       assignedUserName: json['assignedUserName'] ?? '',
+      // createdDate: DateTime.parse(
+      //     json['createdDate'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
 
 class GetSiteObservationMasterById {
-  // Existing fields
+  final int id;
   final String observationCode;
   final String description;
-  final String observationRaisedBy;
-  // Add the activityDTO field:
+  final String? observationRaisedBy;
+  final String observationType;
+  final String? issueType;
+  final String? contractorName;
+  final String? actionToBeTaken;
+  final double reworkCost;
+  final int? rootCauseID;
+  final String? corretiveActionToBeTaken;
+  final String? preventiveActionTaken;
+  final String statusName;
+  final int? assignedUserID;
+  final DateTime trancationDate;
+  final DateTime createdDate;
+  final DateTime dueDate;
+  final String activityName;
+  final String sectionName;
+  final String floorName;
+  final String partName;
+  final bool complianceRequired;
+  final bool escalationRequired;
+  final String elementName;
+  final int? createdBy; // Assuming elementID is a String
+
   final List<ActivityDTO> activityDTO;
 
   GetSiteObservationMasterById({
+    required this.id,
     required this.observationCode,
     required this.description,
-    required this.observationRaisedBy,
+    this.observationRaisedBy,
+    required this.observationType,
+    this.issueType,
+    this.contractorName,
+    this.actionToBeTaken,
+    required this.reworkCost,
+    this.rootCauseID,
+    this.corretiveActionToBeTaken,
+    this.preventiveActionTaken,
+    required this.statusName,
+    this.assignedUserID,
+    required this.trancationDate,
+    required this.createdDate,
+    required this.dueDate,
+    required this.activityName,
+    required this.sectionName,
+    required this.floorName,
+    required this.partName,
+    required this.elementName,
+    this.complianceRequired = false,
+    this.escalationRequired = false,
+    required this.createdBy,
     required this.activityDTO,
   });
 
   factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
     return GetSiteObservationMasterById(
+      id: json['id'] ?? 0,
       observationCode: json['siteObservationCode'] ?? '',
       description: json['observationDescription'] ?? '',
-      observationRaisedBy: json['observationRaisedBy'] ?? '',
+      observationRaisedBy: json['observationRaisedBy'],
+      observationType: json['observationType'] ?? '',
+      issueType: json['issueType'],
+      contractorName: json['contractorName'],
+      actionToBeTaken: json['actionToBeTaken'],
+      reworkCost: (json['reworkCost'] ?? 0).toDouble(),
+      rootCauseID: json['rootCauseID'] as int?,
+      corretiveActionToBeTaken: json['corretiveActionToBeTaken'],
+      preventiveActionTaken: json['preventiveActionTaken'],
+      statusName: json['statusName'] ?? '',
+      assignedUserID: json['assignedUserID'],
+      trancationDate: DateTime.parse(json['trancationDate']),
+      createdDate: DateTime.parse(json['createdDate']),
+      dueDate: DateTime.parse(json['dueDate']),
+      activityName: json['activityName'] ?? '',
+      sectionName: json['sectionName'] ?? '',
+      floorName: json['floorName'] ?? '',
+      partName: json['partName'] ?? '',
+      elementName: json['elementName'] ?? '',
+      complianceRequired: json['complianceRequired'] ?? false,
+      escalationRequired: json['escalationRequired'] ?? false,
+      createdBy: json['createdBy'] ?? '',
       activityDTO: (json['activityDTO'] as List<dynamic>?)
               ?.map((item) => ActivityDTO.fromJson(item))
               .toList() ??
@@ -641,13 +746,15 @@ class GetSiteObservationMasterById {
 }
 
 class ActivityDTO {
-  final int id;
-  final int siteObservationID;
+  final int? id;
+  final int? siteObservationID;
+  final int? actionID;
   final String actionName;
   final String comments;
   final String documentName;
-  final String fromStatusName;
-  final String toStatusName;
+  final int? fromStatusID;
+  final int? toStatusID;
+  final int? assignedUserID;
   final String? assignedUserName;
   final String createdBy;
   final DateTime createdDate;
@@ -655,11 +762,13 @@ class ActivityDTO {
   ActivityDTO({
     required this.id,
     required this.siteObservationID,
+    required this.actionID,
     required this.actionName,
     required this.comments,
     required this.documentName,
-    required this.fromStatusName,
-    required this.toStatusName,
+    required this.fromStatusID,
+    required this.toStatusID,
+    this.assignedUserID,
     this.assignedUserName,
     required this.createdBy,
     required this.createdDate,
@@ -667,16 +776,149 @@ class ActivityDTO {
 
   factory ActivityDTO.fromJson(Map<String, dynamic> json) {
     return ActivityDTO(
-      id: json['id'],
-      siteObservationID: json['siteObservationID'],
+      id: json['id'] as int?,
+      siteObservationID: json['siteObservationID'] as int?,
+      actionID: json['actionID'] as int?,
       actionName: json['actionName'] ?? '',
       comments: json['comments'] ?? '',
       documentName: json['documentName'] ?? '',
-      fromStatusName: json['fromStatusName'] ?? '',
-      toStatusName: json['toStatusName'] ?? '',
+      fromStatusID: json['fromStatusID'] as int?,
+      toStatusID: json['toStatusID'] as int?,
+      assignedUserID: json['assignedUserID'] as int?,
       assignedUserName: json['assignedUserName'],
       createdBy: json['createdBy'] ?? '',
       createdDate: DateTime.parse(json['createdDate']),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'siteObservationID': siteObservationID,
+      'actionID': actionID,
+      'actionName': actionName,
+      'comments': comments,
+      'documentName': documentName,
+      'fromStatusID': fromStatusID,
+      'toStatusID': toStatusID,
+      'assignedUserID': assignedUserID,
+      'assignedUserName': assignedUserName,
+      'createdBy': createdBy,
+      'createdDate': createdDate.toIso8601String(),
+    };
+  }
+}
+
+class UpdateSiteObservation {
+  int id;
+  int? rootCauseID; // ✅ Made nullable
+  String? corretiveActionToBeTaken; // ✅ Nullable if API allows
+  String? preventiveActionTaken; // ✅ Nullable if API allows
+  int reworkCost;
+  int statusID;
+  int lastModifiedBy;
+  DateTime lastModifiedDate;
+  List<ActivityDTO> activityDTO;
+
+  UpdateSiteObservation({
+    required this.id,
+    this.rootCauseID,
+    this.corretiveActionToBeTaken,
+    this.preventiveActionTaken,
+    required this.reworkCost,
+    required this.statusID,
+    required this.lastModifiedBy,
+    required this.lastModifiedDate,
+    required this.activityDTO,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'rootCauseID': rootCauseID,
+      'corretiveActionToBeTaken': corretiveActionToBeTaken,
+      'preventiveActionTaken': preventiveActionTaken,
+      'reworkCost': reworkCost,
+      'statusID': statusID,
+      'lastModifiedBy': lastModifiedBy,
+      'lastModifiedDate': lastModifiedDate.toIso8601String(),
+      'activityDTO': activityDTO.map((a) => a.toJson()).toList(),
+    };
+  }
+}
+
+// class ActivityDTO {
+//   int siteObservationID;
+//   int actionID;
+//   String comments;
+//   String documentName;
+//   int fromStatusID;
+//   int toStatusID;
+//   int assignedUserID;
+//   int createdBy;
+//   DateTime createdDate;
+
+//   ActivityDTO({
+//     required this.siteObservationID,
+//     required this.actionID,
+//     required this.comments,
+//     required this.documentName,
+//     required this.fromStatusID,
+//     required this.toStatusID,
+//     required this.assignedUserID,
+//     required this.createdBy,
+//     required this.createdDate,
+//   });
+
+//   Map<String, dynamic> toJson() {
+//     return {
+//       'siteObservationID': siteObservationID,
+//       'actionID': actionID,
+//       'comments': comments,
+//       'documentName': documentName,
+//       'fromStatusID': fromStatusID,
+//       'toStatusID': toStatusID,
+//       'assignedUserID': assignedUserID,
+//       'createdBy': createdBy,
+//       'createdDate': createdDate.toIso8601String(),
+//     };
+//   }
+// }
+
+class UserList {
+  final int id;
+  final String userName;
+  final String firstName;
+  final String lastName;
+  final String? email;
+  final String? mobileNumber;
+
+  UserList({
+    required this.id,
+    required this.userName,
+    required this.firstName,
+    required this.lastName,
+    this.email,
+    this.mobileNumber,
+  });
+
+  factory UserList.fromJson(Map<String, dynamic> json) {
+    return UserList(
+      id: json['ID'],
+      userName: json['UserName'] ?? '',
+      firstName: json['FirstName'] ?? '',
+      lastName: json['LastName'] ?? '',
+      email: json['EmailID'],
+      mobileNumber: json['MobileNumber'],
+    );
+  }
+
+  /// Optional: for FlutterMentions
+  Map<String, dynamic> toMentionMap() {
+    return {
+      'id': id.toString(),
+      'display': userName,
+      'full_name': "$firstName $lastName".trim(),
+    };
   }
 }

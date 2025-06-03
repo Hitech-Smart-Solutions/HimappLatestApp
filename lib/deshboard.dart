@@ -149,6 +149,7 @@ class DashboardPage extends StatelessWidget {
                   builder: (_) => ObservationNCRPage(
                     userId: userId,
                     siteObservationService: SiteObservationService(),
+                    siteObservationId: 0, // Pass a default or specific ID
                   ),
                 ),
               );

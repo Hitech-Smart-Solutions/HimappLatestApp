@@ -5,13 +5,15 @@ import 'modal/observation_detail_dialog.dart'; // 🔁 Dialog widget import
 
 class ObservationNCRPage extends StatefulWidget {
   final SiteObservationService siteObservationService;
-
+  final int siteObservationId;
   final int userId;
+  // final int activityId;
 
   const ObservationNCRPage({
     super.key,
     required this.userId,
     required this.siteObservationService,
+    required this.siteObservationId,
   });
 
   @override
@@ -26,6 +28,7 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
     super.initState();
     futureObservations =
         widget.siteObservationService.fetchNCRObservations(widget.userId);
+    print("Future Observations: $futureObservations");
   }
 
   @override
@@ -181,7 +184,14 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
               );
             } else {
               final detail = snapshot.data!.first;
-              return ObservationDetailDialog(detail: detail);
+              print("Observation Detail: ${detail}");
+              return ObservationDetailDialog(
+                detail: detail,
+                siteObservationService: SiteObservationService(),
+                siteObservationId: detail.id,
+                // projectId:
+                // widget.projectID ?? 0, // Ensure projectId is not null
+              );
             }
           },
         );
