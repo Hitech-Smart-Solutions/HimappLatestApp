@@ -184,7 +184,7 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
               );
             } else {
               final detail = snapshot.data!.first;
-              print("Observation Detail: ${detail}");
+              print("Observation Detail: ${snapshot.data!}");
               return ObservationDetailDialog(
                 detail: detail,
                 siteObservationService: SiteObservationService(),

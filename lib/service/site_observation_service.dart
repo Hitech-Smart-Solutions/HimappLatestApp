@@ -693,31 +693,73 @@ class SiteObservationService {
     }
   }
 
-  Future<void> sendSiteObservationActivity(
-      List<ActivityDTO> activities, int siteObservationID) async {
-    final url = Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/AddSiteObservationActivity/$siteObservationID');
+  // Future<void> sendSiteObservationActivity(
+  //     List<ActivityDTO> activities, int siteObservationID) async {
+  //   String? token = await SharedPrefsHelper.getToken();
+  //   final url = Uri.parse(
+  //       'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/AddSiteObservationActivity/$siteObservationID');
 
-    // Convert your ActivityDTO list to JSON list
+  //   // Convert your ActivityDTO list to JSON list
+  //   final body = jsonEncode(activities.map((a) => a.toJson()).toList());
+
+  //   try {
+  //     final response = await http.post(
+  //       url,
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'Authorization': 'Bearer $token',
+  //       },
+  //       body: body,
+  //     );
+
+  //     if (response.statusCode == 200 || response.statusCode == 201) {
+  //       print('Activity posted successfully!');
+  //     } else {
+  //       print('Failed to post activity: ${response.statusCode}');
+  //       print('Response body: ${response.body}');
+  //     }
+  //   } catch (e) {
+  //     print('Error posting activity: $e');
+  //   }
+  // }
+
+  Future<bool> sendSiteObservationActivity({
+    required List<ActivityDTO> activities,
+    required int siteObservationID,
+  }) async {
+    String? token = await SharedPrefsHelper.getToken();
+
+    if (token == null || token.isEmpty) {
+      print('❌ No auth token found.');
+      return false;
+    }
+
+    final url = Uri.parse(
+        "https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/AddSiteObservationActivity/$siteObservationID");
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token', // Adjust format if API needs different
+    };
+
     final body = jsonEncode(activities.map((a) => a.toJson()).toList());
+    print("📤 POST Body: $body");
 
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: body,
-      );
+      final response = await http.post(url, headers: headers, body: body);
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        print('Activity posted successfully!');
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        print('✅ Activity posted successfully!');
+        return true;
       } else {
-        print('Failed to post activity: ${response.statusCode}');
-        print('Response body: ${response.body}');
+        print('❌ Failed to post activity: ${response.statusCode}');
+        print('📝 Response: ${response.body}');
+        return false;
       }
     } catch (e) {
-      print('Error posting activity: $e');
+      print('❌ Error posting activity: $e');
+      return false;
     }
   }
 

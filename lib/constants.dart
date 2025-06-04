@@ -23,6 +23,24 @@ class SiteObservationStatus {
   static const int Completed = 4;
   static const int Reopen = 5;
   static const int WaitingFromThirdParty = 6;
+
+  static const Map<String, int> nameToId = {
+    "Open": Open,
+    "In Progress": InProgress,
+    "Ready To Inspect": ReadyToInspect,
+    "Completed": Completed,
+    "Reopen": Reopen,
+    "Waiting From Third Party": WaitingFromThirdParty,
+  };
+
+  static const Map<int, String> idToName = {
+    Open: "Open",
+    InProgress: "In Progress",
+    ReadyToInspect: "Ready To Inspect",
+    Completed: "Completed",
+    Reopen: "Reopen",
+    WaitingFromThirdParty: "Waiting From Third Party",
+  };
 }
 
 //  class SiteObservationActions {
