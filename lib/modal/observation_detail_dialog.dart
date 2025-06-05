@@ -7,7 +7,6 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_mentions/flutter_mentions.dart';
-import 'package:himappnew/constants.dart';
 
 class ObservationDetailDialog extends StatefulWidget {
   final GetSiteObservationMasterById detail;
@@ -187,21 +186,12 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
       final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
       final Iterable<RegExpMatch> matches = mentionRegex.allMatches(markupText);
 
-      userList = allUsers
-          .map((user) => {
-                'id': user.id.toString(),
-                'display': user.userName.replaceAll('_', ''),
-                'full_name': user.userName,
-              })
-          .toList();
-
       List<User> selectedUsers = matches.map((match) {
-        String rawIdStr = match.group(1)!; // e.g. "__48__"
-        String rawUserName = match.group(2)!; // e.g. "__parth2234__"
+        String rawIdStr = match.group(1)!;
+        String rawUserName = match.group(2)!;
 
-        // Clean underscores
-        String cleanedIdStr = rawIdStr.replaceAll('_', ''); // "48"
-        String cleanedUserName = rawUserName.replaceAll('_', ''); // "parth2234"
+        String cleanedIdStr = rawIdStr.replaceAll('_', '');
+        String cleanedUserName = rawUserName.replaceAll('_', '');
 
         int userId = int.tryParse(cleanedIdStr) ?? 0;
 
@@ -221,36 +211,38 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
       List<ActivityDTO> activities = [];
 
-      for (var user in selectedUsers) {
-        activities.add(ActivityDTO(
-          id: 0,
-          siteObservationID: editingUserId,
-          actionID: SiteObservationActions.Assigned,
-          actionName: "Assigned",
-          comments: "",
-          documentName: "",
-          fromStatusID: 0,
-          toStatusID: 0,
-          assignedUserID: user.id,
-          assignedUserName: user.userName,
-          createdBy: createdBy.toString(),
-          createdDate: DateTime.now(),
-        ));
-      }
-
       final commentText =
           mentionsKey.currentState?.controller?.text.trim() ?? "";
 
-// Check if there are any mentions
-      bool hasMentions = matches.isNotEmpty;
-
-// Remove mentions from text to get only real comment
+      // Remove mentions to get only the actual comment text
       final plainComment =
           commentText.replaceAll(RegExp(r'\@\[(.*?)\]\((.*?)\)'), '').trim();
 
-// Jab mention ho (assign kar rahe ho), tab comment activity mat banao
-// Agar mention nahi hai tabhi comment activity add karo (agar comment available hai)
-      if (!hasMentions && plainComment.isNotEmpty) {
+      bool hasMentions = selectedUsers.isNotEmpty;
+      bool hasComment = plainComment.isNotEmpty;
+
+      // 1) Agar sirf mention hai (comment empty) → assigned activity banega
+      if (hasMentions && !hasComment) {
+        for (var user in selectedUsers) {
+          activities.add(ActivityDTO(
+            id: 0,
+            siteObservationID: editingUserId,
+            actionID: SiteObservationActions.Assigned,
+            actionName: "Assigned",
+            comments: "",
+            documentName: "",
+            fromStatusID: 0,
+            toStatusID: 0,
+            assignedUserID: user.id,
+            assignedUserName: user.userName,
+            createdBy: createdBy.toString(),
+            createdDate: DateTime.now(),
+          ));
+        }
+      }
+
+      // 2) Agar sirf comment hai (mention nahi) → comment activity banega
+      else if (!hasMentions && hasComment) {
         activities.add(ActivityDTO(
           id: 0,
           siteObservationID: editingUserId,
@@ -265,7 +257,49 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           createdDate: DateTime.now(),
         ));
       }
+
+      // 3) Agar dono mention + comment hain → dono activities banenge
+      else if (hasMentions && hasComment) {
+        for (var user in selectedUsers) {
+          activities.add(ActivityDTO(
+            id: 0,
+            siteObservationID: editingUserId,
+            actionID: SiteObservationActions.Assigned,
+            actionName: "Assigned",
+            comments: "",
+            documentName: "",
+            fromStatusID: 0,
+            toStatusID: 0,
+            assignedUserID: user.id,
+            assignedUserName: user.userName,
+            createdBy: createdBy.toString(),
+            createdDate: DateTime.now(),
+          ));
+        }
+
+        activities.add(ActivityDTO(
+          id: 0,
+          siteObservationID: editingUserId,
+          actionID: SiteObservationActions.Commented,
+          actionName: "Commented",
+          comments: plainComment,
+          documentName: "",
+          fromStatusID: 0,
+          toStatusID: 0,
+          assignedUserID: 0,
+          createdBy: createdBy.toString(),
+          createdDate: DateTime.now(),
+        ));
+      }
+
+      // Agar dono mention aur comment nahi hain, activities empty hain, kuch nahi karna
+
       print("Activities to send: $commentText");
+      if (activities.isEmpty) {
+        print("No valid activity to send.");
+        return;
+      }
+
       bool success = await SiteObservationService().sendSiteObservationActivity(
         activities: activities,
         siteObservationID: editingUserId,
@@ -289,55 +323,75 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   }
 
   void setObservationStatusDropdown(int statusId, bool assigned) {
-    if (statusId == SiteObservationStatus.Completed) {
-      observationStatus = [
-        {"id": SiteObservationStatus.Completed.toString(), "name": "Completed"}
-      ];
-      selectedStatus = SiteObservationStatus.Completed.toString();
-      isStatusEnabled = false;
-    } else if (assigned && statusId == SiteObservationStatus.ReadyToInspect) {
-      observationStatus = [
-        {"id": SiteObservationStatus.Completed.toString(), "name": "Completed"},
-        {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"}
-      ];
-      selectedStatus = null;
-      isStatusEnabled = true;
-    } else if (!assigned && statusId == SiteObservationStatus.ReadyToInspect) {
-      observationStatus = [
-        {
-          "id": SiteObservationStatus.ReadyToInspect.toString(),
-          "name": "Ready To Inspect"
+    observationStatus = [];
+    selectedStatus = null;
+    isStatusEnabled = true;
+
+    switch (statusId) {
+      case SiteObservationStatus.Completed:
+        observationStatus = [
+          {
+            "id": SiteObservationStatus.Completed.toString(),
+            "name": "Completed"
+          }
+        ];
+        selectedStatus = SiteObservationStatus.Completed.toString();
+        isStatusEnabled = false;
+        break;
+
+      case SiteObservationStatus.ReadyToInspect:
+        if (assigned) {
+          observationStatus = [
+            {
+              "id": SiteObservationStatus.Completed.toString(),
+              "name": "Completed"
+            },
+            {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"}
+          ];
+          selectedStatus = null;
+          isStatusEnabled = true;
+        } else {
+          observationStatus = [
+            {
+              "id": SiteObservationStatus.ReadyToInspect.toString(),
+              "name": "Ready To Inspect"
+            }
+          ];
+          selectedStatus = SiteObservationStatus.ReadyToInspect.toString();
+          isStatusEnabled = false;
         }
-      ];
-      selectedStatus = SiteObservationStatus.ReadyToInspect.toString();
-      isStatusEnabled = false;
-    } else if (statusId == SiteObservationStatus.Open) {
-      observationStatus = [
-        {"id": SiteObservationStatus.Open.toString(), "name": "Open"},
-        {
-          "id": SiteObservationStatus.InProgress.toString(),
-          "name": "In Progress"
-        },
-        {
-          "id": SiteObservationStatus.ReadyToInspect.toString(),
-          "name": "Ready To Inspect"
-        },
-      ];
-      selectedStatus = SiteObservationStatus.Open.toString();
-      isStatusEnabled = true;
-    } else {
-      observationStatus = [
-        {
-          "id": SiteObservationStatus.InProgress.toString(),
-          "name": "In Progress"
-        },
-        {
-          "id": SiteObservationStatus.ReadyToInspect.toString(),
-          "name": "Ready To Inspect"
-        },
-      ];
-      selectedStatus = statusId.toString();
-      isStatusEnabled = true;
+        break;
+
+      case SiteObservationStatus.Open:
+        observationStatus = [
+          {"id": SiteObservationStatus.Open.toString(), "name": "Open"},
+          {
+            "id": SiteObservationStatus.InProgress.toString(),
+            "name": "In Progress"
+          },
+          {
+            "id": SiteObservationStatus.ReadyToInspect.toString(),
+            "name": "Ready To Inspect"
+          },
+        ];
+        selectedStatus = SiteObservationStatus.Open.toString();
+        isStatusEnabled = true;
+        break;
+
+      default:
+        observationStatus = [
+          {
+            "id": SiteObservationStatus.InProgress.toString(),
+            "name": "In Progress"
+          },
+          {
+            "id": SiteObservationStatus.ReadyToInspect.toString(),
+            "name": "Ready To Inspect"
+          },
+        ];
+        selectedStatus = statusId.toString();
+        isStatusEnabled = true;
+        break;
     }
   }
 
@@ -472,8 +526,11 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
-    print("Selected Status inside build: $selectedStatus");
+    print("selectedStatus: $selectedStatus");
+    print(
+        "Dropdown items: ${observationStatus.map((e) => e['id'].toString()).toList()}");
     final media = MediaQuery.of(context);
+    print("Dropdown items count: ${observationStatus.length}");
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -510,31 +567,36 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                         ),
                       ),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: selectedStatus,
-                          hint: const Text("-- Status --"),
-                          isExpanded: true,
-                          items: observationStatus.map((status) {
-                            return DropdownMenuItem<String>(
-                              value: status['id'].toString(),
-                              child: Text(status['name'] ?? ''),
-                            );
-                          }).toList(),
-                          onChanged: isStatusEnabled
-                              ? (newValue) {
-                                  setState(() {
-                                    selectedStatus = newValue!;
-                                  });
-                                }
-                              : null,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select a status';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
+                          child: DropdownButtonFormField<String>(
+                        value: selectedStatus,
+                        hint: const Text("-- Status --"),
+                        isExpanded: true,
+                        items: observationStatus.map((status) {
+                          String idStr = status['id'].toString();
+                          int? id = int.tryParse(idStr);
+                          String name = SiteObservationStatus.idToName[id] ??
+                              status['name'] ??
+                              '';
+
+                          return DropdownMenuItem<String>(
+                            value: idStr,
+                            child: Text(name),
+                          );
+                        }).toList(),
+                        onChanged: isStatusEnabled
+                            ? (newValue) {
+                                setState(() {
+                                  selectedStatus = newValue!;
+                                });
+                              }
+                            : null,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please select a status';
+                          }
+                          return null;
+                        },
+                      )),
                     ],
                   ),
                 ),
@@ -855,8 +917,23 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                     itemBuilder: (context, index) {
                                       final activity =
                                           widget.detail.activityDTO[index];
-                                      print(
-                                          'Activity #$index: actionName=${activity.actionName}, comments=${activity.comments}');
+
+                                      // Agar Commented hai aur comment empty hai, toh ye item mat dikhao
+                                      if (activity.actionName == "Commented" &&
+                                          activity.comments.trim().isEmpty) {
+                                        return const SizedBox.shrink();
+                                      }
+
+                                      // Agar Assigned hai aur assignedUserName null ya empty hai, toh ye item mat dikhao
+                                      if (activity.actionName == "Assigned" &&
+                                          (activity.assignedUserName == null ||
+                                              activity.assignedUserName!
+                                                  .trim()
+                                                  .isEmpty)) {
+                                        return const SizedBox.shrink();
+                                      }
+
+                                      // Baaki tumhara existing code jaisa hi rahega
                                       return Card(
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
@@ -942,14 +1019,11 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                                     ),
                                                   ),
                                                   const SizedBox(height: 6),
-                                                  // Show comment text only if action is "Commented" and comment exists
                                                   if (activity.actionName ==
                                                           "Commented" &&
                                                       activity
                                                           .comments.isNotEmpty)
                                                     Text(activity.comments),
-
-                                                  // ✅ Show only if actionName == Assigned
                                                   if (activity.actionName ==
                                                           "Assigned" &&
                                                       activity.assignedUserName !=
@@ -1122,10 +1196,9 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Show form fields only for ReadyToInspect
           if (selectedStatus ==
-                  SiteObservationStatus.ReadyToInspect.toString() ||
-              selectedStatus ==
-                  SiteObservationStatus.InProgress.toString()) ...[
+              SiteObservationStatus.ReadyToInspect.toString()) ...[
             DropdownButtonFormField<RootCause>(
               value: selectedRootCause,
               decoration: const InputDecoration(
@@ -1185,31 +1258,33 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                 return null;
               },
             ),
-
             const SizedBox(height: 16),
+          ],
 
-            /// ✅ File Upload only for InProgress
-            if (selectedStatus ==
-                SiteObservationStatus.InProgress.toString()) ...[
-              const Text(
-                "Upload File",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+          // Show file upload for both InProgress and ReadyToInspect
+          if (selectedStatus == SiteObservationStatus.InProgress.toString() ||
+              selectedStatus ==
+                  SiteObservationStatus.ReadyToInspect.toString()) ...[
+            const Text(
+              "Upload File",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
-              ElevatedButton(
-                onPressed: () async {
-                  // 👇 Your file picker logic here
-                  // Example:
-                  // final pickedFile = await FilePicker.platform.pickFiles();
-                },
-                child: const Text("Choose File"),
-              ),
-              const SizedBox(height: 16),
-            ],
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Your file picker logic here
+                // final pickedFile = await FilePicker.platform.pickFiles();
+              },
+              child: const Text("Choose File"),
+            ),
+            const SizedBox(height: 16),
+          ],
 
-            /// ✅ Update Button
+          // Update button only if form fields are shown (i.e. ReadyToInspect)
+          if (selectedStatus ==
+              SiteObservationStatus.ReadyToInspect.toString()) ...[
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
@@ -1252,7 +1327,12 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                 child: const Text('Update'),
               ),
             ),
-          ] else
+          ],
+
+          // Show this text if status is neither InProgress nor ReadyToInspect
+          if (selectedStatus !=
+                  SiteObservationStatus.ReadyToInspect.toString() &&
+              selectedStatus != SiteObservationStatus.InProgress.toString())
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
