@@ -433,6 +433,19 @@ class RootCause {
       selected: json['selected'],
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RootCause && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() {
+    return 'RootCause(id: $id, rootCauseDesc: $rootCauseDesc, selected: $selected)';
+  }
 }
 
 // site_observation_model.dart
@@ -678,6 +691,7 @@ class GetSiteObservationMasterById {
   final bool escalationRequired;
   final String elementName;
   final int? createdBy; // Assuming elementID is a String
+  final int? activityID; // Assuming activityId is an int
 
   final List<ActivityDTO> activityDTO;
 
@@ -707,6 +721,7 @@ class GetSiteObservationMasterById {
     this.complianceRequired = false,
     this.escalationRequired = false,
     required this.createdBy,
+    required this.activityID,
     required this.activityDTO,
   });
 
@@ -737,6 +752,7 @@ class GetSiteObservationMasterById {
       complianceRequired: json['complianceRequired'] ?? false,
       escalationRequired: json['escalationRequired'] ?? false,
       createdBy: json['createdBy'] ?? '',
+      activityID: json['activityID'] as int?,
       activityDTO: (json['activityDTO'] as List<dynamic>?)
               ?.map((item) => ActivityDTO.fromJson(item))
               .toList() ??

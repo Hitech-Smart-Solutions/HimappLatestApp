@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
@@ -7,11 +8,15 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_mentions/flutter_mentions.dart';
+import 'package:collection/collection.dart';
 
 class ObservationDetailDialog extends StatefulWidget {
   final GetSiteObservationMasterById detail;
   final SiteObservationService siteObservationService;
   final int siteObservationId;
+  final int? createdBy;
+  final int? activityId;
+  // final String? statusName;
   // final int activityId;
   // final int projectId;
   const ObservationDetailDialog({
@@ -19,6 +24,9 @@ class ObservationDetailDialog extends StatefulWidget {
     required this.detail,
     required this.siteObservationService,
     required this.siteObservationId,
+    required this.createdBy,
+    required this.activityId,
+    // required this.statusName,
     // required this.activityId
     // required this.projectId,
   });
@@ -62,29 +70,38 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   bool isLoading = false;
 
   // final int activityId;
-  int? activityIds = 0; // Default value, can be set later
+  // Default value, can be set later
   int? userId;
 
   List<String> uploadedFiles = [];
   bool isButtonDisabled = false;
+
+  String? selectedFileName;
+
   @override
   void initState() {
     super.initState();
-    _loadActivityByCompanyIdAndScreenTypeId();
-    _loadRootCauses();
-    final int statusId = int.tryParse(widget.detail.statusName ?? '') ?? 0;
+    _setupPage();
+  }
+
+  Future<void> _setupPage() async {
+    // Parse status ID
+    final rawStatus = widget.detail.statusName;
+    final int statusId = int.tryParse(rawStatus ?? '') ?? 0;
+
     if (statusId != 0) {
-      setObservationStatusDropdown(
-        statusId,
-        widget.detail.assignedUserID != null &&
-            widget.detail.assignedUserID != 0,
-      );
+      await setObservationStatusDropdown(
+          statusId, widget.detail.createdBy, widget.detail);
     } else {
       print("⚠️ Invalid status ID string: ${widget.detail.statusName}");
     }
 
+    await _loadRootCauses(); // wait for root causes to load before proceeding
+
+    _initializeFormFields(); // now safe to initialize form fields with loaded data
+
     editingUserId = widget.siteObservationId;
-    initData();
+    await initData(); // optionally await this if it’s async
   }
 
   Future<void> initData() async {
@@ -96,6 +113,39 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     userId = await SharedPrefsHelper.getUserId();
   }
 
+  void _initializeFormFields() {
+    if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
+        selectedStatus == SiteObservationStatus.Completed.toString()) {
+      try {
+        // If rootCauseID is valid, find matching RootCause
+        if (widget.detail.rootCauseID != null &&
+            widget.detail.rootCauseID != 0) {
+          selectedRootCause = rootCauses.firstWhere(
+            (rc) => rc.id == widget.detail.rootCauseID,
+          );
+        } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
+          // If rootCauseID is 0, fallback to first in list
+          selectedRootCause = rootCauses.first;
+        } else {
+          selectedRootCause = null;
+        }
+      } catch (e) {
+        selectedRootCause = null;
+      }
+
+      print("RootCause ID: ${widget.detail.rootCauseID}");
+      print("Rework Cost: ${widget.detail.reworkCost}");
+      print("Preventive Action: ${widget.detail.preventiveActionTaken}");
+      print("Corrective Action: ${widget.detail.corretiveActionToBeTaken}");
+
+      reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
+      preventiveActionController.text =
+          widget.detail.preventiveActionTaken ?? '';
+      correctiveActionController.text =
+          widget.detail.corretiveActionToBeTaken ?? '';
+    }
+  }
+
   @override
   void dispose() {
     rootCauseController.dispose();
@@ -104,81 +154,6 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     correctiveActionController.dispose();
     super.dispose();
   }
-
-  // void _sendActivityComment() async {
-  //   try {
-  //     final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
-  //     final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
-  //     final Iterable<RegExpMatch> matches = mentionRegex.allMatches(markupText);
-
-  //     List<User> selectedUsers = matches.map((match) {
-  //       final displayName = match.group(2)!;
-  //       final rawIdOrDisplay = match.group(1)!;
-  //       final cleanedIdStr = rawIdOrDisplay.replaceAll(RegExp(r'\D'), '');
-  //       int userId = int.tryParse(cleanedIdStr) ?? 0;
-  //       return User(id: userId, userName: displayName);
-  //     }).toList();
-
-  //     List<ActivityDTO> activities = [];
-
-  //     int? createdBy = await SharedPrefsHelper.getUserId();
-
-  //     for (var user in selectedUsers) {
-  //       activities.add(ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: widget.editingUserId,
-  //         actionID: SiteObservationActions.Assigned,
-  //         actionName: "Assigned",
-  //         comments: "",
-  //         documentName: "",
-  //         fromStatusID: 0,
-  //         toStatusID: 0,
-  //         assignedUserID: user.id,
-  //         assignedUserName: user.userName,
-  //         createdBy: createdBy.toString(),
-  //         createdDate: DateTime.now(),
-  //       ));
-  //     }
-
-  //     if (_activityCommentController.text.trim().isNotEmpty) {
-  //       activities.add(ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: widget.editingUserId,
-  //         actionID: SiteObservationActions.Commented,
-  //         actionName: "Commented",
-  //         comments: _activityCommentController.text.trim(),
-  //         documentName: "",
-  //         fromStatusID: 0,
-  //         toStatusID: 0,
-  //         assignedUserID: 0,
-  //         assignedUserName: null,
-  //         createdBy: createdBy.toString(),
-  //         createdDate: DateTime.now(),
-  //       ));
-  //     }
-
-  //     bool success = await SiteObservationService().sendSiteObservationActivity(
-  //       activities: activities,
-  //       siteObservationID: widget.editingUserId,
-  //     );
-
-  //     if (success) {
-  //       // ✅ Clear input
-  //       mentionsKey.currentState?.controller!.clear();
-  //       _activityCommentController.clear();
-
-  //       // ✅ Push to ListView
-  //       setState(() {
-  //         widget.detail.activityDTO.insertAll(0, activities); // Add to top
-  //       });
-
-  //       print("✅ Successfully posted activity!");
-  //     }
-  //   } catch (e, stack) {
-  //     print("❌ Error in _sendActivityComment: $e");
-  //     print(stack);
-  //   }
-  // }
 
   Future<void> _sendActivityComment() async {
     try {
@@ -322,10 +297,16 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     }
   }
 
-  void setObservationStatusDropdown(int statusId, bool assigned) {
+  Future<void> setObservationStatusDropdown(
+      int statusId, int? createdBy, GetSiteObservationMasterById detail) async {
     observationStatus = [];
     selectedStatus = null;
     isStatusEnabled = true;
+    int? userID = await SharedPrefsHelper.getUserId();
+    // this.editDetails.activityDTO.filter(x => x.assignedToUserID == userID)
+    var isAssign = detail.activityDTO
+        .where((activity) => activity.assignedUserID == userID)
+        .toList();
 
     switch (statusId) {
       case SiteObservationStatus.Completed:
@@ -340,26 +321,29 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         break;
 
       case SiteObservationStatus.ReadyToInspect:
-        if (assigned) {
+        if (createdBy == userID) {
           observationStatus = [
             {
               "id": SiteObservationStatus.Completed.toString(),
               "name": "Completed"
             },
-            {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"}
+            {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"},
+            {
+              "id": SiteObservationStatus.ReadyToInspect.toString(),
+              "name": "Ready To Inspect"
+            }
           ];
-          selectedStatus = null;
           isStatusEnabled = true;
-        } else {
+        } else if (isAssign.isEmpty && createdBy != userID) {
           observationStatus = [
             {
               "id": SiteObservationStatus.ReadyToInspect.toString(),
               "name": "Ready To Inspect"
             }
           ];
-          selectedStatus = SiteObservationStatus.ReadyToInspect.toString();
           isStatusEnabled = false;
         }
+        selectedStatus = SiteObservationStatus.ReadyToInspect.toString();
         break;
 
       case SiteObservationStatus.Open:
@@ -483,38 +467,44 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     );
   }
 
-  Future<void> _loadActivityByCompanyIdAndScreenTypeId() async {
-    setState(() => isLoading = true);
-    try {
-      int? companyId = await SharedPrefsHelper.getCompanyId();
-      int functionID = ScreenTypes.Safety;
+  // Future<void> _loadActivityByCompanyIdAndScreenTypeId() async {
+  //   setState(() => isLoading = true);
+  //   try {
+  //     // int? companyId = await SharedPrefsHelper.getCompanyId();
+  //     // int functionID = ScreenTypes.Safety;
+  //     // print("Company ID: $companyId, Function ID: $functionID");
+  //     List<Activity> activities = await SiteObservationService()
+  //         .fatchActivityByCompanyIdAndScreenTypeId(companyId!, functionID);
 
-      List<Activity> activities = await SiteObservationService()
-          .fatchActivityByCompanyIdAndScreenTypeId(companyId!, functionID);
+  //     if (activities.isNotEmpty) {
+  //       activityIds = activities.first.id; // 👈 yahi Angular jaisa kaam hai
+  //       await _loadRootCauses(); // root cause load karo single ID ke liye
+  //     }
 
-      if (activities.isNotEmpty) {
-        activityIds = activities.first.id; // 👈 yahi Angular jaisa kaam hai
-        await _loadRootCauses(); // root cause load karo single ID ke liye
-      }
-
-      await _loadRootCauses(); // ✅ wait for loading
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load activities: $e')),
-      );
-    } finally {
-      setState(() => isLoading = false);
-    }
-  }
+  //     await _loadRootCauses(); // ✅ wait for loading
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Failed to load activities: $e')),
+  //     );
+  //   } finally {
+  //     setState(() => isLoading = false);
+  //   }
+  // }
 
   Future<void> _loadRootCauses() async {
-    if (activityIds == null) return; // safety check
-
+    // if (activityIds == null) return; // safety check
+    // print("Loading root causes for activity ID: $activityIds");
     setState(() => isLoading = true);
     try {
+      int? activityId = widget.activityId;
+      if (activityId == null) {
+        print("⚠️ activityId is null, skipping root cause fetch");
+        return;
+      }
+      print("Fetching root causes for activity ID: ${widget.activityId}");
       rootCauses = await SiteObservationService()
-          .fatchRootCausesByActivityID(activityIds!);
-      // print("Fetched root causes: ${rootCauses.length}");
+          .fatchRootCausesByActivityID(activityId!);
+      print("Fetched root causes: $rootCauses");
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load root causes: $e')),
@@ -526,7 +516,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
-    print("selectedStatus: $selectedStatus");
+    print("selectedStatus123: $selectedStatus");
     print(
         "Dropdown items: ${observationStatus.map((e) => e['id'].toString()).toList()}");
     final media = MediaQuery.of(context);
@@ -572,11 +562,11 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                         hint: const Text("-- Status --"),
                         isExpanded: true,
                         items: observationStatus.map((status) {
-                          String idStr = status['id'].toString();
-                          int? id = int.tryParse(idStr);
-                          String name = SiteObservationStatus.idToName[id] ??
+                          final idStr = status['id'].toString();
+                          final id = int.tryParse(idStr);
+                          final name = SiteObservationStatus.idToName[id] ??
                               status['name'] ??
-                              '';
+                              'Unknown';
 
                           return DropdownMenuItem<String>(
                             value: idStr,
@@ -708,11 +698,18 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                 const SizedBox(height: 24),
 
                                 if (selectedStatus ==
+                                        SiteObservationStatus.Open.toString() ||
+                                    selectedStatus ==
                                         SiteObservationStatus.ReadyToInspect
                                             .toString() ||
                                     selectedStatus ==
                                         SiteObservationStatus.InProgress
-                                            .toString())
+                                            .toString() ||
+                                    selectedStatus ==
+                                        SiteObservationStatus.Completed
+                                            .toString() ||
+                                    selectedStatus ==
+                                        SiteObservationStatus.Reopen.toString())
                                   Card(
                                     elevation: 3,
                                     shape: RoundedRectangleBorder(
@@ -850,7 +847,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                         .map((activity) {
                                       if (activity.documentName.isEmpty)
                                         return const SizedBox();
-
+                                      print(
+                                          "print(activity.documentName),:$url/${activity.documentName}");
                                       return Padding(
                                         padding:
                                             const EdgeInsets.only(bottom: 16),
@@ -917,23 +915,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                     itemBuilder: (context, index) {
                                       final activity =
                                           widget.detail.activityDTO[index];
-
-                                      // Agar Commented hai aur comment empty hai, toh ye item mat dikhao
-                                      if (activity.actionName == "Commented" &&
-                                          activity.comments.trim().isEmpty) {
-                                        return const SizedBox.shrink();
-                                      }
-
-                                      // Agar Assigned hai aur assignedUserName null ya empty hai, toh ye item mat dikhao
-                                      if (activity.actionName == "Assigned" &&
-                                          (activity.assignedUserName == null ||
-                                              activity.assignedUserName!
-                                                  .trim()
-                                                  .isEmpty)) {
-                                        return const SizedBox.shrink();
-                                      }
-
-                                      // Baaki tumhara existing code jaisa hi rahega
+                                      print(
+                                          'ActivityLatest #$index: actionNameLatest=${activity.actionName}, commentsLatest=${activity.comments}');
                                       return Card(
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
@@ -1019,11 +1002,14 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                                     ),
                                                   ),
                                                   const SizedBox(height: 6),
+                                                  // Show comment text only if action is "Commented" and comment exists
                                                   if (activity.actionName ==
                                                           "Commented" &&
                                                       activity
                                                           .comments.isNotEmpty)
                                                     Text(activity.comments),
+
+                                                  // ✅ Show only if actionName == Assigned
                                                   if (activity.actionName ==
                                                           "Assigned" &&
                                                       activity.assignedUserName !=
@@ -1198,23 +1184,30 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         children: [
           // Show form fields only for ReadyToInspect
           if (selectedStatus ==
-              SiteObservationStatus.ReadyToInspect.toString()) ...[
+                  SiteObservationStatus.ReadyToInspect.toString() ||
+              selectedStatus == SiteObservationStatus.Open.toString() ||
+              selectedStatus == SiteObservationStatus.Completed.toString() ||
+              selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
             DropdownButtonFormField<RootCause>(
               value: selectedRootCause,
               decoration: const InputDecoration(
                 labelText: 'Select Root Cause',
                 border: OutlineInputBorder(),
               ),
-              items: rootCauses.map((RootCause cause) {
+              items: rootCauses.map((cause) {
                 return DropdownMenuItem<RootCause>(
                   value: cause,
                   child: Text(cause.rootCauseDesc),
                 );
               }).toList(),
-              onChanged: (RootCause? newValue) {
+              onChanged: (newValue) {
                 setState(() {
                   selectedRootCause = newValue;
                 });
+              },
+              validator: (value) {
+                if (value == null) return 'Root Cause is required';
+                return null;
               },
             ),
             const SizedBox(height: 12),
@@ -1229,6 +1222,16 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                 labelText: 'Rework Cost',
                 border: OutlineInputBorder(),
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Rework Cost is required';
+                }
+                final numValue = num.tryParse(value);
+                if (numValue == null) {
+                  return 'Please enter a valid number';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -1264,7 +1267,10 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           // Show file upload for both InProgress and ReadyToInspect
           if (selectedStatus == SiteObservationStatus.InProgress.toString() ||
               selectedStatus ==
-                  SiteObservationStatus.ReadyToInspect.toString()) ...[
+                  SiteObservationStatus.ReadyToInspect.toString() ||
+              selectedStatus == SiteObservationStatus.Open.toString() ||
+              selectedStatus == SiteObservationStatus.Completed.toString() ||
+              selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
             const Text(
               "Upload File",
               style: TextStyle(
@@ -1274,17 +1280,43 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             ),
             ElevatedButton(
               onPressed: () async {
-                // Your file picker logic here
-                // final pickedFile = await FilePicker.platform.pickFiles();
+                FilePickerResult? result = await FilePicker.platform.pickFiles(
+                  allowMultiple: false,
+                );
+
+                if (result != null && result.files.isNotEmpty) {
+                  final file = result.files.first;
+                  print("Picked file: ${file.name}");
+
+                  setState(() {
+                    selectedFileName = file.name;
+                  });
+
+                  // Upload file logic here if needed
+                } else {
+                  print("No file selected");
+                }
               },
               child: const Text("Choose File"),
             ),
+            if (selectedFileName != null) ...[
+              SizedBox(height: 8),
+              Text(
+                "Selected file: $selectedFileName",
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ],
             const SizedBox(height: 16),
           ],
 
           // Update button only if form fields are shown (i.e. ReadyToInspect)
-          if (selectedStatus ==
-              SiteObservationStatus.ReadyToInspect.toString()) ...[
+          if (selectedStatus == SiteObservationStatus.Open.toString() ||
+              selectedStatus ==
+                  SiteObservationStatus.ReadyToInspect.toString() ||
+              selectedStatus ==
+                  SiteObservationStatus.ReadyToInspect.toString() ||
+              selectedStatus == SiteObservationStatus.Completed.toString() ||
+              selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
@@ -1332,7 +1364,10 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           // Show this text if status is neither InProgress nor ReadyToInspect
           if (selectedStatus !=
                   SiteObservationStatus.ReadyToInspect.toString() &&
-              selectedStatus != SiteObservationStatus.InProgress.toString())
+              selectedStatus != SiteObservationStatus.InProgress.toString() &&
+              selectedStatus != SiteObservationStatus.Open.toString() &&
+              selectedStatus == SiteObservationStatus.Completed.toString() &&
+              selectedStatus == SiteObservationStatus.Reopen.toString())
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
