@@ -8,13 +8,14 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_mentions/flutter_mentions.dart';
-import 'package:collection/collection.dart';
+// import 'package:collection/collection.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 class ObservationDetailDialog extends StatefulWidget {
   final GetSiteObservationMasterById detail;
   final SiteObservationService siteObservationService;
   final int siteObservationId;
-  final int? createdBy;
+  final String? createdBy;
   final int? activityId;
   // final String? statusName;
   // final int activityId;
@@ -77,6 +78,10 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   bool isButtonDisabled = false;
 
   String? selectedFileName;
+  bool _isReadOnly = false;
+
+  List<PlatformFile> selectedFiles = [];
+  List<String> uploadedFileNames = [];
 
   @override
   void initState() {
@@ -114,8 +119,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   }
 
   void _initializeFormFields() {
-    if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-        selectedStatus == SiteObservationStatus.Completed.toString()) {
+    if (selectedStatus == SiteObservationStatus.Open.toString()) {
       try {
         // If rootCauseID is valid, find matching RootCause
         if (widget.detail.rootCauseID != null &&
@@ -133,10 +137,31 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         selectedRootCause = null;
       }
 
-      print("RootCause ID: ${widget.detail.rootCauseID}");
-      print("Rework Cost: ${widget.detail.reworkCost}");
-      print("Preventive Action: ${widget.detail.preventiveActionTaken}");
-      print("Corrective Action: ${widget.detail.corretiveActionToBeTaken}");
+      reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
+      preventiveActionController.text =
+          widget.detail.preventiveActionTaken ?? '';
+      correctiveActionController.text =
+          widget.detail.corretiveActionToBeTaken ?? '';
+    }
+    if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
+        selectedStatus == SiteObservationStatus.Completed.toString()) {
+      _isReadOnly = true;
+      try {
+        // If rootCauseID is valid, find matching RootCause
+        if (widget.detail.rootCauseID != null &&
+            widget.detail.rootCauseID != 0) {
+          selectedRootCause = rootCauses.firstWhere(
+            (rc) => rc.id == widget.detail.rootCauseID,
+          );
+        } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
+          // If rootCauseID is 0, fallback to first in list
+          selectedRootCause = rootCauses.first;
+        } else {
+          selectedRootCause = null;
+        }
+      } catch (e) {
+        selectedRootCause = null;
+      }
 
       reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
       preventiveActionController.text =
@@ -420,7 +445,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     activities.add(
       ActivityDTO(
         id: 0,
-        siteObservationID: id,
+        siteObservationID: editingUserId,
         actionID: SiteObservationActions.Assigned,
         actionName: '', // ✅ Required field
         comments: '',
@@ -433,7 +458,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         createdDate: DateTime.now(),
       ),
     );
-
+    print("Uploaded files list: $uploadedFiles");
     // Add file uploads if available
     for (String fileName in uploadedFiles) {
       activities.add(
@@ -455,7 +480,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     }
 
     return UpdateSiteObservation(
-      id: id,
+      id: editingUserId,
       rootCauseID: rootCauseID,
       corretiveActionToBeTaken: correctiveActionController.text,
       preventiveActionTaken: preventiveActionController.text,
@@ -467,29 +492,32 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     );
   }
 
-  // Future<void> _loadActivityByCompanyIdAndScreenTypeId() async {
-  //   setState(() => isLoading = true);
-  //   try {
-  //     // int? companyId = await SharedPrefsHelper.getCompanyId();
-  //     // int functionID = ScreenTypes.Safety;
-  //     // print("Company ID: $companyId, Function ID: $functionID");
-  //     List<Activity> activities = await SiteObservationService()
-  //         .fatchActivityByCompanyIdAndScreenTypeId(companyId!, functionID);
+  Future<void> pickAndUploadFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      withData: true, // required for bytes
+    );
 
-  //     if (activities.isNotEmpty) {
-  //       activityIds = activities.first.id; // 👈 yahi Angular jaisa kaam hai
-  //       await _loadRootCauses(); // root cause load karo single ID ke liye
-  //     }
+    if (result != null && result.files.isNotEmpty) {
+      selectedFiles = result.files;
 
-  //     await _loadRootCauses(); // ✅ wait for loading
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text('Failed to load activities: $e')),
-  //     );
-  //   } finally {
-  //     setState(() => isLoading = false);
-  //   }
-  // }
+      uploadedFileNames.clear();
+
+      for (var file in selectedFiles) {
+        if (file.bytes != null) {
+          final uploadedName = await SiteObservationService()
+              .uploadFileAndGetFileName(file.name, file.bytes!);
+          if (uploadedName != null) {
+            uploadedFileNames.add(uploadedName);
+          } else {
+            print("❌ Failed to upload ${file.name}");
+          }
+        }
+      }
+
+      print("✅ Uploaded filenames: $uploadedFileNames");
+    }
+  }
 
   Future<void> _loadRootCauses() async {
     // if (activityIds == null) return; // safety check
@@ -514,14 +542,19 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     }
   }
 
+  Future<Uint8List?> compressImage(File file) async {
+    final result = await FlutterImageCompress.compressWithFile(
+      file.absolute.path,
+      minWidth: 1024,
+      minHeight: 1024,
+      quality: 70, // 0-100
+    );
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
-    print("selectedStatus123: $selectedStatus");
-    print(
-        "Dropdown items: ${observationStatus.map((e) => e['id'].toString()).toList()}");
     final media = MediaQuery.of(context);
-    print("Dropdown items count: ${observationStatus.length}");
-
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       contentPadding: EdgeInsets.zero,
@@ -770,12 +803,21 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
                                 if (pickedFile != null) {
                                   File imageFile = File(pickedFile.path);
-
+                                  final fileName =
+                                      imageFile.path.split('/').last;
+                                  final fileBytes =
+                                      await compressImage(imageFile);
+                                  if (fileBytes == null) {
+                                    print("Compression failed");
+                                    return;
+                                  }
                                   final uploadedFileName =
                                       await SiteObservationService()
-                                          .uploadFile(imageFile);
+                                          .uploadFileAndGetFileName(
+                                              fileName, fileBytes);
 
                                   if (uploadedFileName != null) {
+                                    uploadedFiles.add(uploadedFileName);
                                     setState(() {
                                       widget.detail.activityDTO.add(
                                         ActivityDTO(
@@ -847,8 +889,6 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                         .map((activity) {
                                       if (activity.documentName.isEmpty)
                                         return const SizedBox();
-                                      print(
-                                          "print(activity.documentName),:$url/${activity.documentName}");
                                       return Padding(
                                         padding:
                                             const EdgeInsets.only(bottom: 16),
@@ -1032,6 +1072,38 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                                         ],
                                                       ),
                                                     ),
+                                                  // ✅ This is your solution
+                                                  if (activity.actionName ==
+                                                          "DocUploaded" &&
+                                                      activity.documentName !=
+                                                          null &&
+                                                      activity.documentName!
+                                                          .isNotEmpty &&
+                                                      isImage(activity
+                                                          .documentName!))
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 8.0),
+                                                      child: SizedBox(
+                                                        height: 150,
+                                                        width: 150,
+                                                        child: ClipRRect(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(10),
+                                                          child: Image.network(
+                                                            "$url/${activity.documentName!}",
+                                                            fit: BoxFit.cover,
+                                                            errorBuilder: (context,
+                                                                    error,
+                                                                    stackTrace) =>
+                                                                const Icon(Icons
+                                                                    .broken_image),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
                                                 ],
                                               ),
                                             ),
@@ -1200,11 +1272,13 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                   child: Text(cause.rootCauseDesc),
                 );
               }).toList(),
-              onChanged: (newValue) {
-                setState(() {
-                  selectedRootCause = newValue;
-                });
-              },
+              onChanged: _isReadOnly
+                  ? null // 👈 disables the dropdown
+                  : (newValue) {
+                      setState(() {
+                        selectedRootCause = newValue;
+                      });
+                    },
               validator: (value) {
                 if (value == null) return 'Root Cause is required';
                 return null;
@@ -1213,6 +1287,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             const SizedBox(height: 12),
             TextFormField(
               controller: reworkCostController,
+              readOnly: _isReadOnly,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
@@ -1236,6 +1311,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             const SizedBox(height: 12),
             TextFormField(
               controller: preventiveActionController,
+              readOnly: _isReadOnly,
               decoration: const InputDecoration(
                 labelText: 'Preventive Action To Be Taken',
                 border: OutlineInputBorder(),
@@ -1250,6 +1326,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             const SizedBox(height: 12),
             TextFormField(
               controller: correctiveActionController,
+              readOnly: _isReadOnly,
               decoration: const InputDecoration(
                 labelText: 'Corrective Action To Be Taken',
                 border: OutlineInputBorder(),
@@ -1282,6 +1359,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
               onPressed: () async {
                 FilePickerResult? result = await FilePicker.platform.pickFiles(
                   allowMultiple: false,
+                  withData: true,
                 );
 
                 if (result != null && result.files.isNotEmpty) {
@@ -1292,7 +1370,28 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                     selectedFileName = file.name;
                   });
 
-                  // Upload file logic here if needed
+                  // ✅ Upload file here
+                  final uploadedFileName =
+                      await SiteObservationService().uploadFileAndGetFileName(
+                    file.name,
+                    file.bytes!,
+                  );
+
+                  if (uploadedFileName != null) {
+                    print("Uploaded file name: $uploadedFileName");
+
+                    setState(() {
+                      uploadedFiles.add(
+                          uploadedFileName); // 🔁 Add to your list for saving in activityDTO
+                    });
+                    print("Current uploadedFiles list: $uploadedFiles");
+                    print("File upload successful: $uploadedFileName");
+                  } else {
+                    print("Upload failed");
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("File upload failed")),
+                    );
+                  }
                 } else {
                   print("No file selected");
                 }
@@ -1300,10 +1399,10 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
               child: const Text("Choose File"),
             ),
             if (selectedFileName != null) ...[
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 "Selected file: $selectedFileName",
-                style: TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
             const SizedBox(height: 16),
@@ -1329,15 +1428,40 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                             isButtonDisabled = true;
                           });
 
+                          print("uploadedFiles before update: $uploadedFiles");
+
                           UpdateSiteObservation updatedData =
                               getUpdatedDataFromForm(uploadedFiles);
-
-                          print(updatedData.toJson());
 
                           bool success = await SiteObservationService()
                               .updateSiteObservationByID(updatedData);
 
                           if (success) {
+                            // 👇👇 Add uploaded files to activityDTO here
+                            for (var fileName in uploadedFiles) {
+                              widget.detail.activityDTO.add(
+                                ActivityDTO(
+                                  id: 0,
+                                  siteObservationID: widget.detail.id,
+                                  actionID: 0,
+                                  actionName: '',
+                                  comments: '',
+                                  documentName: fileName,
+                                  fromStatusID: 0,
+                                  toStatusID: 0,
+                                  assignedUserID: 0,
+                                  assignedUserName: null,
+                                  createdBy: 'You',
+                                  createdDate: DateTime.now(),
+                                ),
+                              );
+                            }
+
+                            setState(() {
+                              uploadedFiles
+                                  .clear(); // Reset after successful update
+                            });
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: Text('Update successful!')),

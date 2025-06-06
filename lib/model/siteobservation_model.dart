@@ -802,7 +802,7 @@ class ActivityDTO {
       toStatusID: json['toStatusID'] as int?,
       assignedUserID: json['assignedUserID'] as int?,
       assignedUserName: json['assignedUserName'],
-      createdBy: json['createdBy'] ?? '',
+      createdBy: json['createdBy'] as String,
       createdDate: DateTime.parse(json['createdDate']),
     );
   }

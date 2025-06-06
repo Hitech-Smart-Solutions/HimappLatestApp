@@ -190,7 +190,7 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
                 detail: detail,
                 siteObservationService: SiteObservationService(),
                 siteObservationId: detail.id,
-                createdBy: detail.createdBy,
+                createdBy: detail.createdBy?.toString() ?? '',
                 activityId: detail.activityID, // Pass the activityId
                 // statusName = detail.statusName;
               );

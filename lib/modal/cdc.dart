@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
@@ -639,60 +638,60 @@ class SiteObservationService {
     }
   }
 
-  // Future<String?> uploadFile(File file) async {
-  //   try {
-  //     var request = http.MultipartRequest(
-  //       'POST',
-  //       Uri.parse(
-  //           'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/upload'),
-  //     );
+  Future<String?> uploadFile(File file) async {
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(
+            'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/upload'),
+      );
 
-  //     String? token = await SharedPrefsHelper.getToken();
-  //     print('🔑 Token: $token');
+      String? token = await SharedPrefsHelper.getToken();
+      print('🔑 Token: $token');
 
-  //     request.headers.addAll({
-  //       'Authorization': 'Bearer $token',
-  //       'Content-Type': 'application/json',
-  //     });
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      });
 
-  //     request.files.add(
-  //       await http.MultipartFile.fromPath(
-  //         'file',
-  //         file.path,
-  //         filename: basename(file.path),
-  //         contentType: MediaType('image', 'jpeg'),
-  //       ),
-  //     );
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          file.path,
+          filename: basename(file.path),
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
 
-  //     print('📤 Sending request to: ${request.url}');
-  //     print('📎 File path: ${file.path}');
-  //     print('📎 File name: ${basename(file.path)}');
+      print('📤 Sending request to: ${request.url}');
+      print('📎 File path: ${file.path}');
+      print('📎 File name: ${basename(file.path)}');
 
-  //     var response = await request.send();
-  //     final responseBody = await response.stream.bytesToString();
+      var response = await request.send();
+      final responseBody = await response.stream.bytesToString();
 
-  //     print('📥 Status Code: ${response.statusCode}');
-  //     print('📥 Response Body: $responseBody');
+      print('📥 Status Code: ${response.statusCode}');
+      print('📥 Response Body: $responseBody');
 
-  //     if (response.statusCode == 200) {
-  //       // Response format: "file uploaded|<url>"
-  //       final parts = responseBody.split('|');
-  //       if (parts.length == 2) {
-  //         final uploadedUrl = parts[1].trim();
-  //         return uploadedUrl; // ✅ Return the URL
-  //       } else {
-  //         print('❌ Unexpected response format');
-  //         return null;
-  //       }
-  //     } else {
-  //       print('❌ Upload failed: ${response.statusCode}');
-  //       return null;
-  //     }
-  //   } catch (e) {
-  //     print('❌ Exception during upload: $e');
-  //     return null;
-  //   }
-  // }
+      if (response.statusCode == 200) {
+        // Response format: "file uploaded|<url>"
+        final parts = responseBody.split('|');
+        if (parts.length == 2) {
+          final uploadedUrl = parts[1].trim();
+          return uploadedUrl; // ✅ Return the URL
+        } else {
+          print('❌ Unexpected response format');
+          return null;
+        }
+      } else {
+        print('❌ Upload failed: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Exception during upload: $e');
+      return null;
+    }
+  }
 
   // Future<void> sendSiteObservationActivity(
   //     List<ActivityDTO> activities, int siteObservationID) async {
@@ -826,49 +825,5 @@ class SiteObservationService {
     } else {
       throw Exception('Failed to fetch users');
     }
-  }
-
-  Future<String?> uploadFileAndGetFileName(
-      String fileName, Uint8List fileBytes) async {
-    final uri = Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/upload');
-
-    final token = await SharedPrefsHelper.getToken();
-
-    final request = http.MultipartRequest('POST', uri);
-
-    request.files.add(http.MultipartFile.fromBytes(
-      'file',
-      fileBytes,
-      filename: fileName,
-    ));
-
-    print("Uploading file: $fileName");
-
-    request.headers['Authorization'] = 'Bearer $token';
-    // NO Content-Type header here, MultipartRequest sets it automatically
-
-    try {
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      print('Upload response status: ${response.statusCode}');
-      print('Upload response body: ${response.body}');
-
-      if (response.statusCode == 200 &&
-          response.body.contains('file uploaded|')) {
-        final path = response.body.split('|')[1];
-        print('🟢 File uploaded successfully! Path: $path');
-        final fileNameFromPath = path.split('/').last;
-        print('🟢 Extracted file name: $fileNameFromPath');
-        return fileNameFromPath;
-      } else {
-        print('❌ Upload failed: ${response.statusCode} - ${response.body}');
-      }
-    } catch (e) {
-      print('❌ Upload error: $e');
-    }
-
-    return null;
   }
 }
