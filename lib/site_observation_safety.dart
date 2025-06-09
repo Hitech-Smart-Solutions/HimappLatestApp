@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
@@ -84,6 +85,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   final CompanyService _companyService = CompanyService(); // Company service
   final _formKey = GlobalKey<FormState>();
   bool isFormReady = false;
+  bool isUploading = false;
+  String? selectedFileName;
+  List<String> uploadedFiles = [];
   @override
   void initState() {
     super.initState();
@@ -699,36 +703,43 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       lastModifiedDate: formatDateForApi(DateTime.now()),
       siteObservationActivity: [
         SiteObservationActivity(
-            id: 0,
-            siteObservationID: null,
-            actionID: 1,
-            comments: 'Some initial comments',
-            documentName: 'document.pdf',
-            fromStatusID: 0,
-            toStatusID: 0,
-            assignedUserID: userID,
-            createdBy: userID,
-            createdDate: formatDateForApi(DateTime.now())
-            // siteObservation: 'Observation content',
-            ),
+          id: 0,
+          siteObservationID: null,
+          actionID: 1,
+          comments: 'Some initial comments',
+          documentName: uploadedFiles.isNotEmpty ? uploadedFiles.first : "",
+          fromStatusID: 0,
+          toStatusID: 0,
+          assignedUserID: userID,
+          createdBy: userID,
+          createdDate: formatDateForApi(DateTime.now()),
+          //siteObservation: null // 👈 Add this field if needed,
+        ),
       ],
     );
-    bool success;
+    print("Site Observation Model: ${siteObservation.toJson()}");
+    try {
+      bool success = await widget._siteObservationService
+          .submitSiteObservation(siteObservation);
 
-    success = await widget._siteObservationService
-        .submitSiteObservation(siteObservation);
-    // ✅ After save/update: Hide form and refresh list
-    if (success) {
-      setState(() {
-        showObservations = true; // 👈 Form hide
-      });
-      await _fetchSiteObservations(projectID);
+      if (success) {
+        setState(() {
+          showObservations = true; // 👈 Form hide
+        });
+        await _fetchSiteObservations(projectID);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('✅ Operation Successful')),
+        );
+      } else {
+        // Optional: for boolean false without exception
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Submission failed without specific error')),
+        );
+      }
+    } catch (e) {
+      // 👇 This will now show backend error like "Please Map RootCause with Activity"
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('✅ Operation Successful')),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to submit Site Observation')),
+        SnackBar(content: Text('❌ Error: ${e.toString().replaceAll('"', '')}')),
       );
     }
   }
@@ -777,7 +788,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         //     ),
         //   ],
         // ),
-        title: Text('Site Observation - Quality'),
+        title: Text('Site Observation - Safety'),
         backgroundColor: Colors.blue,
         centerTitle: true,
       ),
@@ -1326,6 +1337,90 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             },
                                           ),
                                           SizedBox(height: 20),
+                                          const Text(
+                                            "Upload File",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () async {
+                                              FilePickerResult? result =
+                                                  await FilePicker.platform
+                                                      .pickFiles(
+                                                allowMultiple: false,
+                                                withData: true,
+                                              );
+
+                                              if (result != null &&
+                                                  result.files.isNotEmpty) {
+                                                final file = result.files.first;
+
+                                                setState(() {
+                                                  selectedFileName = file.name;
+                                                  isUploading =
+                                                      true; // ⏳ Start showing loading
+                                                });
+
+                                                final uploadedFileName =
+                                                    await SiteObservationService()
+                                                        .uploadFileAndGetFileName(
+                                                  file.name,
+                                                  file.bytes!,
+                                                );
+
+                                                setState(() {
+                                                  isUploading =
+                                                      false; // ✅ Stop loading
+                                                });
+
+                                                if (uploadedFileName != null) {
+                                                  setState(() {
+                                                    uploadedFiles.add(
+                                                        uploadedFileName); // Add to list
+                                                  });
+                                                  print(
+                                                      "✅ File upload successful: $uploadedFileName");
+                                                } else {
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    const SnackBar(
+                                                        content: Text(
+                                                            "❌ File upload failed")),
+                                                  );
+                                                }
+                                              }
+                                            },
+                                            child: const Text("Choose File"),
+                                          ),
+
+                                          if (selectedFileName != null) ...[
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              "Selected file: $selectedFileName",
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w600),
+                                            ),
+                                          ],
+
+                                          if (isUploading) ...[
+                                            const SizedBox(height: 8),
+                                            const CircularProgressIndicator(), // 🔄 Show loading
+                                          ],
+
+                                          if (uploadedFiles.isNotEmpty) ...[
+                                            const SizedBox(height: 16),
+                                            const Text(
+                                              "Uploaded Files:",
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                            for (var name in uploadedFiles)
+                                              Text("📄 $name",
+                                                  style: const TextStyle(
+                                                      color: Colors.green)),
+                                          ],
                                           ElevatedButton(
                                             onPressed: () {
                                               if (_formKey.currentState

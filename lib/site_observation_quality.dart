@@ -749,6 +749,7 @@ class _SiteObservationQualityState extends State<SiteObservationQuality> {
             assignedUserID: userID,
             createdBy: userID,
             createdDate: formatDateForApi(DateTime.now()),
+            // siteObservation: null
           ),
         ],
       );

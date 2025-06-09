@@ -120,16 +120,16 @@ class Observation {
 
   factory Observation.fromJson(Map<String, dynamic> json) {
     return Observation(
-      id: json['id'],
-      observationTypeID: json['observationTypeID'],
-      issueTypeID: json['issueTypeID'],
-      observationDescription: json['observationDescription'],
-      complianceRequired: json['complianceRequired'],
-      escalationRequired: json['escalationRequired'],
-      dueTimeInHrs: json['dueTimeInHrs'],
-      actionToBeTaken: json['actionToBeTaken'],
+      id: (json['id'] as num).toInt(),
+      observationTypeID: (json['observationTypeID'] as num).toInt(),
+      issueTypeID: (json['issueTypeID'] as num).toInt(),
+      observationDescription: json['observationDescription'] ?? '',
+      complianceRequired: json['complianceRequired'] ?? false,
+      escalationRequired: json['escalationRequired'] ?? false,
+      dueTimeInHrs: (json['dueTimeInHrs'] as num).toInt(),
+      actionToBeTaken: json['actionToBeTaken'] ?? '',
       lastModifiedBy: json['lastModifiedBy'].toString(),
-      lastModifiedDate: json['lastModifiedDate'],
+      lastModifiedDate: DateTime.parse(json['lastModifiedDate']).toString(),
     );
   }
 }
@@ -574,6 +574,7 @@ class SiteObservationActivity {
   final int assignedUserID;
   final int createdBy;
   final String createdDate;
+  // final String? siteObservation;
 
   SiteObservationActivity({
     required this.id,
@@ -586,6 +587,7 @@ class SiteObservationActivity {
     required this.assignedUserID,
     required this.createdBy,
     required this.createdDate,
+    // required this.siteObservation,
   });
 
   Map<String, dynamic> toJson() {
@@ -602,6 +604,7 @@ class SiteObservationActivity {
       'assignedUserID': assignedUserID,
       'createdBy': createdBy,
       'createdDate': createdDate,
+      // 'siteObservation': siteObservation, // 👈 Yeh bhi conditionally add karo
     };
   }
 }

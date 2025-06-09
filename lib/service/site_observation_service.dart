@@ -160,6 +160,8 @@ class SiteObservationService {
 
   Future<List<Observation>> fetchObservations(
       int companyID, int screentypeID) async {
+    print(
+        "Fetching observations for companyID: $companyID and screentypeID: $screentypeID");
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
@@ -441,34 +443,33 @@ class SiteObservationService {
     String? token = await SharedPrefsHelper.getToken();
     if (token == null) {
       print("❌ Token not found.");
-      return false;
+      throw 'Authorization token not found.';
     }
+
     try {
       final response = await http.post(
         Uri.parse(
             'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/CreateSiteObservationMaster'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', // ✅ Add token here},
+          'Authorization': 'Bearer $token',
         },
-        body: json.encode(siteObservation.toJson()), // Convert model to JSON
+        body: json.encode(siteObservation.toJson()),
       );
-      print("📦 JSON Payload:");
-      print("response, $response"); // Log the response body
+
+      print("📦 JSON Payload Sent");
+      print("Status: ${response.statusCode}");
+      print("Response Body: ${response.body}");
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final parsed = jsonDecode(response.body);
-        print("Parsed: $parsed");
-        // Success
         return true;
       } else {
-        // Handle failure response
-        print('Failed to submit: ${response.statusCode}');
-        return false;
+        // ❗ Throw backend error message to show it in UI
+        throw response.body;
       }
     } catch (e) {
-      // Handle error
-      print('Error occurred: $e');
-      return false;
+      print('❌ Error occurred: $e');
+      throw e.toString(); // Re-throw to let UI handle it
     }
   }
 
