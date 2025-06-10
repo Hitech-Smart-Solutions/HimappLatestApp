@@ -50,6 +50,7 @@ dependencies:
   flutter_image_compress: ^2.1.0
   flutter_mentions: ^2.0.1
   collection: ^1.17.2
+  google_fonts: ^6.1.0
 
 dev_dependencies:
   flutter_test:

@@ -1,8 +1,6 @@
 import 'dart:ui';
-
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:animated_widgets/widgets/scale_animated.dart';
 import 'package:himappnew/labour_registration_page.dart';
 import 'package:himappnew/observation_ncr.dart';
@@ -14,6 +12,7 @@ import 'package:himappnew/site_observation_quality.dart';
 import 'login_page.dart';
 import 'site_observation_safety.dart';
 import 'package:himappnew/service/firebase_messaging_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DashboardPage extends StatelessWidget {
   final String companyName;
@@ -56,19 +55,6 @@ class DashboardPage extends StatelessWidget {
             const SizedBox(height: 20),
             _buildStatsCards(context),
             const SizedBox(height: 30),
-            Text("Insights",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            _buildBarChart(),
-            const SizedBox(height: 30),
-            Text("Recent Observations",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            _buildRecentObservations(),
-            const SizedBox(height: 20),
-            Text("Reminders",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            _buildRemindersList(),
-            const SizedBox(height: 20),
             Center(
               child: ElevatedButton.icon(
                 onPressed: () async {
@@ -126,233 +112,205 @@ class DashboardPage extends StatelessWidget {
 
   Widget _buildStatsCards(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
-    double cardWidth = (screenWidth - 48) / 2;
+    double horizontalPadding = 16 * 2; // Scaffold padding
+    double cardSpacing = 16;
 
-    return Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: [
-        _buildNeonGlassCard(
-            icon: Icons.work,
-            title: "Ongoing Projects",
-            value: "12",
-            color: Colors.cyanAccent,
-            width: cardWidth),
-        GestureDetector(
-          onTap: () async {
-            final userId = await SharedPrefsHelper.getUserId();
-            print("🟡 UserID before navigating: $userId");
-            if (userId != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ObservationNCRPage(
-                    userId: userId,
-                    siteObservationService: SiteObservationService(),
-                    siteObservationId: 0, // Pass a default or specific ID
-                  ),
+    // Card width calculation (optional, for reference)
+    double cardWidth = (screenWidth - horizontalPadding - cardSpacing) / 2;
+
+    final cards = [
+      _buildNeonGlassCard(
+        icon: Icons.work,
+        title: "Ongoing Projects",
+        value: "12",
+        color: Color(0xFF3A86FF),
+      ),
+
+      GestureDetector(
+        onTap: () async {
+          final userId = await SharedPrefsHelper.getUserId();
+          if (userId != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ObservationNCRPage(
+                  userId: userId,
+                  siteObservationService: SiteObservationService(),
+                  siteObservationId: 0,
                 ),
-              );
-            }
-          },
-          child: _buildNeonGlassCard(
-            icon: Icons.visibility,
-            title: "Observations",
-            value: "5",
-            color: Colors.orangeAccent,
-            width: cardWidth,
-          ),
+              ),
+            );
+          }
+        },
+        child: _buildNeonGlassCard(
+          icon: Icons.visibility,
+          title: "Observations",
+          value: "5",
+          color: Color(0xFFFFB703),
         ),
-        _buildNeonGlassCard(
-            icon: Icons.pending_actions,
-            title: "Pending",
-            value: "3",
-            color: Colors.pinkAccent,
-            width: cardWidth),
-      ],
+      ),
+      _buildNeonGlassCard(
+        icon: Icons.pending_actions,
+        title: "Pending",
+        value: "3",
+        color: Color(0xFFFB5607),
+      ),
+      // Aap aur cards yaha add kar sakte ho
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics:
+          NeverScrollableScrollPhysics(), // Scroll only the parent ScrollView
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2, // Har row me 2 cards
+        mainAxisSpacing: cardSpacing,
+        crossAxisSpacing: cardSpacing,
+        childAspectRatio:
+            2.5, // Card ka width/height ratio (adjust karo apne design ke hisab se)
+      ),
+      itemCount: cards.length,
+      itemBuilder: (context, index) {
+        return cards[index];
+      },
     );
   }
+
+  // Widget _buildStatsCards(BuildContext context) {
+  //   double screenWidth = MediaQuery.of(context).size.width;
+  //   // Let's keep max card width 400, adjust based on screen
+  //   double maxCardWidth = screenWidth > 400 ? 400 : screenWidth * 0.9;
+
+  //   return Column(
+  //     children: [
+  //       _buildNeonGlassCard(
+  //         icon: Icons.work,
+  //         title: "Ongoing Projects",
+  //         value: "12",
+  //         color: Colors.cyanAccent,
+  //         maxWidth: maxCardWidth,
+  //       ),
+  //       const SizedBox(height: 20),
+  //       _buildNeonGlassCard(
+  //         icon: Icons.visibility,
+  //         title: "Observations",
+  //         value: "5",
+  //         color: Colors.orangeAccent,
+  //         maxWidth: maxCardWidth,
+  //       ),
+  //       const SizedBox(height: 20),
+  //       _buildNeonGlassCard(
+  //         icon: Icons.pending_actions,
+  //         title: "Pending",
+  //         value: "3",
+  //         color: Colors.pinkAccent,
+  //         maxWidth: maxCardWidth,
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildNeonGlassCard({
     required IconData icon,
     required String title,
     required String value,
     required Color color,
-    double? width,
   }) {
-    return ScaleAnimatedWidget.tween(
-      enabled: true,
-      duration: const Duration(milliseconds: 150),
-      scaleEnabled: 0.97,
-      scaleDisabled: 1,
-      child: Container(
-        width: width ?? double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            colors: [
-              color.withOpacity(0.25),
-              color.withOpacity(0.15),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1), // soft neutral shadow
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color.withOpacity(0.4), width: 1),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double screenWidth = MediaQuery.of(context).size.width;
+
+        // Theme check
+        bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+        // Responsive sizes
+        double iconSize = screenWidth < 400 ? 26 : 32;
+        double titleFontSize = screenWidth < 400 ? 13 : 14;
+        double valueFontSize = screenWidth < 400 ? 20 : 22;
+
+        return ScaleAnimatedWidget.tween(
+          enabled: true,
+          duration: const Duration(milliseconds: 150),
+          scaleEnabled: 0.97,
+          scaleDisabled: 1,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: [color.withOpacity(0.12), color.withOpacity(0.05)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              child: Row(
-                children: [
-                  Icon(icon, color: Colors.white, size: 30),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border:
+                        Border.all(color: color.withOpacity(0.3), width: 1.2),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(title,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14)),
-                      Text(value,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 22)),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: color.withOpacity(0.6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withOpacity(0.3),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          icon,
+                          color: isDark ? Colors.white : Colors.black,
+                          size: iconSize,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              title,
+                              style: GoogleFonts.poppins(
+                                color: isDark ? Colors.white : Colors.black,
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              value,
+                              style: GoogleFonts.poppins(
+                                color: isDark ? Colors.white : Colors.black,
+                                fontSize: valueFontSize,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color color, double width) {
-    return ScaleAnimatedWidget.tween(
-      enabled: true,
-      duration: const Duration(milliseconds: 150),
-      scaleDisabled: 1.0,
-      scaleEnabled: 0.95,
-      child: GestureDetector(
-        onTap: () {},
-        child: SizedBox(
-          width: width,
-          child: Card(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            elevation: 10,
-            shadowColor: color.withOpacity(0.6),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color.withOpacity(0.8), color],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.6),
-                    blurRadius: 20,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 5),
-                  )
-                ],
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(seconds: 1),
-                    curve: Curves.easeInOut,
-                    child: Icon(icon, size: 30, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 14)),
-                      const SizedBox(height: 4),
-                      Text(value,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  // Chart
-  Widget _buildBarChart() {
-    return SizedBox(
-      height: 250,
-      child: BarChart(
-        BarChartData(
-          barGroups: [
-            BarChartGroupData(
-                x: 0,
-                barRods: [BarChartRodData(toY: 12, color: Colors.blueAccent)]),
-            BarChartGroupData(
-                x: 1,
-                barRods: [BarChartRodData(toY: 8, color: Colors.orangeAccent)]),
-            BarChartGroupData(
-                x: 2,
-                barRods: [BarChartRodData(toY: 5, color: Colors.redAccent)]),
-          ],
-          titlesData: FlTitlesData(show: true),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(show: true),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentObservations() {
-    return Column(
-      children: List.generate(3, (index) {
-        return ListTile(
-          leading: const Icon(Icons.warning, color: Colors.orange),
-          title: Text("Observation #${index + 1}"),
-          subtitle: const Text("Site: ABC, Status: Pending"),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         );
-      }),
-    );
-  }
-
-  Widget _buildRemindersList() {
-    return Column(
-      children: List.generate(3, (index) {
-        return ListTile(
-          leading: const Icon(Icons.calendar_today, color: Colors.blue),
-          title: const Text("Inspection at Site XYZ"),
-          subtitle: const Text("Due: Tomorrow"),
-        );
-      }),
+      },
     );
   }
 

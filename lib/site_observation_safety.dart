@@ -46,7 +46,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   List<IssueType> issueTypes = [];
 
   String? selectedActivities;
-  List<Activities> activities = [];
+  List<Activities> activitieList = [];
+  // List<Activities> activities = [];
   int? companyId;
 
   String? selectedObservation;
@@ -97,8 +98,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   Future<void> _initializeData() async {
     await fetchCompanies(); // Optional: if company needed first
     await fetchProjects(); // Wait for project fetch and selection
-
+    print("selected uSERid : $selectedProject");
     if (selectedProject != null) {
+      // print("selected uSERid : $selectedProject");
       await _fetchSiteObservations(selectedProject!.id);
     }
 
@@ -162,12 +164,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       List<Activities> fetchedActivities = await widget._siteObservationService
           .fetchActivities(companyId, ScreenTypes.Safety);
       setState(() {
-        activities = fetchedActivities;
+        activitieList = fetchedActivities;
 
         // Ensure `selectedActivities` is set to a valid activity from the list
-        if (activities.isNotEmpty) {
-          selectedActivities =
-              activities[0].activityName; // Set to first activity if available
+        if (activitieList.isNotEmpty) {
+          selectedActivities = activitieList[0]
+              .activityName; // Set to first activity if available
         } else {
           selectedActivities = null; // If no activities, keep it null
         }
@@ -275,7 +277,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   // Fetch Floor from the service
   Future<void> fetchFloorList() async {
     int? projectID = await SharedPrefsHelper.getProjectID();
-    // print(projectID);
+    print("floor projectid:$projectID");
     setState(() {
       isLoading = true;
     });
@@ -315,13 +317,20 @@ class _SiteObservationState extends State<SiteObservationSafety> {
           await widget._siteObservationService.fetchPartList(projectID!);
 
       setState(() {
-        partList = fetchedPart;
-        if (partList.isNotEmpty) {
-          selectedPart = partList[0].partName;
-          print(partList);
+        final seen = <String>{};
+        partList = fetchedPart.where((part) {
+          final normalized = part.partName.trim().toLowerCase();
+          return seen.add(normalized);
+        }).toList();
+        final partNames = partList.map((e) => e.partName.trim()).toList();
+
+        if (partNames.contains(selectedPart?.trim())) {
+          selectedPart = selectedPart!.trim();
         } else {
-          selectedPart = null;
+          selectedPart = ''; // Default to placeholder
         }
+
+        print("✅ Filtered Unique Part Names: $partNames");
       });
     } catch (e) {
       print('Error fetching Part: $e');
@@ -335,22 +344,29 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   // Fetch Element from the service
   Future<void> fetchElementList() async {
     int? projectID = await SharedPrefsHelper.getProjectID();
-    // print(projectID);
     setState(() {
       isLoading = true;
     });
-    // print(projectID);
+
     try {
       List<Elements> fetchedElement =
           await widget._siteObservationService.fetchElementList(projectID!);
 
+      // Deduplicate elements by elementName
+      final seen = <String>{};
+      final uniqueElements = fetchedElement.where((element) {
+        final name = element.elementName.trim();
+        return seen.add(name);
+      }).toList();
+
       setState(() {
-        elementList = fetchedElement;
+        elementList = uniqueElements;
         if (elementList.isNotEmpty) {
           selectedElement = elementList[0].elementName;
-          print(elementList);
+          print(
+              'Unique Elements: ${elementList.map((e) => e.elementName).toList()}');
         } else {
-          selectedPart = null;
+          selectedElement = null;
         }
       });
     } catch (e) {
@@ -676,7 +692,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       companyID: companyID!,
       projectID: projectID!,
       functionID: ScreenTypes.Safety,
-      activityID: activities
+      activityID: activitieList
           .firstWhere(
               (activities) => activities.activityName == selectedActivities)
           .id,
@@ -691,11 +707,11 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       contractorID: ContractorList.firstWhere(
           (contractor) => contractor.partyName == selectedContractor).id,
       reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
-      comments: 'Some comments',
+      comments: 'string',
       rootCauseID: 0,
       corretiveActionToBeTaken: 'Corrective action here',
       preventiveActionTaken: 'Preventive action here',
-      statusID: 3,
+      statusID: SiteObservationStatus.Open,
       isActive: true,
       createdBy: userID,
       createdDate: formatDateForApi(DateTime.now()),
@@ -705,13 +721,14 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         SiteObservationActivity(
           id: 0,
           siteObservationID: null,
-          actionID: 1,
-          comments: 'Some initial comments',
+          actionID: SiteObservationActions.Created,
+          comments: '',
           documentName: uploadedFiles.isNotEmpty ? uploadedFiles.first : "",
           fromStatusID: 0,
           toStatusID: 0,
-          assignedUserID: userID,
-          createdBy: userID,
+          assignedUserID:
+              userList.firstWhere((u) => u.userName == selectedUser).id,
+          createdBy: userList.firstWhere((u) => u.userName == selectedUser).id,
           createdDate: formatDateForApi(DateTime.now()),
           //siteObservation: null // 👈 Add this field if needed,
         ),
@@ -723,6 +740,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
           .submitSiteObservation(siteObservation);
 
       if (success) {
+        // _resetForm(); // ⬅️ Reset form here
         setState(() {
           showObservations = true; // 👈 Form hide
         });
@@ -744,742 +762,882 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
+  // void _resetForm() {
+  //   _formKey.currentState?.reset();
+
+  //   // TextControllers
+  //   observationDescriptionController.clear();
+  //   userDescriptionController.clear();
+  //   ActionToBeTakenController.clear();
+  //   reworkCostController.clear();
+  //   _dateController.clear();
+
+  //   // Dropdowns
+  //   selectedObservationType = '';
+  //   selectedIssueType = '';
+  //   selectedActivities = '';
+  //   selectedArea = '';
+  //   selectedFloor = '';
+  //   selectedPart = '';
+  //   selectedElement = '';
+  //   selectedContractor = '';
+  //   selectedProject = null;
+
+  //   // Others
+  //   uploadedFiles.clear();
+  //   selectedFileName = null;
+  //   isComplianceRequired = false;
+  //   isEscalationRequired = false;
+  //   isUploading = false;
+  // }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        // title: Row(
-        //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        //   children: [
-        //     // 🔸 Company Dropdown
-        //     DropdownButton<String>(
-        //       value: selectedCompany,
-        //       icon: Icon(Icons.arrow_downward),
-        //       iconSize: 24,
-        //       elevation: 16,
-        //       style: TextStyle(color: Colors.black),
-        //       onChanged: (String? newValue) async {
-        //         setState(() {
-        //           selectedCompany = newValue;
-        //         });
+    return WillPopScope(
+      onWillPop: () async {
+        if (!showObservations) {
+          // 👇 Reset form values
+          // _resetForm();
 
-        //         // 👉 Find selected company object
-        //         Company? selected = companies.firstWhere(
-        //           (c) => c.name == newValue,
-        //           orElse: () => companies.first,
-        //         );
-
-        //         // 👉 Save company ID
-        //         await SharedPrefsHelper.saveCompanyId(selected.id);
-
-        //         // 👉 Fetch related projects
-        //         await fetchProjects();
-        //       },
-        //       items: companies.map((company) {
-        //         return DropdownMenuItem<String>(
-        //           value: company.name,
-        //           child: Text(
-        //             company.name,
-        //             style: TextStyle(color: Colors.black),
-        //           ),
-        //         );
-        //       }).toList(),
-        //       dropdownColor: Colors.white,
-        //     ),
-        //   ],
-        // ),
-        title: Text('Site Observation - Safety'),
-        backgroundColor: Colors.blue,
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 🔹 Project Dropdown at top
-            if (showObservations)
-              DropdownButton<Project>(
-                isExpanded: true,
-                hint: Text("Select a project"),
-                value: selectedProject,
-                items: projectList.map((project) {
-                  return DropdownMenuItem<Project>(
-                    value: project,
-                    child: Text(project.name),
-                  );
-                }).toList(),
-                onChanged: (Project? newProject) async {
-                  if (newProject != null) {
+          // 👇 Switch back to observations list
+          setState(() {
+            showObservations = true;
+          });
+          return false;
+        }
+        return true; // Default: allow back navigation
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Site Observation - Safety'),
+          backgroundColor: Colors.blue,
+          centerTitle: true,
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showObservations)
+                DropdownButton<Project>(
+                  isExpanded: true,
+                  hint: Text("Select a project"),
+                  value: selectedProject,
+                  items: projectList.map((project) {
+                    return DropdownMenuItem<Project>(
+                      value: project,
+                      child: Text(project.name),
+                    );
+                  }).toList(),
+                  onChanged: (Project? newProject) async {
+                    if (newProject != null) {
+                      setState(() {
+                        selectedProject = newProject;
+                        isFormReady = false;
+                      });
+                      await SharedPrefsHelper.saveProjectID(newProject.id);
+                      await _fetchSiteObservations(newProject.id);
+                    }
                     setState(() {
-                      selectedProject = newProject;
-                      isFormReady = false;
+                      isFormReady = true;
                     });
-                    await SharedPrefsHelper.saveProjectID(newProject.id);
-                    await _fetchSiteObservations(newProject.id);
-                  }
-                  setState(() {
-                    isFormReady = true;
-                  });
-                },
-              ),
+                  },
+                ),
+              SizedBox(height: 16),
+              Expanded(
+                child: isLoading
+                    ? Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            showObservations
+                                ? (observations.isEmpty
+                                    ? Center(
+                                        child: Text(
+                                          "No Observations Available",
+                                          style: TextStyle(
+                                              fontSize: 18, color: Colors.grey),
+                                        ),
+                                      )
+                                    : ListView.builder(
+                                        shrinkWrap: true,
+                                        physics: NeverScrollableScrollPhysics(),
+                                        itemCount: observations.length,
+                                        itemBuilder: (context, index) {
+                                          SiteObservation observation =
+                                              observations[index];
+                                          bool isDark =
+                                              Theme.of(context).brightness ==
+                                                  Brightness.dark;
 
-            SizedBox(height: 16),
-
-            // 🔹 Content below Dropdown
-            Expanded(
-              child: isLoading
-                  ? Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          showObservations
-                              ? (observations.isEmpty
-                                  ? Center(
-                                      child: Text(
-                                        "No Observations Available",
-                                        style: TextStyle(
-                                            fontSize: 18, color: Colors.grey),
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      shrinkWrap: true,
-                                      physics: NeverScrollableScrollPhysics(),
-                                      itemCount: observations.length,
-                                      itemBuilder: (context, index) {
-                                        SiteObservation observation =
-                                            observations[index];
-                                        return Card(
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(12.0),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              // mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  observation
-                                                      .siteObservationCode,
-                                                  style: TextStyle(
+                                          return Card(
+                                            color: isDark
+                                                ? Colors.grey[900]
+                                                : Colors.white,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              side: BorderSide.none,
+                                            ),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.all(12.0),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    observation
+                                                        .siteObservationCode,
+                                                    style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold,
-                                                      fontSize: 16),
-                                                ),
-                                                SizedBox(height: 8),
-
-                                                // 2-column layout like Bootstrap col-md-6
-                                                Wrap(
-                                                  spacing: 16,
-                                                  runSpacing: 12,
-                                                  children: [
-                                                    _infoBox(
-                                                        "ObservationType",
-                                                        observation
-                                                            .observationType),
-                                                    _infoBox("IssueType",
-                                                        observation.issueType),
-                                                    _infoBox(
-                                                        "Status",
-                                                        observation
-                                                            .observationStatus),
-                                                    _infoBox(
-                                                        "Project",
-                                                        observation
-                                                            .projectName),
-                                                    _infoBox(
+                                                      fontSize: 16,
+                                                      color: isDark
+                                                          ? Colors.white
+                                                          : Colors.black,
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 8),
+                                                  Wrap(
+                                                    spacing: 16,
+                                                    runSpacing: 12,
+                                                    children: [
+                                                      _infoBox(
+                                                          "ObservationType",
+                                                          observation
+                                                              .observationType,
+                                                          isDark: isDark),
+                                                      _infoBox("IssueType",
+                                                          observation.issueType,
+                                                          isDark: isDark),
+                                                      _infoBox(
+                                                          "Status",
+                                                          observation
+                                                              .observationStatus,
+                                                          isDark: isDark),
+                                                      _infoBox(
+                                                          "Project",
+                                                          observation
+                                                              .projectName,
+                                                          isDark: isDark),
+                                                      _infoBox(
                                                         "Date",
                                                         observation
                                                             .transactionDate
                                                             .toLocal()
                                                             .toString()
-                                                            .split(' ')[0]),
-                                                  ],
+                                                            .split(' ')[0],
+                                                        isDark: isDark,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  SizedBox(height: 8),
+                                                  Text(
+                                                    observation
+                                                        .observationDescription,
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: isDark
+                                                          ? Colors.white70
+                                                          : Colors.black87,
+                                                    ),
+                                                    softWrap: true,
+                                                    overflow:
+                                                        TextOverflow.visible,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ))
+                                : Card(
+                                    margin: EdgeInsets.only(top: 8),
+                                    elevation: 4,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Form(
+                                        key: _formKey,
+                                        child: Column(
+                                          children: [
+                                            TextFormField(
+                                              controller: _dateController,
+                                              decoration: InputDecoration(
+                                                labelText: 'Start Date',
+                                                hintText: 'Select a date',
+                                                border: OutlineInputBorder(),
+                                                suffixIcon: IconButton(
+                                                  icon: Icon(
+                                                      Icons.calendar_today),
+                                                  onPressed: () {
+                                                    _selectDate(context);
+                                                  },
+                                                ),
+                                              ),
+                                              readOnly: true,
+                                            ),
+                                            SizedBox(height: 10),
+                                            DropdownButtonFormField<String>(
+                                              value:
+                                                  (selectedIssueType == null ||
+                                                          selectedIssueType!
+                                                              .isEmpty)
+                                                      ? ''
+                                                      : selectedIssueType,
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  selectedIssueType = newValue;
+                                                });
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Issue Type',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator: (value) {
+                                                if (value == null ||
+                                                    value.isEmpty) {
+                                                  return 'Please select an issue type';
+                                                }
+                                                return null;
+                                              },
+                                              items: [
+                                                DropdownMenuItem<String>(
+                                                  value:
+                                                      '', // Placeholder value
+                                                  child: Text(
+                                                    'Select Issue Type',
+                                                    style: TextStyle(
+                                                        color: Colors.grey),
+                                                  ),
+                                                ),
+                                                ...issueTypes
+                                                    .map((IssueType issueType) {
+                                                  return DropdownMenuItem<
+                                                      String>(
+                                                    value: issueType.name,
+                                                    child: Text(issueType.name),
+                                                  );
+                                                }).toList(),
+                                              ],
+                                            ),
+                                            SizedBox(height: 20),
+
+                                            DropdownButtonFormField<String>(
+                                              value:
+                                                  selectedActivities, // This will bind to selectedActivities
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  selectedActivities = newValue;
+                                                });
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Select Activity',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator:
+                                                  _validateActivity, // Your validation function if needed
+                                              items: activitieList
+                                                  .map((Activities activity) {
+                                                return DropdownMenuItem<String>(
+                                                  value: activity.activityName,
+                                                  child: Text(
+                                                      activity.activityName),
+                                                );
+                                              }).toList(),
+                                            ),
+
+                                            SizedBox(height: 20),
+                                            DropdownButtonFormField<String>(
+                                              value: (selectedObservation ?? '')
+                                                      .isEmpty
+                                                  ? ''
+                                                  : selectedObservation,
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  selectedObservation =
+                                                      newValue ?? '';
+
+                                                  final selected =
+                                                      observationsList
+                                                          .firstWhere(
+                                                    (obs) =>
+                                                        obs.observationDescription ==
+                                                        selectedObservation,
+                                                    orElse: () => Observation(
+                                                      id: 0,
+                                                      observationTypeID: 0,
+                                                      issueTypeID: 0,
+                                                      observationDescription:
+                                                          '',
+                                                      complianceRequired: false,
+                                                      escalationRequired: false,
+                                                      dueTimeInHrs: 0,
+                                                      actionToBeTaken: '',
+                                                      lastModifiedBy: '',
+                                                      lastModifiedDate: DateTime
+                                                              .now()
+                                                          .toIso8601String(),
+                                                    ),
+                                                  );
+
+                                                  observationDescriptionController
+                                                          .text =
+                                                      selected
+                                                          .observationDescription;
+                                                  isComplianceRequired =
+                                                      selected
+                                                          .complianceRequired;
+                                                  isEscalationRequired =
+                                                      selected
+                                                          .escalationRequired;
+                                                });
+                                              },
+                                              decoration: const InputDecoration(
+                                                labelText: 'Select Observation',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator: (value) {
+                                                if (value == null ||
+                                                    value.isEmpty) {
+                                                  return 'Please select an observation';
+                                                }
+                                                return null;
+                                              },
+                                              items: [
+                                                const DropdownMenuItem<String>(
+                                                  value:
+                                                      '', // <-- Use empty string here
+                                                  child: Text(
+                                                    'Select Observation',
+                                                    style: TextStyle(
+                                                        color: Colors.grey),
+                                                  ),
+                                                ),
+                                                ...observationsList
+                                                    .map((observation) {
+                                                  return DropdownMenuItem<
+                                                      String>(
+                                                    value: observation
+                                                        .observationDescription,
+                                                    child: Text(
+                                                      observation
+                                                          .observationDescription,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                              ],
+                                            ),
+
+                                            const SizedBox(height: 20),
+
+                                            TextFormField(
+                                              controller:
+                                                  observationDescriptionController,
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    'Observation Description',
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              validator: _validateDescription,
+                                            ),
+
+                                            SizedBox(height: 20),
+                                            TextFormField(
+                                              controller:
+                                                  userDescriptionController,
+                                              decoration: InputDecoration(
+                                                labelText: 'User Description',
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              // Add Controller to manage input text here (optional)
+                                              validator: _validateUser,
+                                            ),
+                                            SizedBox(height: 10),
+                                            TextFormField(
+                                              controller: _dateController,
+                                              decoration: InputDecoration(
+                                                labelText: 'Due Date',
+                                                hintText: 'Select a date',
+                                                border: OutlineInputBorder(),
+                                                suffixIcon: IconButton(
+                                                  icon: Icon(
+                                                      Icons.calendar_today),
+                                                  onPressed: () {
+                                                    _selectDate(
+                                                        context); // Show date picker on icon tap
+                                                  },
+                                                ),
+                                              ),
+                                              readOnly:
+                                                  true, // Make it read-only to prevent manual typing
+                                              validator: _validateDueDate,
+                                            ),
+                                            SizedBox(height: 20),
+                                            // Dropdown for Select observation
+                                            DropdownButtonFormField<String>(
+                                              value: selectedObservationType,
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  selectedObservationType =
+                                                      newValue;
+                                                });
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Observation Type',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator:
+                                                  _validateObservationType,
+                                              items: observationTypeList.map(
+                                                  (ObservationType
+                                                      observationType) {
+                                                return DropdownMenuItem<String>(
+                                                  value: observationType.name,
+                                                  child: Text(
+                                                      observationType.name),
+                                                );
+                                              }).toList(),
+                                            ),
+
+                                            SizedBox(height: 20),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                // **Compliance Required** Toggle Switch
+                                                Expanded(
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                          "Compliance Required"),
+                                                      Switch(
+                                                        value:
+                                                            isComplianceRequired,
+                                                        onChanged:
+                                                            (bool value) {
+                                                          setState(() {
+                                                            isComplianceRequired =
+                                                                value;
+                                                          });
+                                                        },
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
 
-                                                SizedBox(height: 8),
-                                                Text(
-                                                  observation
-                                                      .observationDescription,
-                                                  style:
-                                                      TextStyle(fontSize: 14),
-                                                  softWrap: true,
-                                                  overflow:
-                                                      TextOverflow.visible,
+                                                // **Escalation Required** Toggle Switch
+                                                Expanded(
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                          "Escalation Required"),
+                                                      Switch(
+                                                        value:
+                                                            isEscalationRequired,
+                                                        onChanged:
+                                                            (bool value) {
+                                                          setState(() {
+                                                            isEscalationRequired =
+                                                                value;
+                                                          });
+                                                        },
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                               ],
                                             ),
-                                          ),
-                                        );
-                                      },
-                                    ))
-                              : Card(
-                                  margin: EdgeInsets.only(top: 8),
-                                  // margin: EdgeInsets.symmetric(
-                                  //     horizontal: 16, vertical: 8),
-                                  elevation: 4,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Form(
-                                      key: _formKey,
-                                      child: Column(
-                                        children: [
-                                          // Text(
-                                          //   "Add New Observation",
-                                          //   style: TextStyle(
-                                          //       fontSize: 18,
-                                          //       fontWeight: FontWeight.bold),
-                                          // ),
-                                          // SizedBox(height: 10),
-                                          TextFormField(
-                                            controller: _dateController,
-                                            decoration: InputDecoration(
-                                              labelText: 'Start Date',
-                                              hintText: 'Select a date',
-                                              border: OutlineInputBorder(),
-                                              suffixIcon: IconButton(
-                                                icon:
-                                                    Icon(Icons.calendar_today),
-                                                onPressed: () {
-                                                  _selectDate(context);
-                                                },
-                                              ),
-                                            ),
-                                            readOnly: true,
-                                          ),
-                                          SizedBox(height: 10),
-                                          DropdownButtonFormField<String>(
-                                            value: selectedIssueType,
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedIssueType = newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Issue Type',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator: _validateIssueType,
-                                            items: issueTypes
-                                                .map((IssueType issueType) {
-                                              return DropdownMenuItem<String>(
-                                                value: issueType.name,
-                                                child: Text(issueType.name),
-                                              );
-                                            }).toList(),
-                                          ),
-                                          SizedBox(height: 20),
-                                          DropdownButtonFormField<String>(
-                                            value:
-                                                selectedActivities, // This will bind to selectedActivities
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedActivities = newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Select Activity',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator:
-                                                _validateActivity, // Your validation function if needed
-                                            items: activities
-                                                .map((Activities activity) {
-                                              return DropdownMenuItem<String>(
-                                                value: activity.activityName,
-                                                child:
-                                                    Text(activity.activityName),
-                                              );
-                                            }).toList(),
-                                          ),
-                                          SizedBox(height: 20),
-                                          DropdownButtonFormField<String>(
-                                            value: selectedObservation,
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedObservation = newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Select Observation',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator: _validateObservation,
-                                            items: observationsList.isNotEmpty
-                                                ? observationsList.map(
-                                                    (Observation observation) {
-                                                    return DropdownMenuItem<
-                                                        String>(
-                                                      value: observation
-                                                          .observationDescription,
-                                                      child: Container(
-                                                        width:
-                                                            200.0, // You can set a max width here
-                                                        child: Text(
-                                                          observation
-                                                              .observationDescription,
-                                                          overflow: TextOverflow
-                                                              .ellipsis, // Handle text overflow
-                                                          maxLines:
-                                                              1, // Ensure it stays in one line
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }).toList()
-                                                : [
-                                                    DropdownMenuItem<String>(
-                                                      value: null,
-                                                      child: Text(
-                                                          'No observations available'),
-                                                    ),
-                                                  ],
-                                          ),
-                                          SizedBox(height: 20),
-                                          TextFormField(
-                                            controller:
-                                                observationDescriptionController,
-                                            decoration: InputDecoration(
-                                              labelText:
-                                                  'Observation Description',
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            validator: _validateDescription,
-                                          ),
-                                          SizedBox(height: 20),
-                                          TextFormField(
-                                            controller:
-                                                userDescriptionController,
-                                            decoration: InputDecoration(
-                                              labelText: 'User Description',
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            // Add Controller to manage input text here (optional)
-                                            validator: _validateUser,
-                                          ),
-                                          SizedBox(height: 10),
-                                          TextFormField(
-                                            controller: _dateController,
-                                            decoration: InputDecoration(
-                                              labelText: 'Due Date',
-                                              hintText: 'Select a date',
-                                              border: OutlineInputBorder(),
-                                              suffixIcon: IconButton(
-                                                icon:
-                                                    Icon(Icons.calendar_today),
-                                                onPressed: () {
-                                                  _selectDate(
-                                                      context); // Show date picker on icon tap
-                                                },
-                                              ),
-                                            ),
-                                            readOnly:
-                                                true, // Make it read-only to prevent manual typing
-                                            validator: _validateDueDate,
-                                          ),
-                                          SizedBox(height: 20),
-                                          // Dropdown for Select observation
-                                          DropdownButtonFormField<String>(
-                                            value: selectedObservationType,
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedObservationType =
-                                                    newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Observation Type',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator: _validateObservationType,
-                                            items: observationTypeList.map(
-                                                (ObservationType
-                                                    observationType) {
-                                              return DropdownMenuItem<String>(
-                                                value: observationType.name,
-                                                child:
-                                                    Text(observationType.name),
-                                              );
-                                            }).toList(),
-                                          ),
-
-                                          SizedBox(height: 20),
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              // **Compliance Required** Toggle Switch
-                                              Expanded(
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.start,
-                                                  children: [
-                                                    Text("Compliance Required"),
-                                                    Switch(
-                                                      value:
-                                                          isComplianceRequired,
-                                                      onChanged: (bool value) {
-                                                        setState(() {
-                                                          isComplianceRequired =
-                                                              value;
-                                                        });
-                                                      },
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-
-                                              // **Escalation Required** Toggle Switch
-                                              Expanded(
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.start,
-                                                  children: [
-                                                    Text("Escalation Required"),
-                                                    Switch(
-                                                      value:
-                                                          isEscalationRequired,
-                                                      onChanged: (bool value) {
-                                                        setState(() {
-                                                          isEscalationRequired =
-                                                              value;
-                                                        });
-                                                      },
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          SizedBox(height: 20),
-                                          // Dropdown for Select Area
-                                          DropdownButtonFormField<String>(
-                                            value: selectedArea,
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedArea = newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Choose Area',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator: _validateArea,
-                                            items:
-                                                areaList.map((Area areaList) {
-                                              return DropdownMenuItem<String>(
-                                                value: areaList.sectionName,
-                                                child:
-                                                    Text(areaList.sectionName),
-                                              );
-                                            }).toList(),
-                                          ),
-
-                                          SizedBox(height: 20),
-                                          // Dropdown for Select Floor
-                                          DropdownButtonFormField<String>(
-                                            value: selectedFloor,
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedFloor = newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Choose Floor',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator: _validateFloor,
-                                            items: floorList
-                                                .map((Floor floorList) {
-                                              return DropdownMenuItem<String>(
-                                                value: floorList.floorName,
-                                                child:
-                                                    Text(floorList.floorName),
-                                              );
-                                            }).toList(),
-                                          ),
-
-                                          SizedBox(height: 20),
-                                          // Dropdown for Select Part
-                                          DropdownButtonFormField<String>(
-                                            value: selectedPart,
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedPart = newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Choose Part',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator: _validatePart,
-                                            items:
-                                                partList.map((Part partList) {
-                                              return DropdownMenuItem<String>(
-                                                value: partList.partName,
-                                                child: Text(partList.partName),
-                                              );
-                                            }).toList(),
-                                          ),
-
-                                          SizedBox(height: 20),
-                                          // Dropdown for Select Element
-                                          DropdownButtonFormField<String>(
-                                            value: selectedElement,
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedElement = newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Element Name',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator: _validateElement,
-                                            items: elementList
-                                                .map((Elements elementList) {
-                                              return DropdownMenuItem<String>(
-                                                value: elementList.elementName,
-                                                child: Text(
-                                                    elementList.elementName),
-                                              );
-                                            }).toList(),
-                                          ),
-                                          SizedBox(height: 20),
-                                          // Dropdown for Select Contractor Name
-                                          DropdownButtonFormField<String>(
-                                            value: selectedContractor,
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedContractor = newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Contractor Name',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator: _validateContractor,
-                                            items: ContractorList.map<
-                                                    DropdownMenuItem<String>>(
-                                                (Party contractor) {
-                                              return DropdownMenuItem<String>(
-                                                value: contractor
-                                                    .partyName, // Ensure this is a String
-                                                child:
-                                                    Text(contractor.partyName),
-                                              );
-                                            }).toList(),
-                                          ),
-
-                                          SizedBox(height: 20),
-                                          // Dropdown for Select Assigned To
-                                          DropdownButtonFormField<String>(
-                                            value: selectedUser,
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedUser = newValue;
-                                              });
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Assigned To',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            validator: _validateAssigned,
-                                            items: userList.map((User user) {
-                                              return DropdownMenuItem<String>(
-                                                value: user.userName,
-                                                child: Text(user.userName),
-                                              );
-                                            }).toList(),
-                                          ),
-
-                                          SizedBox(height: 10),
-                                          TextFormField(
-                                            controller:
-                                                ActionToBeTakenController,
-                                            decoration: InputDecoration(
-                                              labelText: 'Action to be Taken',
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            validator: _validateDescription,
-                                            // Add Controller to manage input text here (optional)
-                                          ),
-
-                                          SizedBox(height: 10),
-                                          TextFormField(
-                                            controller: reworkCostController,
-                                            keyboardType: TextInputType
-                                                .number, // Allow only number input
-                                            decoration: InputDecoration(
-                                              labelText: 'Rework Cost',
-                                              border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8)),
-                                            ),
-                                            validator: (value) {
-                                              if (value == null ||
-                                                  value.isEmpty)
-                                                return 'Please enter rework cost';
-                                              if (double.tryParse(value) ==
-                                                  null)
-                                                return 'Enter valid number';
-                                              return null;
-                                            },
-                                          ),
-                                          SizedBox(height: 20),
-                                          const Text(
-                                            "Upload File",
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () async {
-                                              FilePickerResult? result =
-                                                  await FilePicker.platform
-                                                      .pickFiles(
-                                                allowMultiple: false,
-                                                withData: true,
-                                              );
-
-                                              if (result != null &&
-                                                  result.files.isNotEmpty) {
-                                                final file = result.files.first;
-
+                                            DropdownButtonFormField<String>(
+                                              value: selectedArea,
+                                              onChanged: (String? newValue) {
                                                 setState(() {
-                                                  selectedFileName = file.name;
-                                                  isUploading =
-                                                      true; // ⏳ Start showing loading
+                                                  selectedArea = newValue;
                                                 });
-
-                                                final uploadedFileName =
-                                                    await SiteObservationService()
-                                                        .uploadFileAndGetFileName(
-                                                  file.name,
-                                                  file.bytes!,
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Choose Area',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator: _validateArea,
+                                              items:
+                                                  areaList.map((Area areaList) {
+                                                return DropdownMenuItem<String>(
+                                                  value: areaList.sectionName,
+                                                  child: Text(
+                                                      areaList.sectionName),
                                                 );
+                                              }).toList(),
+                                            ),
 
+                                            SizedBox(height: 20),
+                                            // Dropdown for Select Floor
+                                            DropdownButtonFormField<String>(
+                                              value: selectedFloor,
+                                              onChanged: (String? newValue) {
                                                 setState(() {
-                                                  isUploading =
-                                                      false; // ✅ Stop loading
+                                                  selectedFloor = newValue;
                                                 });
-
-                                                if (uploadedFileName != null) {
-                                                  setState(() {
-                                                    uploadedFiles.add(
-                                                        uploadedFileName); // Add to list
-                                                  });
-                                                  print(
-                                                      "✅ File upload successful: $uploadedFileName");
-                                                } else {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                    const SnackBar(
-                                                        content: Text(
-                                                            "❌ File upload failed")),
-                                                  );
-                                                }
-                                              }
-                                            },
-                                            child: const Text("Choose File"),
-                                          ),
-
-                                          if (selectedFileName != null) ...[
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              "Selected file: $selectedFileName",
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w600),
-                                            ),
-                                          ],
-
-                                          if (isUploading) ...[
-                                            const SizedBox(height: 8),
-                                            const CircularProgressIndicator(), // 🔄 Show loading
-                                          ],
-
-                                          if (uploadedFiles.isNotEmpty) ...[
-                                            const SizedBox(height: 16),
-                                            const Text(
-                                              "Uploaded Files:",
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.bold),
-                                            ),
-                                            for (var name in uploadedFiles)
-                                              Text("📄 $name",
-                                                  style: const TextStyle(
-                                                      color: Colors.green)),
-                                          ],
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              if (_formKey.currentState
-                                                      ?.validate() ??
-                                                  false) {
-                                                _submitForm();
-                                              }
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.blue,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Choose Floor',
+                                                border: OutlineInputBorder(),
                                               ),
+                                              validator: _validateFloor,
+                                              items: floorList
+                                                  .map((Floor floorList) {
+                                                return DropdownMenuItem<String>(
+                                                  value: floorList.floorName,
+                                                  child:
+                                                      Text(floorList.floorName),
+                                                );
+                                              }).toList(),
                                             ),
-                                            child: Text('Submit'),
-                                          ),
-                                        ],
+
+                                            SizedBox(height: 20),
+                                            // Dropdown for Select Part
+                                            DropdownButtonFormField<String>(
+                                              value: partList.any((p) =>
+                                                      p.partName ==
+                                                      selectedPart)
+                                                  ? selectedPart
+                                                  : '',
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  selectedPart = newValue;
+                                                });
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Choose Part',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator: _validatePart,
+                                              items: [
+                                                DropdownMenuItem<String>(
+                                                  value: '',
+                                                  child: Text('Select Part',
+                                                      style: TextStyle(
+                                                          color: Colors.grey)),
+                                                ),
+                                                ...partList.map((part) {
+                                                  return DropdownMenuItem<
+                                                      String>(
+                                                    value: part.partName,
+                                                    child: Text(part.partName),
+                                                  );
+                                                }).toList(),
+                                              ],
+                                            ),
+                                            SizedBox(height: 20),
+                                            // Dropdown for Select Element
+                                            DropdownButtonFormField<String>(
+                                              value: selectedElement,
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  selectedElement = newValue;
+                                                });
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Element Name',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator: _validateElement,
+                                              items: elementList
+                                                  .map((Elements elementList) {
+                                                return DropdownMenuItem<String>(
+                                                  value:
+                                                      elementList.elementName,
+                                                  child: Text(
+                                                      elementList.elementName),
+                                                );
+                                              }).toList(),
+                                            ),
+
+                                            SizedBox(height: 20),
+                                            // Dropdown for Select Contractor Name
+                                            DropdownButtonFormField<String>(
+                                              value: selectedContractor,
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  selectedContractor = newValue;
+                                                });
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Contractor Name',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator: _validateContractor,
+                                              items: ContractorList.map<
+                                                      DropdownMenuItem<String>>(
+                                                  (Party contractor) {
+                                                return DropdownMenuItem<String>(
+                                                  value: contractor
+                                                      .partyName, // Ensure this is a String
+                                                  child: Text(
+                                                      contractor.partyName),
+                                                );
+                                              }).toList(),
+                                            ),
+
+                                            SizedBox(height: 20),
+                                            // Dropdown for Select Assigned To
+                                            DropdownButtonFormField<String>(
+                                              value: selectedUser,
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  selectedUser = newValue;
+                                                });
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Assigned To',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator: _validateAssigned,
+                                              items: userList.map((User user) {
+                                                return DropdownMenuItem<String>(
+                                                  value: user.userName,
+                                                  child: Text(user.userName),
+                                                );
+                                              }).toList(),
+                                            ),
+
+                                            SizedBox(height: 10),
+                                            TextFormField(
+                                              controller:
+                                                  ActionToBeTakenController,
+                                              decoration: InputDecoration(
+                                                labelText: 'Action to be Taken',
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              validator: _validateDescription,
+                                              // Add Controller to manage input text here (optional)
+                                            ),
+
+                                            SizedBox(height: 10),
+                                            TextFormField(
+                                              controller: reworkCostController,
+                                              keyboardType: TextInputType
+                                                  .number, // Allow only number input
+                                              decoration: InputDecoration(
+                                                labelText: 'Rework Cost',
+                                                border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8)),
+                                              ),
+                                              validator: (value) {
+                                                if (value == null ||
+                                                    value.isEmpty)
+                                                  return 'Please enter rework cost';
+                                                if (double.tryParse(value) ==
+                                                    null)
+                                                  return 'Enter valid number';
+                                                return null;
+                                              },
+                                            ),
+                                            SizedBox(height: 20),
+                                            // 🔽 File Upload Section just like TextFormField
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const Text(
+                                                  "Upload File",
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                SizedBox(
+                                                  width: double
+                                                      .infinity, // ✅ Make button full width like form field
+                                                  child: ElevatedButton.icon(
+                                                    icon:
+                                                        Icon(Icons.upload_file),
+                                                    label: Text("Choose File"),
+                                                    onPressed: () async {
+                                                      FilePickerResult? result =
+                                                          await FilePicker
+                                                              .platform
+                                                              .pickFiles(
+                                                        allowMultiple: false,
+                                                        withData: true,
+                                                      );
+
+                                                      if (result != null &&
+                                                          result.files
+                                                              .isNotEmpty) {
+                                                        final file =
+                                                            result.files.first;
+
+                                                        setState(() {
+                                                          selectedFileName =
+                                                              file.name;
+                                                          isUploading = true;
+                                                        });
+
+                                                        final uploadedFileName =
+                                                            await SiteObservationService()
+                                                                .uploadFileAndGetFileName(
+                                                                    file.name,
+                                                                    file.bytes!);
+
+                                                        setState(() {
+                                                          isUploading = false;
+                                                        });
+
+                                                        if (uploadedFileName !=
+                                                            null) {
+                                                          setState(() {
+                                                            uploadedFiles.add(
+                                                                uploadedFileName);
+                                                          });
+                                                        } else {
+                                                          ScaffoldMessenger.of(
+                                                                  context)
+                                                              .showSnackBar(
+                                                            const SnackBar(
+                                                                content: Text(
+                                                                    "❌ File upload failed")),
+                                                          );
+                                                        }
+                                                      }
+                                                    },
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                              vertical: 16),
+                                                      backgroundColor:
+                                                          Colors.blue,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (selectedFileName !=
+                                                    null) ...[
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    "Selected file: $selectedFileName",
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600),
+                                                  ),
+                                                ],
+                                                if (isUploading) ...[
+                                                  const SizedBox(height: 8),
+                                                  const LinearProgressIndicator(), // 👈 Better for full-width than Circular
+                                                ],
+                                                if (uploadedFiles
+                                                    .isNotEmpty) ...[
+                                                  const SizedBox(height: 16),
+                                                  const Text(
+                                                    "Uploaded Files:",
+                                                    style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold),
+                                                  ),
+                                                  for (var name
+                                                      in uploadedFiles)
+                                                    Text("📄 $name",
+                                                        style: const TextStyle(
+                                                            color:
+                                                                Colors.green)),
+                                                ],
+                                              ],
+                                            ),
+
+                                            ElevatedButton(
+                                              onPressed: () {
+                                                if (_formKey.currentState
+                                                        ?.validate() ??
+                                                    false) {
+                                                  _submitForm();
+                                                }
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.blue,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              child: Text('Submit'),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-            ),
-
-            // 🔹 Floating button bottom right
-            Align(
-              alignment: Alignment.bottomRight,
-              child: FloatingActionButton(
-                onPressed: () {
-                  setState(() {
-                    showObservations = !showObservations;
-                  });
-                },
-                child: Icon(showObservations ? Icons.add : Icons.list),
-                backgroundColor: Colors.blue,
               ),
-            ),
-          ],
+              Align(
+                alignment: Alignment.bottomRight,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    setState(() {
+                      showObservations = !showObservations;
+                    });
+                  },
+                  child: Icon(showObservations ? Icons.add : Icons.list),
+                  backgroundColor: Colors.blue,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _infoBox(String label, String value) {
-    return SizedBox(
-      width: 160, // You can tweak this to fit 2 columns nicely
+  Widget _infoBox(String title, String value, {required bool isDark}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      // No background color, so it stays transparent and matches card bg
+      // color: Colors.transparent, // optional, can keep or remove color property
       child: RichText(
         text: TextSpan(
-          text: '$label: ',
-          style: TextStyle(
-              fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14),
           children: [
             TextSpan(
+              text: "$title: ",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            TextSpan(
               text: value,
-              style:
-                  TextStyle(fontWeight: FontWeight.normal, color: Colors.black),
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
             ),
           ],
         ),

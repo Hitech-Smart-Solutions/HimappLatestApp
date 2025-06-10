@@ -4,23 +4,40 @@ import 'package:himappnew/deshboard.dart';
 import 'package:himappnew/service/firebase_messaging_service.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
-import 'login_page.dart'; // Your Login Page
-import 'shared_prefs_helper.dart'; // Import SharedPrefsHelper for saving and fetching token
+import 'package:himappnew/login_page.dart';
+import 'package:himappnew/shared_prefs_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await FirebaseMessagingService.initialize();
-  // Token ko SharedPreferences se fetch karo
-  final token = await getToken();
-  print('Fetched token: $token');
-  runApp(MyApp(token: token));
+
+  // final token = await SharedPrefsHelper.getToken();
+  // final userName = await SharedPrefsHelper.getUserName();
+  // final companyName = await SharedPrefsHelper.getCompanyName();
+  // // Yahan print karo values ko debug ke liye
+  // print("🚀 Token: $token");
+  // print("🚀 UserName: $userName");
+  // print("🚀 CompanyName: $companyName");
+  runApp(MyApp());
+//   runApp(MyApp(
+//     token: token,
+//     userName: userName,
+//     companyName: companyName,
+//   ));
 }
 
 class MyApp extends StatefulWidget {
-  final String? token;
+  // final String? token;
+  // final String? userName;
+  // final String? companyName;
 
-  const MyApp({super.key, required this.token});
+  const MyApp({
+    super.key,
+    // required this.token,
+    // required this.userName,
+    // required this.companyName,
+  });
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -28,30 +45,58 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool isDarkMode = false;
+  String? token;
+  String? userName;
+  String? companyName;
+  bool isLoading = true;
+  @override
+  void initState() {
+    super.initState();
+    loadInitialData();
+  }
 
-  // Function to toggle theme
   void toggleTheme() {
     setState(() {
       isDarkMode = !isDarkMode;
     });
   }
 
+  Future<void> loadInitialData() async {
+    token = await SharedPrefsHelper.getToken();
+    userName = await SharedPrefsHelper.getUserName();
+    companyName = await SharedPrefsHelper.getCompanyName();
+
+    // print("🚀 Token: $token");
+    // print("🚀 UserName: $userName");
+    // print("🚀 CompanyName: $companyName");
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return MaterialApp(
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Dashboard App',
       theme: isDarkMode ? ThemeData.dark() : ThemeData.light(),
-      home: widget.token != null && widget.token!.isNotEmpty
+      home: token != null && token!.isNotEmpty
           ? DashboardPage(
               isDarkMode: isDarkMode,
               onToggleTheme: toggleTheme,
-              userName: 'John Doe',
-              companyName: 'My Company',
-              projectService:
-                  ProjectService(), // Replace with your actual ProjectService
-              siteObservationService:
-                  SiteObservationService(), // Replace with your actual SiteObservationService
+              userName: userName ?? '',
+              companyName: companyName ?? '',
+              projectService: ProjectService(),
+              siteObservationService: SiteObservationService(),
             )
           : MyCustomForm(
               onToggleTheme: toggleTheme,
@@ -59,11 +104,4 @@ class _MyAppState extends State<MyApp> {
             ),
     );
   }
-}
-
-// Simulate SharedPreferences token check
-Future<String?> getToken() async {
-  // Fetch the token from SharedPreferences
-  return await SharedPrefsHelper
-      .getToken(); // Replace with actual function to get token
 }
