@@ -10,6 +10,7 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:multi_select_flutter/multi_select_flutter.dart';
 
 class SiteObservationSafety extends StatefulWidget {
   final String companyName;
@@ -71,11 +72,16 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   String? selectedContractor;
   List<Party> ContractorList = [];
 
-  String? selectedUser;
+  // String? selectedUser;
+  List<String> selectedUsers = [];
   List<User> userList = [];
+  List<User> selectedMultiUsers = []; // Selected users (multi-select)
+  List<MultiSelectItem<User>> userItems = [];
 
   bool isComplianceRequired = false; // Compliance toggle state
   bool isEscalationRequired = false; // Escalation toggle state
+
+  List<SiteObservationActivity> activityList = [];
 
   TextEditingController observationDescriptionController =
       TextEditingController();
@@ -93,6 +99,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   void initState() {
     super.initState();
     _initializeData();
+    userItems = userList
+        .map((user) => MultiSelectItem<User>(user, user.userName))
+        .toList();
   }
 
   Future<void> _initializeData() async {
@@ -407,6 +416,43 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   }
 
   // Fetch User from the service
+  // Future<void> fetchUserList() async {
+  //   setState(() {
+  //     isLoading = true;
+  //   });
+  //   try {
+  //     List<User> fetchedUsers =
+  //         await widget._siteObservationService.fetchUserList();
+
+  //     // Remove duplicates based on userName (if needed)
+  //     List<User> uniqueUsers = [];
+  //     Set<String> userNames = {}; // To track duplicate userNames
+
+  //     for (var user in fetchedUsers) {
+  //       if (!userNames.contains(user.userName)) {
+  //         uniqueUsers.add(user);
+  //         userNames.add(user.userName); // Add to set to prevent duplicates
+  //       }
+  //     }
+
+  //     setState(() {
+  //       userList = uniqueUsers;
+  //       if (userList.isNotEmpty) {
+  //         // Assuming you're displaying userName in the dropdown
+  //         selectedUser = userList[0].userName; // Set the first user as selected
+  //         print("Selected User: $selectedUser");
+  //       } else {
+  //         selectedUser = null;
+  //       }
+  //     });
+  //   } catch (e) {
+  //     print('Error fetching User: $e');
+  //   } finally {
+  //     setState(() {
+  //       isLoading = false;
+  //     });
+  //   }
+  // }
   Future<void> fetchUserList() async {
     setState(() {
       isLoading = true;
@@ -415,26 +461,19 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       List<User> fetchedUsers =
           await widget._siteObservationService.fetchUserList();
 
-      // Remove duplicates based on userName (if needed)
       List<User> uniqueUsers = [];
-      Set<String> userNames = {}; // To track duplicate userNames
+      Set<String> userNames = {};
 
       for (var user in fetchedUsers) {
         if (!userNames.contains(user.userName)) {
           uniqueUsers.add(user);
-          userNames.add(user.userName); // Add to set to prevent duplicates
+          userNames.add(user.userName);
         }
       }
 
       setState(() {
         userList = uniqueUsers;
-        if (userList.isNotEmpty) {
-          // Assuming you're displaying userName in the dropdown
-          selectedUser = userList[0].userName; // Set the first user as selected
-          print("Selected User: $selectedUser");
-        } else {
-          selectedUser = null;
-        }
+        // No longer setting a default selected user
       });
     } catch (e) {
       print('Error fetching User: $e');
@@ -670,6 +709,40 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     int? projectID = await SharedPrefsHelper.getProjectID();
     int? companyID = await SharedPrefsHelper.getCompanyId();
     int? userID = await SharedPrefsHelper.getUserId();
+    // List<String> selectedUsers = [];
+    activityList.add(
+      SiteObservationActivity(
+        id: 0,
+        siteObservationID: null,
+        actionID: SiteObservationActions.Created,
+        comments: '',
+        documentName: uploadedFiles.isNotEmpty ? uploadedFiles.first : "",
+        fromStatusID: 0,
+        toStatusID: 0,
+        assignedUserID: userID!, // creator ka ID
+        createdBy: userID,
+        createdDate: formatDateForApi(DateTime.now()),
+      ),
+    );
+
+    for (var username in selectedUsers) {
+      final user = userList.firstWhere((u) => u.userName == username);
+      activityList.add(
+        SiteObservationActivity(
+          id: 0,
+          siteObservationID: null,
+          actionID: SiteObservationActions.Assigned,
+          comments: '',
+          documentName: '',
+          fromStatusID: 0,
+          toStatusID: 0,
+          assignedUserID: user.id,
+          createdBy: userID,
+          createdDate: formatDateForApi(DateTime.now()),
+        ),
+      );
+    }
+
     SiteObservationModel siteObservation = SiteObservationModel(
       uniqueID: const Uuid().v4(),
       id: 0,
@@ -717,24 +790,10 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       createdDate: formatDateForApi(DateTime.now()),
       lastModifiedBy: userID,
       lastModifiedDate: formatDateForApi(DateTime.now()),
-      siteObservationActivity: [
-        SiteObservationActivity(
-          id: 0,
-          siteObservationID: null,
-          actionID: SiteObservationActions.Created,
-          comments: '',
-          documentName: uploadedFiles.isNotEmpty ? uploadedFiles.first : "",
-          fromStatusID: 0,
-          toStatusID: 0,
-          assignedUserID:
-              userList.firstWhere((u) => u.userName == selectedUser).id,
-          createdBy: userList.firstWhere((u) => u.userName == selectedUser).id,
-          createdDate: formatDateForApi(DateTime.now()),
-          //siteObservation: null // 👈 Add this field if needed,
-        ),
-      ],
+      siteObservationActivity: activityList,
     );
     print("Site Observation Model: ${siteObservation.toJson()}");
+
     try {
       bool success = await widget._siteObservationService
           .submitSiteObservation(siteObservation);
@@ -762,34 +821,34 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
-  // void _resetForm() {
-  //   _formKey.currentState?.reset();
+  void _resetForm() {
+    _formKey.currentState?.reset();
 
-  //   // TextControllers
-  //   observationDescriptionController.clear();
-  //   userDescriptionController.clear();
-  //   ActionToBeTakenController.clear();
-  //   reworkCostController.clear();
-  //   _dateController.clear();
-
-  //   // Dropdowns
-  //   selectedObservationType = '';
-  //   selectedIssueType = '';
-  //   selectedActivities = '';
-  //   selectedArea = '';
-  //   selectedFloor = '';
-  //   selectedPart = '';
-  //   selectedElement = '';
-  //   selectedContractor = '';
-  //   selectedProject = null;
-
-  //   // Others
-  //   uploadedFiles.clear();
-  //   selectedFileName = null;
-  //   isComplianceRequired = false;
-  //   isEscalationRequired = false;
-  //   isUploading = false;
-  // }
+    setState(() {
+      selectedObservation = null; // Or null based on your logic
+      // _dateController.clear();
+      // // Dropdowns
+      selectedObservationType = null;
+      selectedIssueType = null;
+      selectedActivities = null;
+      selectedArea = null;
+      selectedFloor = null;
+      selectedPart = null;
+      selectedElement = null;
+      selectedContractor = null;
+      ActionToBeTakenController.clear();
+      reworkCostController.clear();
+      observationDescriptionController.clear();
+      userDescriptionController.clear();
+      // userList = ''; // Reset selected user
+      // // Others
+      uploadedFiles.clear();
+      selectedFileName = null;
+      isComplianceRequired = false;
+      isEscalationRequired = false;
+      // isUploading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -797,7 +856,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       onWillPop: () async {
         if (!showObservations) {
           // 👇 Reset form values
-          // _resetForm();
+          _resetForm();
 
           // 👇 Switch back to observations list
           setState(() {
@@ -983,12 +1042,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             ),
                                             SizedBox(height: 10),
                                             DropdownButtonFormField<String>(
-                                              value:
-                                                  (selectedIssueType == null ||
-                                                          selectedIssueType!
-                                                              .isEmpty)
-                                                      ? ''
-                                                      : selectedIssueType,
+                                              key: ValueKey(selectedIssueType),
+                                              value: selectedIssueType,
                                               onChanged: (String? newValue) {
                                                 setState(() {
                                                   selectedIssueType = newValue;
@@ -1008,7 +1063,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                               items: [
                                                 DropdownMenuItem<String>(
                                                   value:
-                                                      '', // Placeholder value
+                                                      null, // Placeholder value
                                                   child: Text(
                                                     'Select Issue Type',
                                                     style: TextStyle(
@@ -1028,6 +1083,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             SizedBox(height: 20),
 
                                             DropdownButtonFormField<String>(
+                                              // key: ValueKey(selectedActivities),
                                               value:
                                                   selectedActivities, // This will bind to selectedActivities
                                               onChanged: (String? newValue) {
@@ -1188,6 +1244,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             SizedBox(height: 20),
                                             // Dropdown for Select observation
                                             DropdownButtonFormField<String>(
+                                              // key: ValueKey(
+                                              //     selectedObservationType),
                                               value: selectedObservationType,
                                               onChanged: (String? newValue) {
                                                 setState(() {
@@ -1212,7 +1270,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                               }).toList(),
                                             ),
 
-                                            SizedBox(height: 20),
+                                            SizedBox(height: 16),
                                             Row(
                                               mainAxisAlignment:
                                                   MainAxisAlignment
@@ -1265,6 +1323,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                 ),
                                               ],
                                             ),
+                                            SizedBox(height: 16),
                                             DropdownButtonFormField<String>(
                                               value: selectedArea,
                                               onChanged: (String? newValue) {
@@ -1398,24 +1457,60 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
                                             SizedBox(height: 20),
                                             // Dropdown for Select Assigned To
-                                            DropdownButtonFormField<String>(
-                                              value: selectedUser,
-                                              onChanged: (String? newValue) {
+                                            // DropdownButtonFormField<String>(
+                                            //   value: selectedUser,
+                                            //   onChanged: (String? newValue) {
+                                            //     setState(() {
+                                            //       selectedUser = newValue;
+                                            //     });
+                                            //   },
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Assigned To',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   validator: _validateAssigned,
+                                            //   items: userList.map((User user) {
+                                            //     return DropdownMenuItem<String>(
+                                            //       value: user.userName,
+                                            //       child: Text(user.userName),
+                                            //     );
+                                            //   }).toList(),
+                                            // ),
+                                            MultiSelectDialogField<User>(
+                                              items: userList
+                                                  .map((user) =>
+                                                      MultiSelectItem<User>(
+                                                          user, user.userName))
+                                                  .toList(),
+                                              title: Text("Assigned To"),
+                                              selectedItemsTextStyle: TextStyle(
+                                                  fontWeight: FontWeight.bold),
+                                              itemsTextStyle:
+                                                  TextStyle(fontSize: 16),
+                                              searchable: true,
+                                              buttonText: Text("Select Users"),
+                                              onConfirm: (List<User> selected) {
                                                 setState(() {
-                                                  selectedUser = newValue;
+                                                  selectedUsers = selected
+                                                      .map((u) => u.userName)
+                                                      .toList(); // ✅ Strings only
                                                 });
                                               },
-                                              decoration: InputDecoration(
-                                                labelText: 'Assigned To',
-                                                border: OutlineInputBorder(),
+                                              chipDisplay:
+                                                  MultiSelectChipDisplay(
+                                                onTap: (user) {
+                                                  setState(() {
+                                                    selectedUsers.remove(
+                                                        user); // ✅ Remove full User object
+                                                  });
+                                                },
                                               ),
-                                              validator: _validateAssigned,
-                                              items: userList.map((User user) {
-                                                return DropdownMenuItem<String>(
-                                                  value: user.userName,
-                                                  child: Text(user.userName),
-                                                );
-                                              }).toList(),
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: Colors.grey),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
                                             ),
 
                                             SizedBox(height: 10),
@@ -1604,6 +1699,10 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                 child: FloatingActionButton(
                   onPressed: () {
                     setState(() {
+                      if (!showObservations) {
+                        // We're on form, going back to list → reset the form
+                        _resetForm();
+                      }
                       showObservations = !showObservations;
                     });
                   },

@@ -567,8 +567,8 @@ class SiteObservationService {
 
   Future<List<NCRObservation>> fetchNCRObservations(int userId) async {
     String? token = await SharedPrefsHelper.getToken();
-    print("📤 Token: $token");
-    print("📤 Calling API with UserId: $userId");
+    // print("📤 Token: $token");
+    // print("📤 Calling API with UserId: $userId");
 
     final response = await http.get(
       Uri.parse(
@@ -579,13 +579,13 @@ class SiteObservationService {
       },
     );
 
-    print("📥 API Status: ${response.statusCode}");
-    print("📥 API Response Body: ${response.body}");
+    // print("📥 API Status: ${response.statusCode}");
+    // print("📥 API Response Body: ${response.body}");
 
     if (response.statusCode == 200) {
       try {
         final List<dynamic> jsonData = jsonDecode(response.body);
-        print("🔍 JSON Length: ${jsonData.length}");
+        // print("🔍 JSON Length: ${jsonData.length}");
 
         if (jsonData.isEmpty) {
           print('⚠️ No observations returned for userId $userId');
@@ -604,8 +604,8 @@ class SiteObservationService {
   Future<List<GetSiteObservationMasterById>> fetchGetSiteObservationMasterById(
       int Id) async {
     String? token = await SharedPrefsHelper.getToken();
-    print("📤 Token: $token");
-    print("📤 Calling API with UserId: $Id");
+    // print("📤 Token: $token");
+    // print("📤 Calling API with UserId: $Id");
 
     final response = await http.get(
       Uri.parse(
@@ -616,13 +616,13 @@ class SiteObservationService {
       },
     );
 
-    print("📥 API Status: ${response.statusCode}");
-    print("📥 API Response Body: ${response.body}");
+    // print("📥 API Status: ${response.statusCode}");
+    // print("📥 API Response Body: ${response.body}");
 
     if (response.statusCode == 200) {
       try {
         final List<dynamic> jsonData = jsonDecode(response.body);
-        print("🔍 JSON Length: ${jsonData.length}");
+        // print("🔍 JSON Length: ${jsonData.length}");
 
         if (jsonData.isEmpty) {
           print('⚠️ No observations returned for userId $Id');
@@ -778,8 +778,8 @@ class SiteObservationService {
       },
       body: jsonEncode(data.toJson()),
     );
-    print("Sending payload: ${jsonEncode(data.toJson())}");
-    print("Sending to URL: $url");
+    // print("Sending payload: ${jsonEncode(data.toJson())}");
+    // print("Sending to URL: $url");
     // print("GET Status123: ${response.statusCode}");
     // print("Body123: ${response.body}");
     if (response.statusCode == 200 || response.statusCode == 204) {
@@ -844,7 +844,7 @@ class SiteObservationService {
       filename: fileName,
     ));
 
-    print("Uploading file: $fileName");
+    // print("Uploading file: $fileName");
 
     request.headers['Authorization'] = 'Bearer $token';
     // NO Content-Type header here, MultipartRequest sets it automatically
@@ -853,8 +853,8 @@ class SiteObservationService {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      print('Upload response status: ${response.statusCode}');
-      print('Upload response body: ${response.body}');
+      // print('Upload response status: ${response.statusCode}');
+      // print('Upload response body: ${response.body}');
 
       if (response.statusCode == 200 &&
           response.body.contains('file uploaded|')) {

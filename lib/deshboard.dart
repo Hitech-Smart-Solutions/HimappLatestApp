@@ -155,6 +155,12 @@ class DashboardPage extends StatelessWidget {
         value: "3",
         color: Color(0xFFFB5607),
       ),
+      _buildNeonGlassCard(
+        icon: Icons.science,
+        title: "SiteObservation Quality",
+        value: "5",
+        color: Color.fromARGB(255, 221, 57, 194),
+      ),
       // Aap aur cards yaha add kar sakte ho
     ];
 
@@ -175,40 +181,6 @@ class DashboardPage extends StatelessWidget {
       },
     );
   }
-
-  // Widget _buildStatsCards(BuildContext context) {
-  //   double screenWidth = MediaQuery.of(context).size.width;
-  //   // Let's keep max card width 400, adjust based on screen
-  //   double maxCardWidth = screenWidth > 400 ? 400 : screenWidth * 0.9;
-
-  //   return Column(
-  //     children: [
-  //       _buildNeonGlassCard(
-  //         icon: Icons.work,
-  //         title: "Ongoing Projects",
-  //         value: "12",
-  //         color: Colors.cyanAccent,
-  //         maxWidth: maxCardWidth,
-  //       ),
-  //       const SizedBox(height: 20),
-  //       _buildNeonGlassCard(
-  //         icon: Icons.visibility,
-  //         title: "Observations",
-  //         value: "5",
-  //         color: Colors.orangeAccent,
-  //         maxWidth: maxCardWidth,
-  //       ),
-  //       const SizedBox(height: 20),
-  //       _buildNeonGlassCard(
-  //         icon: Icons.pending_actions,
-  //         title: "Pending",
-  //         value: "3",
-  //         color: Colors.pinkAccent,
-  //         maxWidth: maxCardWidth,
-  //       ),
-  //     ],
-  //   );
-  // }
 
   Widget _buildNeonGlassCard({
     required IconData icon,

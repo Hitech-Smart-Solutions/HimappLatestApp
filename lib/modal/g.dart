@@ -1,4 +1,5 @@
-import 'dart:convert';
+// naya code
+
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -20,7 +21,7 @@ class ObservationDetailDialog extends StatefulWidget {
   final int? activityId;
   // final String? statusName;
   // final int activityId;
-  final int projectID;
+  // final int projectId;
   const ObservationDetailDialog({
     super.key,
     required this.detail,
@@ -30,7 +31,7 @@ class ObservationDetailDialog extends StatefulWidget {
     required this.activityId,
     // required this.statusName,
     // required this.activityId
-    required this.projectID,
+    // required this.projectId,
   });
 
   @override
@@ -74,7 +75,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   // final int activityId;
   // Default value, can be set later
   int? userId;
-  String? currentUserName;
+
   List<String> uploadedFiles = [];
   bool isButtonDisabled = false;
 
@@ -95,6 +96,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   }
 
   Future<void> _setupPage() async {
+    // Parse status ID
     final rawStatus = widget.detail.statusName;
     final int statusId = int.tryParse(rawStatus ?? '') ?? 0;
 
@@ -102,7 +104,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
       await setObservationStatusDropdown(
           statusId, widget.detail.createdBy, widget.detail);
     } else {
-      // print("⚠️ Invalid status ID string: ${widget.detail.statusName}");
+      print("⚠️ Invalid status ID string: ${widget.detail.statusName}");
     }
 
     await _loadRootCauses(); // wait for root causes to load before proceeding
@@ -114,12 +116,12 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   }
 
   Future<void> initData() async {
-    int projectID = widget.projectID;
-    // print('Detail projectID: $projectID');
+    int? projectId = await SharedPrefsHelper.getProjectID();
+    if (projectId == null) {
+      return;
+    }
     await fetchUsers(); // Only fetch after getting valid ProjectID
     userId = await SharedPrefsHelper.getUserId();
-    currentUserName = await SharedPrefsHelper.getUserName();
-    print("Current user ID: $userId, Name: $currentUserName");
   }
 
   void _initializeFormFields() {
@@ -167,10 +169,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         selectedRootCause = null;
       }
 
-      reworkCostController.text = widget.detail.reworkCost != null
-          ? widget.detail.reworkCost!.toStringAsFixed(2)
-          : '';
-      print("Rework cost: ${widget.detail.reworkCost}");
+      reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
       preventiveActionController.text =
           widget.detail.preventiveActionTaken ?? '';
       correctiveActionController.text =
@@ -417,8 +416,9 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     });
 
     try {
-      int projectID = widget.projectID;
-      // print('Detail projectID: $projectID');
+      int? projectID = await SharedPrefsHelper.getProjectID();
+      if (projectID == null) throw Exception("Project ID not found");
+
       final response = await SiteObservationService().fetchUsersForList(
         projectId: projectID,
       );
@@ -446,29 +446,12 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     int rootCauseID = selectedRootCause?.id ?? 0;
 
     List<ActivityDTO> activities = [];
-    double reworkCost;
-    int getSelectedStatusId(String selectedStatus) {
-      switch (selectedStatus) {
-        case 'Open':
-          return SiteObservationStatus.Open;
-        case 'InProgress':
-          return SiteObservationStatus.InProgress;
-        case 'ReadyToInspect':
-          return SiteObservationStatus.ReadyToInspect;
-        case 'Completed':
-          return SiteObservationStatus.Completed;
-        case 'Reopen':
-          return SiteObservationStatus.Reopen;
-        default:
-          return SiteObservationStatus.Open; // fallback
-      }
-    }
 
     // Assigned action (static entry like Angular)
     activities.add(
       ActivityDTO(
-        id: widget.detail.id,
-        siteObservationID: id,
+        id: 0,
+        siteObservationID: editingUserId,
         actionID: SiteObservationActions.Assigned,
         actionName: '', // ✅ Required field
         comments: '',
@@ -481,7 +464,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         createdDate: DateTime.now(),
       ),
     );
-    // print("Uploaded files list: $uploadedFiles");
+    print("Uploaded files list: $uploadedFiles");
     // Add file uploads if available
     for (String fileName in uploadedFiles) {
       activities.add(
@@ -489,7 +472,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           id: 0,
           siteObservationID: id,
           actionID: SiteObservationActions.DocUploaded,
-          actionName: 'DocUploaded', // ✅ Must provide even if empty
+          actionName: '', // ✅ Must provide even if empty
           comments: '',
           documentName: fileName,
           fromStatusID: 0,
@@ -501,18 +484,14 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         ),
       );
     }
-    // print("in");
-    // print("Rework cost: $reworkCostController.text");
+
     return UpdateSiteObservation(
       id: editingUserId,
       rootCauseID: rootCauseID,
       corretiveActionToBeTaken: correctiveActionController.text,
       preventiveActionTaken: preventiveActionController.text,
-      // reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
       reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
-
-      // reworkCost: double.tryParse(reworkCostController.text)?.toInt() ?? 0,
-      statusID: getSelectedStatusId(selectedStatus?.toString() ?? ''),
+      statusID: 3,
       lastModifiedBy: userId!,
       lastModifiedDate: DateTime.now(),
       activityDTO: activities,
@@ -556,10 +535,10 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         print("⚠️ activityId is null, skipping root cause fetch");
         return;
       }
-      // print("Fetching root causes for activity ID: ${widget.activityId}");
+      print("Fetching root causes for activity ID: ${widget.activityId}");
       rootCauses = await SiteObservationService()
           .fatchRootCausesByActivityID(activityId!);
-      // print("Fetched root causes: $rootCauses");
+      print("Fetched root causes: $rootCauses");
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load root causes: $e')),
@@ -859,23 +838,18 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                         ActivityDTO(
                                           id: 0,
                                           siteObservationID: widget.detail.id,
-                                          actionID: SiteObservationActions
-                                              .DocUploaded,
-                                          actionName: "DocUploaded",
+                                          actionID: 0,
+                                          actionName: "Created",
                                           comments: '',
                                           documentName: uploadedFileName,
                                           fromStatusID: 0,
                                           toStatusID: 0,
-                                          assignedUserID: userId!,
-                                          assignedUserName: currentUserName,
-                                          createdBy: userId.toString(),
+                                          assignedUserID: 0,
+                                          assignedUserName: null,
+                                          createdBy: 'You',
                                           createdDate: DateTime.now(),
                                         ),
                                       );
-                                      print(
-                                          "currentUserName123: $currentUserName");
-                                      // print(
-                                      //     "widget.detail.activityDTO: ${widget.detail.activityDTO}");
                                     });
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -895,25 +869,24 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                             if (showSaveAttachmentButton)
                               ElevatedButton(
                                 onPressed: () async {
-                                  // print("Save button pressed");
+                                  print("Save button pressed");
                                   setState(() {
                                     showSaveAttachmentButton =
                                         false; // Disable button immediately to avoid multiple taps
                                   });
-                                  // print("SetState completed");
+                                  print("SetState completed");
                                   UpdateSiteObservation updatedData =
                                       getUpdatedDataFromForm(uploadedFiles);
-                                  // print("Before API call");
-                                  print("Updated data: $updatedData");
+                                  print("Before API call");
                                   bool success = await SiteObservationService()
                                       .updateSiteObservationByID(updatedData);
-                                  // print("After API call, success: $success");
-                                  // print("success:$success");
+                                  print("After API call, success: $success");
+                                  print("success:$success");
                                   if (success) {
                                     final newDetail = (await widget
                                             .siteObservationService
                                             .fetchGetSiteObservationMasterById(
-                                                widget.detail.id))
+                                                currentDetail.id))
                                         .first;
                                     setState(() {
                                       currentDetail = newDetail;
@@ -1017,309 +990,257 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                           child: SingleChildScrollView(
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            children: [
-                              widget.detail.activityDTO.isEmpty
-                                  ? const Center(
-                                      child: Text("No activity recorded."))
-                                  : ListView.builder(
-                                      shrinkWrap: true,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      itemCount:
-                                          widget.detail.activityDTO.length,
-                                      itemBuilder: (context, index) {
-                                        final activity =
-                                            widget.detail.activityDTO[index];
-
-                                        // Image widget conditionally banayi
-                                        Widget? imageWidget;
-                                        if (activity.documentName != null &&
-                                            activity.documentName!.isNotEmpty &&
-                                            isImage(activity.documentName!)) {
-                                          imageWidget = Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 8.0),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                if (activity.assignedUserName !=
-                                                        null &&
-                                                    activity.assignedUserName!
-                                                        .isNotEmpty)
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                            bottom: 4),
+                          child: Column(children: [
+                            widget.detail.activityDTO.isEmpty
+                                ? const Center(
+                                    child: Text("No activity recorded."))
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: widget.detail.activityDTO.length,
+                                    itemBuilder: (context, index) {
+                                      final activity =
+                                          widget.detail.activityDTO[index];
+                                      print(
+                                          'ActivityLatest #$index: actionNameLatest=${activity.actionName}, commentsLatest=${activity.comments}');
+                                      return Card(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        elevation: 3,
+                                        child: Column(
+                                          children: [
+                                            const Divider(height: 1),
+                                            ListTile(
+                                              leading: CircleAvatar(
+                                                child: Text(
+                                                  (activity.assignedUserName
+                                                              ?.isNotEmpty ??
+                                                          false)
+                                                      ? activity
+                                                          .assignedUserName![0]
+                                                          .toUpperCase()
+                                                      : (activity.createdBy
+                                                              .isNotEmpty
+                                                          ? activity
+                                                              .createdBy[0]
+                                                              .toUpperCase()
+                                                          : '?'),
+                                                ),
+                                              ),
+                                              title: Row(
+                                                children: [
+                                                  Expanded(
                                                     child: Text(
-                                                      activity
-                                                          .assignedUserName!,
+                                                      activity.assignedUserName
+                                                                  ?.isNotEmpty ==
+                                                              true
+                                                          ? activity
+                                                              .assignedUserName!
+                                                          : activity.createdBy,
                                                       style: const TextStyle(
                                                         fontWeight:
                                                             FontWeight.bold,
-                                                        fontSize: 14,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Flexible(
+                                                    child: Text(
+                                                      activity.createdDate
+                                                          .toLocal()
+                                                          .toString()
+                                                          .split('.')[0],
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors.grey,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              subtitle: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  const SizedBox(height: 4),
+                                                  Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: activity
+                                                                  .actionName ==
+                                                              'Commented'
+                                                          ? Colors.pink.shade100
+                                                          : Colors
+                                                              .orange.shade100,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12),
+                                                    ),
+                                                    child: Text(
+                                                      activity.actionName,
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
                                                     ),
                                                   ),
-                                                SizedBox(
-                                                  height: 150,
-                                                  width: 150,
-                                                  child: ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            10),
-                                                    child: Image.network(
-                                                      "$url/${activity.documentName!}",
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (context,
-                                                              error,
-                                                              stackTrace) =>
-                                                          const Icon(Icons
-                                                              .broken_image),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }
+                                                  const SizedBox(height: 6),
+                                                  // Show comment text only if action is "Commented" and comment exists
+                                                  if (activity.actionName ==
+                                                          "Commented" &&
+                                                      activity
+                                                          .comments.isNotEmpty)
+                                                    Text(activity.comments),
 
-                                        return Card(
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                          elevation: 3,
-                                          child: Column(
-                                            children: [
-                                              const Divider(height: 1),
-                                              ListTile(
-                                                leading: CircleAvatar(
-                                                  child: Text(
-                                                    (activity.assignedUserName
-                                                                ?.isNotEmpty ??
-                                                            false)
-                                                        ? activity
-                                                            .assignedUserName![
-                                                                0]
-                                                            .toUpperCase()
-                                                        : '?',
-                                                  ),
-                                                ),
-                                                title: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        activity.assignedUserName ??
-                                                            '',
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
+                                                  // ✅ Show only if actionName == Assigned
+                                                  if (activity.actionName ==
+                                                          "Assigned" &&
+                                                      activity.assignedUserName !=
+                                                          null &&
+                                                      activity.assignedUserName!
+                                                          .isNotEmpty)
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 4),
+                                                      child: Row(
+                                                        children: [
+                                                          const Icon(
+                                                              Icons.person,
+                                                              size: 16),
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          Text(activity
+                                                              .assignedUserName!),
+                                                        ],
                                                       ),
                                                     ),
-                                                    const SizedBox(width: 8),
-                                                    Flexible(
-                                                      child: Text(
-                                                        activity.createdDate
-                                                            .toLocal()
-                                                            .toString()
-                                                            .split('.')[0],
-                                                        style: const TextStyle(
-                                                          fontSize: 12,
-                                                          color: Colors.grey,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                subtitle: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    const SizedBox(height: 4),
-                                                    Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color:
-                                                            activity.actionName ==
-                                                                    'Commented'
-                                                                ? Colors.pink
-                                                                    .shade100
-                                                                : Colors.orange
-                                                                    .shade100,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(12),
-                                                      ),
-                                                      child: Text(
-                                                        activity.actionName,
-                                                        style: const TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 6),
-
-                                                    // Comment text only if action is "Commented" and comment exists
-                                                    if (activity.actionName ==
-                                                            "Commented" &&
-                                                        activity.comments
-                                                            .isNotEmpty)
-                                                      Text(activity.comments),
-
-                                                    // Assigned user display with file name
-                                                    if (activity.actionName ==
-                                                            "Assigned" &&
-                                                        activity.assignedUserName !=
-                                                            null &&
-                                                        activity
-                                                            .assignedUserName!
-                                                            .isNotEmpty)
-                                                      Padding(
+                                                  // ✅ This is your solution
+                                                  if ((activity.actionName ==
+                                                              "DocUploaded" ||
+                                                          activity.actionName ==
+                                                              "Created") &&
+                                                      activity.documentName !=
+                                                          null &&
+                                                      activity.documentName!
+                                                          .isNotEmpty &&
+                                                      isImage(activity
+                                                          .documentName!))
+                                                    Padding(
                                                         padding:
                                                             const EdgeInsets
-                                                                .only(top: 4),
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Row(
-                                                              children: [
-                                                                const Icon(
-                                                                    Icons
-                                                                        .person,
-                                                                    size: 16),
-                                                                const SizedBox(
-                                                                    width: 4),
-                                                                Text(activity
-                                                                    .assignedUserName!),
-                                                              ],
+                                                                .only(top: 8.0),
+                                                        child: SizedBox(
+                                                          height: 150,
+                                                          width: 150,
+                                                          child: ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        10),
+                                                            child:
+                                                                Image.network(
+                                                              "$url/${activity.documentName!}",
+                                                              fit: BoxFit.cover,
+                                                              errorBuilder: (context,
+                                                                      error,
+                                                                      stackTrace) =>
+                                                                  const Icon(Icons
+                                                                      .broken_image),
                                                             ),
-                                                            // File name below assigned user name (if any)
-                                                            if (activity.documentName !=
-                                                                    null &&
-                                                                activity
-                                                                    .documentName!
-                                                                    .isNotEmpty)
-                                                              Padding(
-                                                                padding:
-                                                                    const EdgeInsets
-                                                                        .only(
-                                                                        top: 2),
-                                                                child: Text(
-                                                                  activity
-                                                                      .documentName!,
-                                                                  style:
-                                                                      const TextStyle(
-                                                                    fontSize:
-                                                                        12,
-                                                                    color: Colors
-                                                                        .grey,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                          ],
-                                                        ),
-                                                      ),
-
-                                                    // Image widget display if exists
-                                                    if (imageWidget != null)
-                                                      imageWidget,
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                              const Divider(),
-                              Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: Container(
-                                          constraints: const BoxConstraints(
-                                              maxHeight: 250),
-                                          child: FlutterMentions(
-                                            key: mentionsKey,
-                                            maxLines: 5,
-                                            minLines: 2,
-                                            suggestionPosition:
-                                                SuggestionPosition.Top,
-                                            decoration: InputDecoration(
-                                              hintText:
-                                                  "Add comment and assign user...",
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 12),
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
+                                                          ),
+                                                        )),
+                                                ],
                                               ),
                                             ),
-                                            mentions: [
-                                              Mention(
-                                                trigger: '@',
-                                                style: const TextStyle(
-                                                    color: Colors.blue),
-                                                data: userList,
-                                                matchAll: true,
-                                                suggestionBuilder: (data) {
-                                                  return ListTile(
-                                                    leading: CircleAvatar(
-                                                      child: Text(
-                                                          data['display'][0]
-                                                              .toUpperCase()),
-                                                    ),
-                                                    title:
-                                                        Text(data['display']),
-                                                    subtitle:
-                                                        Text(data['full_name']),
-                                                  );
-                                                },
-                                              ),
-                                            ],
-                                          ),
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(width: 20),
-                                      ElevatedButton(
-                                        onPressed: _sendActivityComment,
-                                        style: ElevatedButton.styleFrom(
-                                          minimumSize: const Size(70, 48),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                        child: const Text("Send"),
-                                      ),
-                                    ],
+                                      );
+                                    },
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
+                            const Divider(),
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        constraints:
+                                            BoxConstraints(maxHeight: 250),
+                                        child: FlutterMentions(
+                                          key: mentionsKey,
+                                          maxLines: 5,
+                                          minLines: 2,
+                                          suggestionPosition:
+                                              SuggestionPosition.Top,
+                                          decoration: InputDecoration(
+                                            hintText:
+                                                "Add comment and assign user...",
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 12),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          mentions: [
+                                            Mention(
+                                              trigger: '@',
+                                              style: const TextStyle(
+                                                  color: Colors.blue),
+                                              data: userList,
+                                              matchAll: true,
+                                              suggestionBuilder: (data) {
+                                                return ListTile(
+                                                  leading: CircleAvatar(
+                                                    child: Text(data['display']
+                                                            [0]
+                                                        .toUpperCase()),
+                                                  ),
+                                                  title: Text(data['display']),
+                                                  subtitle:
+                                                      Text(data['full_name']),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 20),
+                                    ElevatedButton(
+                                      onPressed: _sendActivityComment,
+                                      style: ElevatedButton.styleFrom(
+                                        minimumSize: const Size(70, 48),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                      child: const Text("Send"),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ]),
                         ),
                       )),
                     ],
@@ -1560,24 +1481,17 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                 onPressed: isButtonDisabled
                     ? null
                     : () async {
-                        print("🚨 Update button pressed");
                         if (_formKey.currentState?.validate() ?? false) {
                           setState(() {
                             isEditingRootCause = false;
                             isButtonDisabled = true;
                           });
 
-                          // print("uploadedFiles before update: $uploadedFiles");
+                          print("uploadedFiles before update: $uploadedFiles");
 
                           UpdateSiteObservation updatedData =
                               getUpdatedDataFromForm(uploadedFiles);
-                          print("📦 updatedData:");
-                          print("ID: ${updatedData.id}");
-                          print("Status: ${updatedData.statusID}");
-                          print(
-                              "ActivityDTO count: ${updatedData.activityDTO.length}");
-                          print(
-                              "📦 updatedData JSON: ${jsonEncode(updatedData.toJson())}");
+
                           bool success = await SiteObservationService()
                               .updateSiteObservationByID(updatedData);
 
@@ -1588,15 +1502,15 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                 ActivityDTO(
                                   id: 0,
                                   siteObservationID: widget.detail.id,
-                                  actionID: SiteObservationActions.DocUploaded,
-                                  actionName: "DocUploaded",
+                                  actionID: 0,
+                                  actionName: '',
                                   comments: '',
                                   documentName: fileName,
                                   fromStatusID: 0,
                                   toStatusID: 0,
                                   assignedUserID: 0,
                                   assignedUserName: null,
-                                  createdBy: userId.toString(),
+                                  createdBy: 'You',
                                   createdDate: DateTime.now(),
                                 ),
                               );

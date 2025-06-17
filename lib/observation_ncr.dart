@@ -28,6 +28,7 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
     super.initState();
     futureObservations =
         widget.siteObservationService.fetchNCRObservations(widget.userId);
+    print("Future Observations: $futureObservations");
   }
 
   @override
@@ -53,7 +54,7 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
             itemCount: observations.length,
             itemBuilder: (context, index) {
               final obs = observations[index];
-              print("Selected Status: ${obs.statusName}");
+              // print("Selected Status: ${obs.statusName}");
 
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -183,8 +184,8 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
                 ],
               );
             } else {
-              print(
-                  "widget.siteObservationService :${widget.siteObservationService}");
+              // print(
+              //     "widget.siteObservationService :${widget.siteObservationService}");
               final detail = snapshot.data!.first;
               return ObservationDetailDialog(
                 detail: detail,
@@ -192,6 +193,7 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
                 siteObservationId: detail.id,
                 createdBy: detail.createdBy?.toString() ?? '',
                 activityId: detail.activityID, // Pass the activityId
+                projectID: detail.projectID,
                 // statusName = detail.statusName;
               );
             }

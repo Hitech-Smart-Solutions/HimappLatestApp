@@ -695,6 +695,7 @@ class GetSiteObservationMasterById {
   final String elementName;
   final int? createdBy; // Assuming elementID is a String
   final int? activityID; // Assuming activityId is an int
+  final int projectID; // Assuming projectId is a String
 
   final List<ActivityDTO> activityDTO;
 
@@ -725,6 +726,7 @@ class GetSiteObservationMasterById {
     this.escalationRequired = false,
     required this.createdBy,
     required this.activityID,
+    required this.projectID,
     required this.activityDTO,
   });
 
@@ -756,11 +758,49 @@ class GetSiteObservationMasterById {
       escalationRequired: json['escalationRequired'] ?? false,
       createdBy: json['createdBy'] ?? '',
       activityID: json['activityID'] as int?,
+      // projectID: json['projectID'] as int,
+      projectID: json['projectID'] != null ? json['projectID'] as int : 0,
       activityDTO: (json['activityDTO'] as List<dynamic>?)
               ?.map((item) => ActivityDTO.fromJson(item))
               .toList() ??
           [],
     );
+  }
+
+  @override
+  String toString() {
+    return '''
+GetSiteObservationMasterById(
+  id: $id,
+  observationCode: $observationCode,
+  description: $description,
+  observationRaisedBy: $observationRaisedBy,
+  observationType: $observationType,
+  issueType: $issueType,
+  contractorName: $contractorName,
+  actionToBeTaken: $actionToBeTaken,
+  reworkCost: $reworkCost,
+  rootCauseID: $rootCauseID,
+  corretiveActionToBeTaken: $corretiveActionToBeTaken,
+  preventiveActionTaken: $preventiveActionTaken,
+  statusName: $statusName,
+  assignedUserID: $assignedUserID,
+  trancationDate: $trancationDate,
+  createdDate: $createdDate,
+  dueDate: $dueDate,
+  activityName: $activityName,
+  sectionName: $sectionName,
+  floorName: $floorName,
+  partName: $partName,
+  complianceRequired: $complianceRequired,
+  escalationRequired: $escalationRequired,
+  elementName: $elementName,
+  createdBy: $createdBy,
+  activityID: $activityID,
+  projectID: $projectID,
+  activityDTO: $activityDTO
+)
+''';
   }
 }
 
@@ -826,6 +866,27 @@ class ActivityDTO {
       'createdDate': createdDate.toIso8601String(),
     };
   }
+
+  // ✅ YEHA DAALO
+  @override
+  String toString() {
+    return '''
+ActivityDTO(
+  id: $id,
+  siteObservationID: $siteObservationID,
+  actionID: $actionID,
+  actionName: $actionName,
+  comments: $comments,
+  documentName: $documentName,
+  fromStatusID: $fromStatusID,
+  toStatusID: $toStatusID,
+  assignedUserID: $assignedUserID,
+  assignedUserName: $assignedUserName,
+  createdBy: $createdBy,
+  createdDate: $createdDate
+)
+''';
+  }
 }
 
 class UpdateSiteObservation {
@@ -833,7 +894,7 @@ class UpdateSiteObservation {
   int? rootCauseID; // ✅ Made nullable
   String? corretiveActionToBeTaken; // ✅ Nullable if API allows
   String? preventiveActionTaken; // ✅ Nullable if API allows
-  int reworkCost;
+  double reworkCost;
   int statusID;
   int lastModifiedBy;
   DateTime lastModifiedDate;
