@@ -1,35 +1,14 @@
 import 'dart:convert';
-import 'dart:io';
+// import 'dart:io';
 import 'dart:typed_data';
-import 'package:file_picker/file_picker.dart';
+// import 'package:file_picker/file_picker.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:http/http.dart' as http;
-import 'package:path/path.dart';
-import 'package:http_parser/http_parser.dart';
+// import 'package:path/path.dart';
+// import 'package:http_parser/http_parser.dart';
 
 class SiteObservationService {
-  // Future<List<SiteObservation>> fetchSiteObservation() async {
-  //   String? token = await SharedPrefsHelper.getToken();
-  //   final response = await http.get(
-  //     Uri.parse(
-  //         'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationMaster'),
-  //     headers: {
-  //       'Authorization': 'Bearer $token', // 👈 Add this line
-  //       'Content-Type': 'application/json',
-  //     },
-  //   );
-
-  //   if (response.statusCode == 200) {
-  //     final List<dynamic> jsonData = jsonDecode(response.body);
-
-  //     // ✅ Convert JSON response to List<SiteObservation>
-  //     return jsonData.map((item) => SiteObservation.fromJson(item)).toList();
-  //   } else {
-  //     throw Exception('Failed to load site observations');
-  //   }
-  // }
-
   Future<List<SiteObservation>> fetchSiteObservationsSafety({
     required int projectId,
     String sortColumn = 'ID desc',
@@ -92,7 +71,7 @@ class SiteObservationService {
         'Authorization': 'Bearer $token',
       },
     );
-
+    print("Response status code: $response");
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final List<dynamic> table1 = data['Value']['Table1'];
@@ -102,24 +81,22 @@ class SiteObservationService {
     }
   }
 
-  Future<List<IssueType>> fetchIssueTypes() async {
+  Future<List<IssueType>> fetchIssueTypes(int observationTypeId) async {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetIssueType'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/Observation/GetIssueTypeByObservationTypeID/$observationTypeId'),
       headers: {
-        'Authorization': 'Bearer $token', // 👈 Add this line
+        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
     );
 
     if (response.statusCode == 200) {
       final List<dynamic> jsonData = jsonDecode(response.body);
-
-      // ✅ Convert JSON response to List<SiteObservation>
       return jsonData.map((item) => IssueType.fromJson(item)).toList();
     } else {
-      throw Exception('Failed to load site observations');
+      throw Exception('Failed to load issue types');
     }
   }
 
@@ -159,18 +136,17 @@ class SiteObservationService {
   }
 
   Future<List<Observation>> fetchObservations(
-      int companyID, int screentypeID) async {
-    print(
-        "Fetching observations for companyID: $companyID and screentypeID: $screentypeID");
+      int companyID, int screentypeID, int selectedIssueTypeId) async {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetObservationsByCompanyandfucntionID/$companyID/$screentypeID'),
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetObservationsByCompanyFunctionAndIssueTypeID/$companyID/$screentypeID/$selectedIssueTypeId'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
     );
+
     if (response.statusCode == 200) {
       try {
         // Directly decode the JSON response as a List
@@ -235,14 +211,12 @@ class SiteObservationService {
 
     if (response.statusCode == 200) {
       try {
-        final Map<String, dynamic> jsonData =
-            jsonDecode(response.body); // Decode the response as a Map
-        final List<dynamic> areaData =
-            jsonData['value']; // Extract the list of areas from the 'value' key
+        final Map<String, dynamic> jsonData = jsonDecode(response.body);
+        final List<dynamic> areaData = jsonData['value'];
 
         if (areaData.isEmpty) {
           print('No Area found');
-          return []; // Return empty list if no areas are found
+          return [];
         }
 
         // Map the List of dynamic objects to Area objects
@@ -271,14 +245,12 @@ class SiteObservationService {
 
     if (response.statusCode == 200) {
       try {
-        final Map<String, dynamic> jsonData =
-            jsonDecode(response.body); // Decode the response as a Map
-        final List<dynamic> floorData =
-            jsonData['value']; // Extract the list of Floor from the 'value' key
+        final Map<String, dynamic> jsonData = jsonDecode(response.body);
+        final List<dynamic> floorData = jsonData['value'];
 
         if (floorData.isEmpty) {
           print('No Floor found');
-          return []; // Return empty list if no Floor are found
+          return [];
         }
 
         // Map the List of dynamic objects to Floor objects
@@ -307,14 +279,12 @@ class SiteObservationService {
 
     if (response.statusCode == 200) {
       try {
-        final Map<String, dynamic> jsonData =
-            jsonDecode(response.body); // Decode the response as a Map
-        final List<dynamic> partData =
-            jsonData['value']; // Extract the list of Part from the 'value' key
+        final Map<String, dynamic> jsonData = jsonDecode(response.body);
+        final List<dynamic> partData = jsonData['value'];
 
         if (partData.isEmpty) {
           print('No Part found');
-          return []; // Return empty list if no Part are found
+          return [];
         }
 
         // Map the List of dynamic objects to part objects
@@ -343,14 +313,12 @@ class SiteObservationService {
 
     if (response.statusCode == 200) {
       try {
-        final Map<String, dynamic> jsonData =
-            jsonDecode(response.body); // Decode the response as a Map
-        final List<dynamic> partData = jsonData[
-            'value']; // Extract the list of Element from the 'value' key
+        final Map<String, dynamic> jsonData = jsonDecode(response.body);
+        final List<dynamic> partData = jsonData['value'];
 
         if (partData.isEmpty) {
           print('No Part found');
-          return []; // Return empty list if no Element are found
+          return [];
         }
 
         // Map the List of dynamic objects to Element objects
@@ -379,12 +347,11 @@ class SiteObservationService {
 
     if (response.statusCode == 200) {
       try {
-        final List<dynamic> partData =
-            jsonDecode(response.body); // Decode as List<dynamic>
+        final List<dynamic> partData = jsonDecode(response.body);
 
         if (partData.isEmpty) {
           print('No Party found');
-          return []; // Return empty list if no Party are found
+          return [];
         }
 
         // Map the List of dynamic objects to Party objects
@@ -411,15 +378,12 @@ class SiteObservationService {
       },
     );
 
-    print("Response status1: ${response.statusCode}"); // Log the status code
-
     if (response.statusCode == 200) {
       try {
-        final List<dynamic> userData = jsonDecode(
-            response.body); // Extract the list of Users from the 'value' key
+        final List<dynamic> userData = jsonDecode(response.body);
         if (userData.isEmpty) {
           print('No Users found');
-          return []; // Return empty list if no users are found
+          return [];
         }
 
         // Map the List of dynamic objects to User objects
@@ -433,9 +397,6 @@ class SiteObservationService {
       throw Exception('Failed to load Users');
     }
   }
-
-  // final String apiUrl =
-  //     'https://d94acvrm8bvo5.cloudfront.net/api/UserMaster/GetUsers/'; // Replace with your API URL
 
   // Method to submit the site observation
   Future<bool> submitSiteObservation(
@@ -457,54 +418,16 @@ class SiteObservationService {
         body: json.encode(siteObservation.toJson()),
       );
 
-      print("📦 JSON Payload Sent");
-      print("Status: ${response.statusCode}");
-      print("Response Body: ${response.body}");
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else {
-        // ❗ Throw backend error message to show it in UI
         throw response.body;
       }
     } catch (e) {
       print('❌ Error occurred: $e');
-      throw e.toString(); // Re-throw to let UI handle it
+      throw e.toString();
     }
   }
-
-  // Future<bool> submitSiteObservation(
-  //     SiteObservationModel siteObservation) async {
-  //   String? token = await SharedPrefsHelper.getToken();
-
-  //   if (token == null) {
-  //     print("❌ Token not found.");
-  //     return false;
-  //   }
-
-  //   final url = Uri.parse(
-  //       'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/CreateSiteObservationMaster');
-
-  //   final headers = {
-  //     'Content-Type': 'application/json',
-  //     'Authorization': 'Bearer $token', // ✅ Add token here
-  //   };
-
-  //   final response = await http.post(
-  //     url,
-  //     headers: headers,
-  //     body: jsonEncode(data.toJson()),
-  //   );
-
-  //   if (response.statusCode == 200 || response.statusCode == 201) {
-  //     print('✅ Registration successful');
-  //     return true;
-  //   } else {
-  //     print('❌ Error: ${response.statusCode}');
-  //     print('Body: ${response.body}');
-  //     return false;
-  //   }
-  // }
 
   Future<List<Activity>> fatchActivityByCompanyIdAndScreenTypeId(
       int companyID, int screentypeID) async {
@@ -537,12 +460,12 @@ class SiteObservationService {
     }
   }
 
-  Future<List<RootCause>> fatchRootCausesByActivityID(int activityID) async {
+  Future<List<RootCause>> fatchRootCausesByActivityID(int companyId) async {
     try {
       final String? token = await SharedPrefsHelper.getToken();
 
       final Uri url = Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/RootCause/GetRootCauseByActivityID/$activityID',
+        'https://d94acvrm8bvo5.cloudfront.net/api/RootCause/GetRootCauseByCompanyID/$companyId',
       );
 
       final response = await http.get(
@@ -567,9 +490,6 @@ class SiteObservationService {
 
   Future<List<NCRObservation>> fetchNCRObservations(int userId) async {
     String? token = await SharedPrefsHelper.getToken();
-    // print("📤 Token: $token");
-    // print("📤 Calling API with UserId: $userId");
-
     final response = await http.get(
       Uri.parse(
           'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationSafetyByUserID/$userId'),
@@ -579,14 +499,37 @@ class SiteObservationService {
       },
     );
 
-    // print("📥 API Status: ${response.statusCode}");
-    // print("📥 API Response Body: ${response.body}");
+    if (response.statusCode == 200) {
+      try {
+        final List<dynamic> jsonData = jsonDecode(response.body);
+        if (jsonData.isEmpty) {
+          print('⚠️ No observations returned for userId $userId');
+        }
+
+        return jsonData.map((item) => NCRObservation.fromJson(item)).toList();
+      } catch (e) {
+        print("❌ JSON Parsing Error: $e");
+        throw Exception('Failed to load Observation');
+      }
+    } else {
+      throw Exception('Failed to load Observation: ${response.statusCode}');
+    }
+  }
+
+  Future<List<NCRObservation>> fetchNCRQualityObservations(int userId) async {
+    String? token = await SharedPrefsHelper.getToken();
+    final response = await http.get(
+      Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationQualityByUserID/$userId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
 
     if (response.statusCode == 200) {
       try {
         final List<dynamic> jsonData = jsonDecode(response.body);
-        // print("🔍 JSON Length: ${jsonData.length}");
-
         if (jsonData.isEmpty) {
           print('⚠️ No observations returned for userId $userId');
         }
@@ -604,8 +547,6 @@ class SiteObservationService {
   Future<List<GetSiteObservationMasterById>> fetchGetSiteObservationMasterById(
       int Id) async {
     String? token = await SharedPrefsHelper.getToken();
-    // print("📤 Token: $token");
-    // print("📤 Calling API with UserId: $Id");
 
     final response = await http.get(
       Uri.parse(
@@ -616,14 +557,9 @@ class SiteObservationService {
       },
     );
 
-    // print("📥 API Status: ${response.statusCode}");
-    // print("📥 API Response Body: ${response.body}");
-
     if (response.statusCode == 200) {
       try {
         final List<dynamic> jsonData = jsonDecode(response.body);
-        // print("🔍 JSON Length: ${jsonData.length}");
-
         if (jsonData.isEmpty) {
           print('⚠️ No observations returned for userId $Id');
         }
@@ -632,98 +568,13 @@ class SiteObservationService {
             .map((item) => GetSiteObservationMasterById.fromJson(item))
             .toList();
       } catch (e) {
-        print("❌ JSON Parsing Error: $e");
+        print("❌ JSON Parsing Error fetchGetSiteObservationMasterById: $e");
         throw Exception('Failed to load Observation');
       }
     } else {
       throw Exception('Failed to load Observation: ${response.statusCode}');
     }
   }
-
-  // Future<String?> uploadFile(File file) async {
-  //   try {
-  //     var request = http.MultipartRequest(
-  //       'POST',
-  //       Uri.parse(
-  //           'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/upload'),
-  //     );
-
-  //     String? token = await SharedPrefsHelper.getToken();
-  //     print('🔑 Token: $token');
-
-  //     request.headers.addAll({
-  //       'Authorization': 'Bearer $token',
-  //       'Content-Type': 'application/json',
-  //     });
-
-  //     request.files.add(
-  //       await http.MultipartFile.fromPath(
-  //         'file',
-  //         file.path,
-  //         filename: basename(file.path),
-  //         contentType: MediaType('image', 'jpeg'),
-  //       ),
-  //     );
-
-  //     print('📤 Sending request to: ${request.url}');
-  //     print('📎 File path: ${file.path}');
-  //     print('📎 File name: ${basename(file.path)}');
-
-  //     var response = await request.send();
-  //     final responseBody = await response.stream.bytesToString();
-
-  //     print('📥 Status Code: ${response.statusCode}');
-  //     print('📥 Response Body: $responseBody');
-
-  //     if (response.statusCode == 200) {
-  //       // Response format: "file uploaded|<url>"
-  //       final parts = responseBody.split('|');
-  //       if (parts.length == 2) {
-  //         final uploadedUrl = parts[1].trim();
-  //         return uploadedUrl; // ✅ Return the URL
-  //       } else {
-  //         print('❌ Unexpected response format');
-  //         return null;
-  //       }
-  //     } else {
-  //       print('❌ Upload failed: ${response.statusCode}');
-  //       return null;
-  //     }
-  //   } catch (e) {
-  //     print('❌ Exception during upload: $e');
-  //     return null;
-  //   }
-  // }
-
-  // Future<void> sendSiteObservationActivity(
-  //     List<ActivityDTO> activities, int siteObservationID) async {
-  //   String? token = await SharedPrefsHelper.getToken();
-  //   final url = Uri.parse(
-  //       'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/AddSiteObservationActivity/$siteObservationID');
-
-  //   // Convert your ActivityDTO list to JSON list
-  //   final body = jsonEncode(activities.map((a) => a.toJson()).toList());
-
-  //   try {
-  //     final response = await http.post(
-  //       url,
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //         'Authorization': 'Bearer $token',
-  //       },
-  //       body: body,
-  //     );
-
-  //     if (response.statusCode == 200 || response.statusCode == 201) {
-  //       print('Activity posted successfully!');
-  //     } else {
-  //       print('Failed to post activity: ${response.statusCode}');
-  //       print('Response body: ${response.body}');
-  //     }
-  //   } catch (e) {
-  //     print('Error posting activity: $e');
-  //   }
-  // }
 
   Future<bool> sendSiteObservationActivity({
     required List<ActivityDTO> activities,
@@ -740,11 +591,10 @@ class SiteObservationService {
         "https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/AddSiteObservationActivity/$siteObservationID");
     final headers = {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token', // Adjust format if API needs different
+      'Authorization': 'Bearer $token',
     };
 
     final body = jsonEncode(activities.map((a) => a.toJson()).toList());
-    print("📤 POST Body: $body");
 
     try {
       final response = await http.post(url, headers: headers, body: body);
@@ -778,10 +628,6 @@ class SiteObservationService {
       },
       body: jsonEncode(data.toJson()),
     );
-    // print("Sending payload: ${jsonEncode(data.toJson())}");
-    // print("Sending to URL: $url");
-    // print("GET Status123: ${response.statusCode}");
-    // print("Body123: ${response.body}");
     if (response.statusCode == 200 || response.statusCode == 204) {
       print("Update successful!");
       return true;
@@ -844,24 +690,16 @@ class SiteObservationService {
       filename: fileName,
     ));
 
-    // print("Uploading file: $fileName");
-
     request.headers['Authorization'] = 'Bearer $token';
-    // NO Content-Type header here, MultipartRequest sets it automatically
 
     try {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      // print('Upload response status: ${response.statusCode}');
-      // print('Upload response body: ${response.body}');
-
       if (response.statusCode == 200 &&
           response.body.contains('file uploaded|')) {
         final path = response.body.split('|')[1];
-        print('🟢 File uploaded successfully! Path: $path');
         final fileNameFromPath = path.split('/').last;
-        print('🟢 Extracted file name: $fileNameFromPath');
         return fileNameFromPath;
       } else {
         print('❌ Upload failed: ${response.statusCode} - ${response.body}');
@@ -871,5 +709,93 @@ class SiteObservationService {
     }
 
     return null;
+  }
+
+  Future<List<AssignedUser>> fetchGetassignedusersforReopen(int Id) async {
+    String? token = await SharedPrefsHelper.getToken();
+
+    final response = await http.get(
+      Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationAssignedPersonsForReopen/$Id'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      try {
+        final List<dynamic> jsonData = jsonDecode(response.body);
+
+        if (jsonData.isEmpty) {
+          print('⚠️ No assigned users returned for SiteObservation $Id');
+        }
+
+        return jsonData.map((item) => AssignedUser.fromJson(item)).toList();
+      } catch (e) {
+        print("❌ JSON Parsing Error: $e");
+        throw Exception('Failed to load assigned users');
+      }
+    } else {
+      throw Exception('Failed to load assigned users: ${response.statusCode}');
+    }
+  }
+
+  // Fetch FatchSiteObservationSafetyByUserID list
+  Future<List<SiteObservation>> fatchSiteObservationSafetyByUserID(
+      int? userID) async {
+    print("Fetching safety observations for userID: $userID");
+    String? token = await SharedPrefsHelper.getToken();
+    final response = await http.get(
+      Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationSafetyByUserID/$userID'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonData = jsonDecode(response.body);
+      print("Decoded JSON: $jsonData");
+      if (jsonData.isEmpty) {
+        print('No safety observations found');
+        return [];
+      }
+      return jsonData.map((item) => SiteObservation.fromJson(item)).toList();
+    } else {
+      throw Exception('Failed to load safety observations');
+    }
+  }
+
+  Future<List<SiteObservation>> fatchSiteObservationQualityByUserID(
+      int? userID) async {
+    print("Fetching quality observations for userID: $userID");
+    String? token = await SharedPrefsHelper.getToken();
+    final response = await http.get(
+      Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationQualityByUserID/$userID'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    print("Response body: ${response.body}");
+    if (response.statusCode == 200) {
+      try {
+        final List<dynamic> jsonData = jsonDecode(response.body);
+        print("Decoded JSON: $jsonData");
+        if (jsonData.isEmpty) {
+          print('No quality observations found');
+          return [];
+        }
+        return jsonData.map((item) => SiteObservation.fromJson(item)).toList();
+      } catch (e) {
+        print("Error parsing the JSON data: $e");
+        throw Exception('Failed to load quality observations');
+      }
+    } else {
+      throw Exception('Failed to load quality observations');
+    }
   }
 }

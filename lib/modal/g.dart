@@ -150,7 +150,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           widget.detail.corretiveActionToBeTaken ?? '';
     }
     if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-        selectedStatus == SiteObservationStatus.Completed.toString()) {
+        selectedStatus == SiteObservationStatus.Closed.toString()) {
       _isReadOnly = true;
       try {
         // If rootCauseID is valid, find matching RootCause
@@ -340,24 +340,18 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         .toList();
 
     switch (statusId) {
-      case SiteObservationStatus.Completed:
+      case SiteObservationStatus.Closed:
         observationStatus = [
-          {
-            "id": SiteObservationStatus.Completed.toString(),
-            "name": "Completed"
-          }
+          {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"}
         ];
-        selectedStatus = SiteObservationStatus.Completed.toString();
+        selectedStatus = SiteObservationStatus.Closed.toString();
         isStatusEnabled = false;
         break;
 
       case SiteObservationStatus.ReadyToInspect:
         if (createdBy == userID) {
           observationStatus = [
-            {
-              "id": SiteObservationStatus.Completed.toString(),
-              "name": "Completed"
-            },
+            {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"},
             {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"},
             {
               "id": SiteObservationStatus.ReadyToInspect.toString(),
@@ -745,7 +739,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                         SiteObservationStatus.InProgress
                                             .toString() ||
                                     selectedStatus ==
-                                        SiteObservationStatus.Completed
+                                        SiteObservationStatus.Closed
                                             .toString() ||
                                     selectedStatus ==
                                         SiteObservationStatus.Reopen.toString())
@@ -1317,7 +1311,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           if (selectedStatus ==
                   SiteObservationStatus.ReadyToInspect.toString() ||
               selectedStatus == SiteObservationStatus.Open.toString() ||
-              selectedStatus == SiteObservationStatus.Completed.toString() ||
+              selectedStatus == SiteObservationStatus.Closed.toString() ||
               selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
             DropdownButtonFormField<RootCause>(
               value: selectedRootCause,
@@ -1328,7 +1322,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
               items: rootCauses.map((cause) {
                 return DropdownMenuItem<RootCause>(
                   value: cause,
-                  child: Text(cause.rootCauseDesc),
+                  child: Text(cause.rootCauseName),
                 );
               }).toList(),
               onChanged: _isReadOnly
@@ -1405,7 +1399,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
               selectedStatus ==
                   SiteObservationStatus.ReadyToInspect.toString() ||
               selectedStatus == SiteObservationStatus.Open.toString() ||
-              selectedStatus == SiteObservationStatus.Completed.toString() ||
+              selectedStatus == SiteObservationStatus.Closed.toString() ||
               selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
             const Text(
               "Upload File",
@@ -1473,7 +1467,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                   SiteObservationStatus.ReadyToInspect.toString() ||
               selectedStatus ==
                   SiteObservationStatus.ReadyToInspect.toString() ||
-              selectedStatus == SiteObservationStatus.Completed.toString() ||
+              selectedStatus == SiteObservationStatus.Closed.toString() ||
               selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
             Align(
               alignment: Alignment.centerRight,
@@ -1549,7 +1543,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                   SiteObservationStatus.ReadyToInspect.toString() &&
               selectedStatus != SiteObservationStatus.InProgress.toString() &&
               selectedStatus != SiteObservationStatus.Open.toString() &&
-              selectedStatus == SiteObservationStatus.Completed.toString() &&
+              selectedStatus == SiteObservationStatus.Closed.toString() &&
               selectedStatus == SiteObservationStatus.Reopen.toString())
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),

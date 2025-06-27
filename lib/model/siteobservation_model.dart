@@ -23,7 +23,7 @@ class SiteObservation {
 
   factory SiteObservation.fromJson(Map<String, dynamic> json) {
     return SiteObservation(
-      id: json['ID'],
+      id: (json['ID'] ?? 0) as int,
       siteObservationCode: json['SiteObservationCode'] ?? 'N/A',
       observationDescription: json['ObservationDescription'] ?? 'N/A',
       observationType: json['ObservationType'] ?? 'N/A',
@@ -31,33 +31,39 @@ class SiteObservation {
       functionType: json['FunctionType'] ?? 'N/A',
       observationStatus: json['ObservationStatus'] ?? 'N/A',
       projectName: json['ProjectName'] ?? 'N/A',
-      transactionDate: DateTime.parse(json['TrancationDate']),
+      transactionDate: SiteObservation._parseDate(json['TrancationDate']),
     );
+  }
+
+  static DateTime _parseDate(dynamic dateStr) {
+    if (dateStr == null || (dateStr is String && dateStr.trim().isEmpty)) {
+      return DateTime(2000); // default date
+    }
+
+    try {
+      return DateTime.parse(dateStr);
+    } catch (e) {
+      return DateTime(2000); // fallback date on error
+    }
   }
 }
 
 class IssueType {
-  String uniqueID;
-  int id;
-  String name;
-  int statusID;
-  bool isActive;
+  final int id;
+  final String name;
+  final int observationTypeID; // optional if you want to keep it
 
   IssueType({
-    required this.uniqueID,
     required this.id,
     required this.name,
-    required this.statusID,
-    required this.isActive,
+    required this.observationTypeID,
   });
 
   factory IssueType.fromJson(Map<String, dynamic> json) {
     return IssueType(
-      uniqueID: json['uniqueID'],
       id: json['id'],
       name: json['name'],
-      statusID: json['statusID'],
-      isActive: json['isActive'],
+      observationTypeID: json['observationTypeID'],
     );
   }
 }
@@ -417,20 +423,20 @@ class Activity {
 
 class RootCause {
   final int id;
-  final String rootCauseDesc;
+  final String rootCauseName;
   final bool selected;
 
   RootCause({
     required this.id,
-    required this.rootCauseDesc,
-    required this.selected,
+    required this.rootCauseName,
+    this.selected = false,
   });
 
   factory RootCause.fromJson(Map<String, dynamic> json) {
     return RootCause(
       id: json['id'],
-      rootCauseDesc: json['rootCauseDesc'],
-      selected: json['selected'],
+      rootCauseName: json['rootCauseName'],
+      selected: json['selected'] ?? false, // ✅ default value
     );
   }
 
@@ -444,7 +450,7 @@ class RootCause {
 
   @override
   String toString() {
-    return 'RootCause(id: $id, rootCauseDesc: $rootCauseDesc, selected: $selected)';
+    return 'RootCause(id: $id, rootCauseName: $rootCauseName, selected: $selected)';
   }
 }
 
@@ -457,7 +463,7 @@ class SiteObservationModel {
   final int observationRaisedBy;
   final int observationTypeID;
   final int issueTypeID;
-  final String dueDate;
+  final String? dueDate;
   final String observationDescription;
   final String userDescription;
   final bool complianceRequired;
@@ -467,6 +473,7 @@ class SiteObservationModel {
   final int projectID;
   final int functionID;
   final int activityID;
+  final int observedBy;
   final int sectionID;
   final int floorID;
   final int partID;
@@ -503,6 +510,7 @@ class SiteObservationModel {
     required this.projectID,
     required this.functionID,
     required this.activityID,
+    required this.observedBy,
     required this.sectionID,
     required this.floorID,
     required this.partID,
@@ -541,6 +549,7 @@ class SiteObservationModel {
       'projectID': projectID,
       'functionID': functionID,
       'activityID': activityID,
+      'observedBy': observedBy,
       'sectionID': sectionID,
       'floorID': floorID,
       'partID': partID,
@@ -645,25 +654,46 @@ class NCRObservation {
     // required this.createdDate,
   });
 
+  // factory NCRObservation.fromJson(Map<String, dynamic> json) {
+  //   return NCRObservation(
+  //     uniqueID: json['uniqueID'] ?? '',
+  //     id: json['id'] ?? 0,
+  //     trancationDate: DateTime.parse(json['trancationDate']),
+  //     siteObservationCode: json['siteObservationCode'] ?? '',
+  //     observationRaisedBy: json['observationRaisedBy'] ?? '',
+  //     observationType: json['observationType'] ?? '',
+  //     issueType: json['issueType'] ?? '',
+  //     dueDate: DateTime.parse(json['dueDate']),
+  //     observationDescription: json['observationDescription'],
+  //     complianceRequired: json['complianceRequired'] ?? false,
+  //     escalationRequired: json['escalationRequired'] ?? false,
+  //     actionToBeTaken: json['actionToBeTaken'] ?? '',
+  //     contractorName: json['contractorName'] ?? '',
+  //     statusName: json['statusName'] ?? '',
+  //     assignedUserName: json['assignedUserName'] ?? '',
+  //     // createdDate: DateTime.parse(
+  //     //     json['createdDate'] ?? DateTime.now().toIso8601String()),
+  //   );
+  // }
+
   factory NCRObservation.fromJson(Map<String, dynamic> json) {
     return NCRObservation(
       uniqueID: json['uniqueID'] ?? '',
       id: json['id'] ?? 0,
-      trancationDate: DateTime.parse(json['trancationDate']),
+      trancationDate:
+          DateTime.tryParse(json['trancationDate'] ?? '') ?? DateTime.now(),
       siteObservationCode: json['siteObservationCode'] ?? '',
-      observationRaisedBy: json['observationRaisedBy'] ?? '',
+      observationRaisedBy: json['observationRaisedBy']?.toString(),
       observationType: json['observationType'] ?? '',
-      issueType: json['issueType'] ?? '',
-      dueDate: DateTime.parse(json['dueDate']),
-      observationDescription: json['observationDescription'],
+      issueType: json['issueType'], // ✅ nullable
+      dueDate: DateTime.tryParse(json['dueDate'] ?? '') ?? DateTime.now(),
+      observationDescription: json['observationDescription'] ?? '',
       complianceRequired: json['complianceRequired'] ?? false,
       escalationRequired: json['escalationRequired'] ?? false,
-      actionToBeTaken: json['actionToBeTaken'] ?? '',
-      contractorName: json['contractorName'] ?? '',
+      actionToBeTaken: json['actionToBeTaken'], // ✅ nullable
+      contractorName: json['contractorName'], // ✅ nullable
       statusName: json['statusName'] ?? '',
-      assignedUserName: json['assignedUserName'] ?? '',
-      // createdDate: DateTime.parse(
-      //     json['createdDate'] ?? DateTime.now().toIso8601String()),
+      assignedUserName: json['assignedUserName'] ?? '', // ✅ nullable
     );
   }
 }
@@ -682,6 +712,7 @@ class GetSiteObservationMasterById {
   final String? corretiveActionToBeTaken;
   final String? preventiveActionTaken;
   final String statusName;
+  final int statusID;
   final int? assignedUserID;
   final DateTime trancationDate;
   final DateTime createdDate;
@@ -694,6 +725,7 @@ class GetSiteObservationMasterById {
   final bool escalationRequired;
   final String elementName;
   final int? createdBy; // Assuming elementID is a String
+  final String? createdByName; // Assuming createdByName is a String
   final int? activityID; // Assuming activityId is an int
   final int projectID; // Assuming projectId is a String
 
@@ -713,6 +745,7 @@ class GetSiteObservationMasterById {
     this.corretiveActionToBeTaken,
     this.preventiveActionTaken,
     required this.statusName,
+    required this.statusID,
     this.assignedUserID,
     required this.trancationDate,
     required this.createdDate,
@@ -725,17 +758,19 @@ class GetSiteObservationMasterById {
     this.complianceRequired = false,
     this.escalationRequired = false,
     required this.createdBy,
+    required this.createdByName,
     required this.activityID,
     required this.projectID,
     required this.activityDTO,
   });
 
   factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
+    print('GetSiteObservationMasterById.fromJson: $json');
     return GetSiteObservationMasterById(
       id: json['id'] ?? 0,
       observationCode: json['siteObservationCode'] ?? '',
       description: json['observationDescription'] ?? '',
-      observationRaisedBy: json['observationRaisedBy'],
+      observationRaisedBy: json['observationRaisedBy']?.toString(),
       observationType: json['observationType'] ?? '',
       issueType: json['issueType'],
       contractorName: json['contractorName'],
@@ -744,11 +779,13 @@ class GetSiteObservationMasterById {
       rootCauseID: json['rootCauseID'] as int?,
       corretiveActionToBeTaken: json['corretiveActionToBeTaken'],
       preventiveActionTaken: json['preventiveActionTaken'],
+      statusID: json['statusID'] ?? 0,
       statusName: json['statusName'] ?? '',
       assignedUserID: json['assignedUserID'],
       trancationDate: DateTime.parse(json['trancationDate']),
       createdDate: DateTime.parse(json['createdDate']),
-      dueDate: DateTime.parse(json['dueDate']),
+      createdByName: json['createdByName']?.toString(),
+      dueDate: DateTime.tryParse(json['dueDate'] ?? '') ?? DateTime.now(),
       activityName: json['activityName'] ?? '',
       sectionName: json['sectionName'] ?? '',
       floorName: json['floorName'] ?? '',
@@ -756,7 +793,9 @@ class GetSiteObservationMasterById {
       elementName: json['elementName'] ?? '',
       complianceRequired: json['complianceRequired'] ?? false,
       escalationRequired: json['escalationRequired'] ?? false,
-      createdBy: json['createdBy'] ?? '',
+      createdBy: json['createdBy'] is int
+          ? json['createdBy']
+          : int.tryParse(json['createdBy']?.toString() ?? '0'),
       activityID: json['activityID'] as int?,
       // projectID: json['projectID'] as int,
       projectID: json['projectID'] != null ? json['projectID'] as int : 0,
@@ -817,6 +856,7 @@ class ActivityDTO {
   final String? assignedUserName;
   final String createdBy;
   final DateTime createdDate;
+  // final String statusName;
 
   ActivityDTO({
     required this.id,
@@ -831,6 +871,7 @@ class ActivityDTO {
     this.assignedUserName,
     required this.createdBy,
     required this.createdDate,
+    // required this.statusName,
   });
 
   factory ActivityDTO.fromJson(Map<String, dynamic> json) {
@@ -844,9 +885,10 @@ class ActivityDTO {
       fromStatusID: json['fromStatusID'] as int?,
       toStatusID: json['toStatusID'] as int?,
       assignedUserID: json['assignedUserID'] as int?,
-      assignedUserName: json['assignedUserName'],
+      assignedUserName: json['assignedUserName'] ?? '',
       createdBy: json['createdBy'] as String,
       createdDate: DateTime.parse(json['createdDate']),
+      // statusName: json['statusName'] ?? '',
     );
   }
 
@@ -1000,5 +1042,36 @@ class UserList {
       'display': userName,
       'full_name': "$firstName $lastName".trim(),
     };
+  }
+}
+
+class AssignedUser {
+  final int siteObservationID;
+  final int assignedUserID;
+  final String? assignedUserName;
+  final String? statusName;
+  final int? statusID;
+
+  AssignedUser({
+    required this.siteObservationID,
+    required this.assignedUserID,
+    this.assignedUserName,
+    this.statusName,
+    this.statusID,
+  });
+
+  factory AssignedUser.fromJson(Map<String, dynamic> json) {
+    return AssignedUser(
+      siteObservationID: json['siteObservationID'] ?? 0,
+      assignedUserID: json['assignedUserID'] ?? 0,
+      assignedUserName: json['assignedUserName']?.toString(),
+      statusName: json['statusName']?.toString(),
+      statusID: json['statusID'],
+    );
+  }
+
+  @override
+  String toString() {
+    return 'AssignedUser(siteObservationID: $siteObservationID, assignedUserID: $assignedUserID, assignedUserName: $assignedUserName, statusName: $statusName, statusID: $statusID)';
   }
 }

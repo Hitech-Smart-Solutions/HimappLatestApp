@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:himappnew/modal/observation_QC_detail_dialog.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/service/site_observation_service.dart';
-import 'modal/observation_detail_dialog.dart'; // 🔁 Dialog widget import
+// import 'modal/observation_detail_dialog.dart'; // 🔁 Dialog widget import
 
-class ObservationNCRPage extends StatefulWidget {
+class ObservationQCNCRPage extends StatefulWidget {
   final SiteObservationService siteObservationService;
   final int siteObservationId;
   final int userId;
   // final int activityId;
 
-  const ObservationNCRPage({
+  const ObservationQCNCRPage({
     super.key,
     required this.userId,
     required this.siteObservationService,
@@ -17,17 +18,17 @@ class ObservationNCRPage extends StatefulWidget {
   });
 
   @override
-  State<ObservationNCRPage> createState() => _ObservationNCRPageState();
+  State<ObservationQCNCRPage> createState() => _ObservationQCNCRPageState();
 }
 
-class _ObservationNCRPageState extends State<ObservationNCRPage> {
+class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
   late Future<List<NCRObservation>> futureObservations;
 
   @override
   void initState() {
     super.initState();
-    futureObservations =
-        widget.siteObservationService.fetchNCRObservations(widget.userId);
+    futureObservations = widget.siteObservationService
+        .fetchNCRQualityObservations(widget.userId);
     print("Future Observations: $futureObservations");
   }
 
@@ -185,7 +186,7 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
               );
             } else {
               final detail = snapshot.data!.first;
-              return ObservationDetailDialog(
+              return ObservationQCDetailDialog(
                 detail: detail,
                 siteObservationService: SiteObservationService(),
                 siteObservationId: detail.id,
@@ -202,7 +203,8 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
       // 🔁 Reload list OR remove item manually from the local list
       setState(() {
         futureObservations = widget.siteObservationService
-            .fetchNCRObservations(widget.userId); // 🔄 Refresh list from API
+            .fetchNCRQualityObservations(
+                widget.userId); // 🔄 Refresh list from API
       });
 
       // ✅ ALTERNATIVELY: If you want to just remove the updated card locally:

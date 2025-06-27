@@ -20,7 +20,7 @@ class SiteObservationStatus {
   static const int Open = 1;
   static const int InProgress = 2;
   static const int ReadyToInspect = 3;
-  static const int Completed = 4;
+  static const int Closed = 4;
   static const int Reopen = 5;
   static const int WaitingFromThirdParty = 6;
 
@@ -28,7 +28,7 @@ class SiteObservationStatus {
     "Open": Open,
     "In Progress": InProgress,
     "Ready To Inspect": ReadyToInspect,
-    "Completed": Completed,
+    "Closed": Closed,
     "Reopen": Reopen,
     "Waiting From Third Party": WaitingFromThirdParty,
   };
@@ -37,10 +37,23 @@ class SiteObservationStatus {
     Open: "Open",
     InProgress: "In Progress",
     ReadyToInspect: "Ready To Inspect",
-    Completed: "Completed",
+    Closed: "Closed",
     Reopen: "Reopen",
     WaitingFromThirdParty: "Waiting From Third Party",
   };
+}
+
+class ObservationConstants {
+  static const List<Map<String, Object>> observedBy = [
+    {
+      "id": 1,
+      "observedBy": "Internal",
+    },
+    {
+      "id": 2,
+      "observedBy": "Client",
+    },
+  ];
 }
 
 //  class SiteObservationActions {

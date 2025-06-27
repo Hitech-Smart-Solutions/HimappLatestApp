@@ -9,19 +9,19 @@ import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:himappnew/site_observation_quality.dart';
+import 'package:himappnew/transaction/observation_quality_ncr.dart';
 import 'login_page.dart';
 import 'site_observation_safety.dart';
 import 'package:himappnew/service/firebase_messaging_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   final String companyName;
   final String userName;
   final ProjectService projectService;
   final SiteObservationService siteObservationService;
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
-  final firebaseService = FirebaseMessagingService();
 
   DashboardPage({
     super.key,
@@ -34,15 +34,66 @@ class DashboardPage extends StatelessWidget {
   });
 
   @override
+  _DashboardPageState createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  final firebaseService = FirebaseMessagingService();
+  int ongoingProjectsCount = 0;
+  int safetyObservationsCount = 0;
+  int qualityObservationsCount = 0;
+  int pendingCount = 0;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    isLoading = true;
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    print("Loading stats started");
+    try {
+      final userId = await SharedPrefsHelper.getUserId();
+      print("User ID fetched: $userId");
+      if (userId != null) {
+        final safety = await widget.siteObservationService
+            .fatchSiteObservationSafetyByUserID(userId);
+        print("Safety observations fetched: ${safety.length}");
+        final quality = await widget.siteObservationService
+            .fatchSiteObservationQualityByUserID(userId);
+        print("Quality observations fetched: ${quality.length}");
+        setState(() {
+          safetyObservationsCount = safety.length;
+          qualityObservationsCount = quality.length;
+          isLoading = false;
+        });
+        print("State updated with new counts");
+      } else {
+        print("User ID is null");
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Error loading stats: $e");
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: _buildDrawer(context),
       appBar: AppBar(
-        title: Text("Dashboard - $companyName"),
+        title: Text("Dashboard - ${widget.companyName}"),
         actions: [
           IconButton(
-            icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            onPressed: onToggleTheme,
+            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: widget.onToggleTheme,
           ),
         ],
       ),
@@ -51,7 +102,7 @@ class DashboardPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildGreetingCard(userName),
+            _buildGreetingCard(widget.userName),
             const SizedBox(height: 20),
             _buildStatsCards(context),
             const SizedBox(height: 30),
@@ -60,9 +111,7 @@ class DashboardPage extends StatelessWidget {
                 onPressed: () async {
                   await FirebaseMessaging.instance.requestPermission();
                   final token = await FirebaseMessaging.instance.getToken();
-                  print("📱 Firebase Token Dash oard: $token");
                   final userId = await SharedPrefsHelper.getUserId();
-                  print('UserIDDDDD : $userId');
                   if (token != null && userId != null) {
                     await firebaseService.updateUserMobileAppTokenPut(
                       userId: userId,
@@ -89,7 +138,6 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // Greeting Card
   Widget _buildGreetingCard(String userName) {
     return Row(
       children: [
@@ -102,7 +150,7 @@ class DashboardPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Hello, $userName", style: const TextStyle(fontSize: 18)),
-            Text("Welcome back to $companyName",
+            Text("Welcome back to ${widget.companyName}",
                 style: const TextStyle(fontSize: 14, color: Colors.grey)),
           ],
         ),
@@ -111,12 +159,7 @@ class DashboardPage extends StatelessWidget {
   }
 
   Widget _buildStatsCards(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double horizontalPadding = 16 * 2; // Scaffold padding
     double cardSpacing = 16;
-
-    // Card width calculation (optional, for reference)
-    double cardWidth = (screenWidth - horizontalPadding - cardSpacing) / 2;
 
     final cards = [
       _buildNeonGlassCard(
@@ -125,7 +168,6 @@ class DashboardPage extends StatelessWidget {
         value: "12",
         color: Color(0xFF3A86FF),
       ),
-
       GestureDetector(
         onTap: () async {
           final userId = await SharedPrefsHelper.getUserId();
@@ -145,7 +187,7 @@ class DashboardPage extends StatelessWidget {
         child: _buildNeonGlassCard(
           icon: Icons.visibility,
           title: "Observations",
-          value: "5",
+          value: "$safetyObservationsCount",
           color: Color(0xFFFFB703),
         ),
       ),
@@ -155,30 +197,42 @@ class DashboardPage extends StatelessWidget {
         value: "3",
         color: Color(0xFFFB5607),
       ),
-      _buildNeonGlassCard(
-        icon: Icons.science,
-        title: "SiteObservation Quality",
-        value: "5",
-        color: Color.fromARGB(255, 221, 57, 194),
+      GestureDetector(
+        onTap: () async {
+          final userId = await SharedPrefsHelper.getUserId();
+          if (userId != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ObservationQCNCRPage(
+                  userId: userId,
+                  siteObservationService: SiteObservationService(),
+                  siteObservationId: 0,
+                ),
+              ),
+            );
+          }
+        },
+        child: _buildNeonGlassCard(
+          icon: Icons.science,
+          title: "SiteObservation Quality",
+          value: "$qualityObservationsCount",
+          color: Color.fromARGB(255, 221, 57, 194),
+        ),
       ),
-      // Aap aur cards yaha add kar sakte ho
     ];
 
     return GridView.builder(
       shrinkWrap: true,
-      physics:
-          NeverScrollableScrollPhysics(), // Scroll only the parent ScrollView
+      physics: NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, // Har row me 2 cards
+        crossAxisCount: 2,
         mainAxisSpacing: cardSpacing,
         crossAxisSpacing: cardSpacing,
-        childAspectRatio:
-            2.5, // Card ka width/height ratio (adjust karo apne design ke hisab se)
+        childAspectRatio: 2.5,
       ),
       itemCount: cards.length,
-      itemBuilder: (context, index) {
-        return cards[index];
-      },
+      itemBuilder: (context, index) => cards[index],
     );
   }
 
@@ -191,11 +245,8 @@ class DashboardPage extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         double screenWidth = MediaQuery.of(context).size.width;
-
-        // Theme check
         bool isDark = Theme.of(context).brightness == Brightness.dark;
 
-        // Responsive sizes
         double iconSize = screenWidth < 400 ? 26 : 32;
         double titleFontSize = screenWidth < 400 ? 13 : 14;
         double valueFontSize = screenWidth < 400 ? 20 : 22;
@@ -226,7 +277,6 @@ class DashboardPage extends StatelessWidget {
                         Border.all(color: color.withOpacity(0.3), width: 1.2),
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
@@ -241,11 +291,9 @@ class DashboardPage extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: Icon(
-                          icon,
-                          color: isDark ? Colors.white : Colors.black,
-                          size: iconSize,
-                        ),
+                        child: Icon(icon,
+                            color: isDark ? Colors.white : Colors.black,
+                            size: iconSize),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -253,25 +301,19 @@ class DashboardPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              title,
-                              style: GoogleFonts.poppins(
-                                color: isDark ? Colors.white : Colors.black,
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            Text(title,
+                                style: GoogleFonts.poppins(
+                                  color: isDark ? Colors.white : Colors.black,
+                                  fontSize: titleFontSize,
+                                  fontWeight: FontWeight.w500,
+                                )),
                             const SizedBox(height: 4),
-                            Text(
-                              value,
-                              style: GoogleFonts.poppins(
-                                color: isDark ? Colors.white : Colors.black,
-                                fontSize: valueFontSize,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            Text(value,
+                                style: GoogleFonts.poppins(
+                                  color: isDark ? Colors.white : Colors.black,
+                                  fontSize: valueFontSize,
+                                  fontWeight: FontWeight.w600,
+                                )),
                           ],
                         ),
                       ),
@@ -301,7 +343,7 @@ class DashboardPage extends StatelessWidget {
 
           return ListView(
             padding: EdgeInsets.zero,
-            children: <Widget>[
+            children: [
               DrawerHeader(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -321,7 +363,7 @@ class DashboardPage extends StatelessWidget {
                     Text(userName,
                         style:
                             const TextStyle(color: Colors.white, fontSize: 16)),
-                    Text(companyName,
+                    Text(widget.companyName,
                         style: const TextStyle(
                             color: Colors.white70, fontSize: 14)),
                   ],
@@ -330,9 +372,7 @@ class DashboardPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.dashboard, color: Colors.blue),
                 title: const Text('Dashboard'),
-                onTap: () {
-                  Navigator.pop(context);
-                },
+                onTap: () => Navigator.pop(context),
               ),
               ListTile(
                 leading: const Icon(Icons.assignment, color: Colors.orange),
@@ -343,9 +383,9 @@ class DashboardPage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => SiteObservationSafety(
-                        companyName: companyName,
-                        projectService: projectService,
-                        siteObservationService: siteObservationService,
+                        companyName: widget.companyName,
+                        projectService: widget.projectService,
+                        siteObservationService: widget.siteObservationService,
                       ),
                     ),
                   );
@@ -360,25 +400,25 @@ class DashboardPage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => SiteObservationQuality(
-                        siteObservationService: SiteObservationService(),
-                        projectService: projectService,
+                        companyName: widget.companyName,
+                        projectService: widget.projectService,
+                        siteObservationService: widget.siteObservationService,
                       ),
                     ),
                   );
                 },
               ),
-              // Add the Labour Registration option here
               ListTile(
                 leading: const Icon(Icons.person_add, color: Colors.green),
                 title: const Text('Labour Registration'),
                 onTap: () {
-                  Navigator.pop(context); // Close the drawer
+                  Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => LabourRegistrationPage(
-                        companyName: companyName,
-                        projectService: projectService,
+                        companyName: widget.companyName,
+                        projectService: widget.projectService,
                         labourRegistrationService: LabourRegistrationService(),
                       ),
                     ),
@@ -394,10 +434,11 @@ class DashboardPage extends StatelessWidget {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => MyCustomForm(
-                              isDarkMode: isDarkMode,
-                              onToggleTheme: onToggleTheme,
-                            )),
+                      builder: (_) => MyCustomForm(
+                        isDarkMode: widget.isDarkMode,
+                        onToggleTheme: widget.onToggleTheme,
+                      ),
+                    ),
                     (route) => false,
                   );
                 },
