@@ -1726,3 +1726,214 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         lower.endsWith('.webp');
   }
 }
+
+//  Widget _buildActivityTab() {
+//     final activities = widget.detail.activityDTO;
+//     if (activities.isEmpty) {
+//       return const Center(child: Text("No activity recorded."));
+//     }
+
+//     Map<String, List<ActivityDTO>> groupedActivities = {};
+//     Set<int> usedIndexes = {};
+
+//     for (int i = 0; i < activities.length; i++) {
+//       if (usedIndexes.contains(i)) continue;
+
+//       final current = activities[i];
+//       final group = <ActivityDTO>[current];
+//       usedIndexes.add(i);
+
+//       for (int j = i + 1; j < activities.length; j++) {
+//         if (usedIndexes.contains(j)) continue;
+
+//         final other = activities[j];
+//         final timeDiff =
+//             (other.createdDate.difference(current.createdDate)).inSeconds.abs();
+//         final sameUser = other.createdByName == current.createdByName;
+
+//         if (timeDiff <= 5 && sameUser) {
+//           group.add(other);
+//           usedIndexes.add(j);
+//         }
+//       }
+
+//       final creator = current.createdByName ?? 'Unknown';
+//       final groupKey = "$creator|${current.createdDate.toIso8601String()}";
+//       groupedActivities[groupKey] = group;
+//     }
+
+//     Color _getStatusColor(String status) {
+//       switch (status.toLowerCase().replaceAll(' ', '')) {
+//         case 'open':
+//           return Colors.orange;
+//         case 'readytoinspect':
+//           return Colors.blue;
+//         case 'closed':
+//           return Colors.green;
+//         default:
+//           return Colors.grey;
+//       }
+//     }
+
+//     return StatefulBuilder(builder: (context, setState) {
+//       return Portal(
+//         child: Column(
+//           children: [
+//             Expanded(
+//               child: SingleChildScrollView(
+//                 padding: const EdgeInsets.symmetric(vertical: 8),
+//                 child: Column(
+//                   children: groupedActivities.entries.map((entry) {
+//                     final acts = entry.value;
+//                     final first = acts.first;
+//                     final statusName = first.toStatusName ?? "Unknown";
+
+//                     String userName = first.createdByName ??
+//                         (() {
+//                           if (first.createdBy != null && userList.isNotEmpty) {
+//                             final createdByStr =
+//                                 first.createdBy.toString().toLowerCase();
+
+//                             final matchedUser = userList.firstWhere(
+//                               (user) {
+//                                 final idMatch =
+//                                     user['id'].toString() == createdByStr;
+//                                 final displayMatch =
+//                                     (user['display'] ?? '').toLowerCase() ==
+//                                         createdByStr;
+//                                 final fullNameMatch =
+//                                     (user['full_name'] ?? '').toLowerCase() ==
+//                                         createdByStr;
+//                                 return idMatch || displayMatch || fullNameMatch;
+//                               },
+//                               orElse: () => {},
+//                             );
+//                             if (matchedUser.isNotEmpty) {
+//                               return matchedUser['full_name'] ??
+//                                   matchedUser['display'] ??
+//                                   createdByStr;
+//                             }
+//                             return createdByStr;
+//                           }
+//                           return "Unknown";
+//                         })();
+
+//                     final date =
+//                         first.createdDate.toLocal().toString().split(' ')[0];
+//                     String nameToShow =
+//                         userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+
+//                     return Card(
+//                       margin: const EdgeInsets.symmetric(
+//                           horizontal: 16, vertical: 8),
+//                       shape: RoundedRectangleBorder(
+//                           borderRadius: BorderRadius.circular(12)),
+//                       elevation: 3,
+//                       child: Padding(
+//                         padding: const EdgeInsets.all(12),
+//                         child: Column(
+//                           crossAxisAlignment: CrossAxisAlignment.start,
+//                           children: [
+//                             // Status name container added here
+//                             Container(
+//                               padding: const EdgeInsets.symmetric(
+//                                   vertical: 6, horizontal: 12),
+//                               decoration: BoxDecoration(
+//                                 color: _getStatusColor(statusName),
+//                                 borderRadius: BorderRadius.circular(8),
+//                               ),
+//                               child: Text(
+//                                 statusName,
+//                                 style: const TextStyle(
+//                                   color: Colors.white,
+//                                   fontWeight: FontWeight.bold,
+//                                   fontSize: 16,
+//                                 ),
+//                               ),
+//                             ),
+
+//                             const SizedBox(height: 10),
+//                             const Divider(height: 20),
+
+//                             // Optional: show activities here if you want
+//                             ...acts.map((activity) => ListTile(
+//                                   title: Text(activity.actionName ?? ''),
+//                                   subtitle: Text(activity.comments ?? ''),
+//                                 )),
+//                           ],
+//                         ),
+//                       ),
+//                     );
+//                   }).toList(),
+//                 ),
+//               ),
+//             ),
+//             const Divider(height: 1),
+//             Padding(
+//               padding: const EdgeInsets.all(8.0),
+//               child: Row(
+//                 crossAxisAlignment: CrossAxisAlignment.end,
+//                 children: [
+//                   Expanded(
+//                     child: Container(
+//                       constraints: const BoxConstraints(maxHeight: 250),
+//                       child: FlutterMentions(
+//                         key: mentionsKey,
+//                         maxLines: 5,
+//                         minLines: 2,
+//                         suggestionPosition: SuggestionPosition.Top,
+//                         suggestionListHeight: 150,
+//                         suggestionListDecoration: BoxDecoration(
+//                           color: Colors.white,
+//                           borderRadius: BorderRadius.circular(12),
+//                           boxShadow: [
+//                             BoxShadow(color: Colors.black26, blurRadius: 4)
+//                           ],
+//                         ),
+//                         decoration: InputDecoration(
+//                           hintText: "Add comment and assign user...",
+//                           contentPadding: const EdgeInsets.symmetric(
+//                               horizontal: 12, vertical: 12),
+//                           border: OutlineInputBorder(
+//                             borderRadius: BorderRadius.circular(12),
+//                           ),
+//                         ),
+//                         mentions: [
+//                           Mention(
+//                             trigger: '@',
+//                             style: const TextStyle(color: Colors.blue),
+//                             data: userList,
+//                             matchAll: true,
+//                             suggestionBuilder: (data) {
+//                               return ListTile(
+//                                 leading: CircleAvatar(
+//                                   child: Text(data['display'][0].toUpperCase()),
+//                                 ),
+//                                 title: Text(data['display']),
+//                                 subtitle: Text(data['full_name']),
+//                               );
+//                             },
+//                           ),
+//                         ],
+//                       ),
+//                     ),
+//                   ),
+//                   const SizedBox(width: 8),
+//                   ElevatedButton(
+//                     onPressed: _sendActivityComment,
+//                     style: ElevatedButton.styleFrom(
+//                       minimumSize: const Size(70, 48),
+//                       shape: RoundedRectangleBorder(
+//                         borderRadius: BorderRadius.circular(12),
+//                       ),
+//                     ),
+//                     child: const Text("Send"),
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ],
+//         ),
+//       );
+//     });
+//   }

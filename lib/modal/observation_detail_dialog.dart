@@ -463,7 +463,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           createdDate: DateTime.now(),
         ),
       );
-      print("🔁 selectedStatusId 510: $selectedStatusId");
+      // print("🔁 selectedStatusId 510: $selectedStatusId");
     } else if (selectedStatusId == SiteObservationStatus.Reopen) {
       final assignedUsers =
           await SiteObservationService().fetchGetassignedusersforReopen(id);
@@ -486,6 +486,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             createdDate: DateTime.now(),
           ),
         );
+        print("🔁 activities $activities");
       }
     }
 

@@ -28,7 +28,7 @@ class _ObservationNCRPageState extends State<ObservationNCRPage> {
     super.initState();
     futureObservations =
         widget.siteObservationService.fetchNCRObservations(widget.userId);
-    print("Future Observations: $futureObservations");
+    // print("Future Observations: $futureObservations");
   }
 
   @override

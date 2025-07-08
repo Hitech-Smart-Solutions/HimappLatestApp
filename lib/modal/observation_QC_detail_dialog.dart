@@ -11,6 +11,7 @@ import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_portal/flutter_portal.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ObservationQCDetailDialog extends StatefulWidget {
   final GetSiteObservationMasterById detail;
@@ -72,20 +73,31 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   List<User> selectedUsers = [];
   List<ActivityDTO> activities = [];
 
+  int fromStatus = SiteObservationStatus.Open;
+  int toStatus = SiteObservationStatus.Open;
+  String? areaLabel;
+  String? floorLabel;
+  String? elementLabel;
+
   @override
   void initState() {
     super.initState();
-    print("widget.detail ${widget.detail}");
+    // print("widget.detail ${widget.detail}");
     currentDetail = widget.detail;
     _setupPage();
+    loadSection();
+    loadFloor();
+    loadElement();
   }
 
   Future<void> _setupPage() async {
     final statusId = widget.detail.statusID;
-    print('🔁 rawStatus: $statusId');
+    // print('🔁 rawStatus: $statusId');
 
     if (statusId != 0) {
-      selectedStatus = statusId.toString(); // <-- Yeh add karo
+      selectedStatus = statusId.toString(); // Dropdown ke liye string chahiye
+      fromStatus = statusId; // Current status id
+      toStatus = statusId;
       await setObservationStatusDropdown(
         statusId,
         widget.detail.createdBy,
@@ -93,6 +105,10 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       );
     } else {
       print("⚠️ Invalid status name: ${widget.detail.statusName}");
+      print("⚠️ Invalid status ID");
+      selectedStatus = null;
+      fromStatus = 0; // Ya default koi bhi status id rakh lo
+      toStatus = 0;
     }
     await _loadRootCauses(); // wait for root causes to load before proceeding
 
@@ -108,6 +124,13 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     userId = await SharedPrefsHelper.getUserId();
     currentUserName = await SharedPrefsHelper.getUserName();
   }
+
+  // void onStatusChanged(int newStatusId) {
+  //   setState(() {
+  //     fromStatus = toStatus; // Old "toStatus" now becomes "fromStatus"
+  //     toStatus = newStatusId; // New selected status
+  //   });
+  // }
 
   void _initializeFormFields() {
     if (selectedStatus == SiteObservationStatus.Open.toString()) {
@@ -195,8 +218,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           actionName: 'Assigned',
           comments: '',
           documentName: '',
-          fromStatusID: SiteObservationStatus.Open,
-          toStatusID: SiteObservationStatus.ReadyToInspect,
+          fromStatusID: fromStatus,
+          toStatusID: toStatus,
           assignedUserID: widget.detail.createdBy,
           assignedUserName: null,
           createdBy: userId!.toString(),
@@ -207,7 +230,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     } else if (selectedStatusId == SiteObservationStatus.Reopen) {
       final assignedUsers =
           await SiteObservationService().fetchGetassignedusersforReopen(id);
-      print("🔁 Assigned Users: $assignedUsers");
+      print("🔁 Assigned Users210: $assignedUsers");
       String currentUserId = userId!.toString();
       // Add an activity for each assigned user
       for (var user in assignedUsers) {
@@ -219,8 +242,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
             actionName: 'Assigned',
             comments: '',
             documentName: '',
-            fromStatusID: SiteObservationStatus.Open,
-            toStatusID: SiteObservationStatus.Reopen,
+            fromStatusID: fromStatus,
+            toStatusID: toStatus,
             assignedUserID: user.assignedUserID,
             createdBy: currentUserId,
             createdDate: DateTime.now(),
@@ -239,8 +262,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           actionName: 'DocUploaded',
           comments: '',
           documentName: fileName,
-          fromStatusID: 0,
-          toStatusID: 0,
+          fromStatusID: fromStatus,
+          toStatusID: toStatus,
           assignedUserID: userId!,
           assignedUserName: null,
           createdBy: userId!.toString(),
@@ -365,7 +388,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
       final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
       final Iterable<RegExpMatch> matches = mentionRegex.allMatches(markupText);
-      print("🔁 Matches found: $markupText");
+
       List<User> selectedUsers = matches.map((match) {
         String rawIdStr = match.group(1)!;
         String rawUserName = match.group(2)!;
@@ -375,9 +398,15 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
         int userId = int.tryParse(cleanedIdStr) ?? 0;
 
+        // final matchedUser = allUsers.firstWhere(
+        //   (user) => user.id == userId,
+        //   orElse: () => User(id: 0, userName: ''),
+        // );
         final matchedUser = allUsers.firstWhere(
           (user) => user.id == userId,
-          orElse: () => User(id: 0, userName: ''),
+          orElse: () => User(
+              id: userId,
+              userName: cleanedUserName), // ✅ fallback me bhi name jaaye
         );
 
         String finalUserName = matchedUser.userName.isNotEmpty
@@ -387,21 +416,25 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         return User(id: userId, userName: finalUserName);
       }).toList();
 
-      int? createdBy = await SharedPrefsHelper.getUserId();
+      // ✅ Fix is here — get int userId only
+      // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
+      // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
+      // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
+      int createdById = await SharedPrefsHelper.getUserId() ?? 0;
+      String createdByName = await SharedPrefsHelper.getUserName() ?? 'Unknown';
 
+      // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
       List<ActivityDTO> activities = [];
 
       final commentText =
           mentionsKey.currentState?.controller?.text.trim() ?? "";
-
-      // Remove mentions to get only the actual comment text
       final plainComment =
           commentText.replaceAll(RegExp(r'\@\[(.*?)\]\((.*?)\)'), '').trim();
 
       bool hasMentions = selectedUsers.isNotEmpty;
       bool hasComment = plainComment.isNotEmpty;
-
-      // 1) Agar sirf mention hai (comment empty) → assigned activity banega
+      // print("activities413:$activities");
+      // CASE 1 — Only mention(s)
       if (hasMentions && !hasComment) {
         for (var user in selectedUsers) {
           activities.add(ActivityDTO(
@@ -411,17 +444,20 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
             actionName: "Assigned",
             comments: "",
             documentName: "",
-            fromStatusID: 0,
-            toStatusID: 0,
+            fromStatusID: fromStatus,
+            toStatusID: toStatus,
+            toStatusName: SiteObservationStatus.idToName[toStatus] ??
+                "Unknown", // ✅ Add this
             assignedUserID: user.id,
             assignedUserName: user.userName,
-            createdBy: createdBy.toString(),
+            createdBy: createdById.toString(), // ✅ send as integer
+            createdByName: createdByName,
             createdDate: DateTime.now(),
           ));
         }
       }
 
-      // 2) Agar sirf comment hai (mention nahi) → comment activity banega
+      // CASE 2 — Only comment
       else if (!hasMentions && hasComment) {
         activities.add(ActivityDTO(
           id: 0,
@@ -430,15 +466,21 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           actionName: "Commented",
           comments: plainComment,
           documentName: "",
-          fromStatusID: 0,
-          toStatusID: 0,
+          fromStatusID: fromStatus,
+          toStatusID: toStatus,
+          toStatusName: SiteObservationStatus.idToName[toStatus] ??
+              "Unknown", // ✅ Add this
           assignedUserID: 0,
-          createdBy: createdBy.toString(),
+          // assignedUserName: '',
+          // createdBy: createdBy, // ✅ integer
+          createdBy: createdById.toString(),
+          createdByName: createdByName,
+          assignedUserName: createdByName,
           createdDate: DateTime.now(),
         ));
       }
 
-      // 3) Agar dono mention + comment hain → dono activities banenge
+      // CASE 3 — Both mention(s) and comment
       else if (hasMentions && hasComment) {
         for (var user in selectedUsers) {
           activities.add(ActivityDTO(
@@ -448,13 +490,17 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
             actionName: "Assigned",
             comments: "",
             documentName: "",
-            fromStatusID: 0,
-            toStatusID: 0,
+            fromStatusID: fromStatus,
+            toStatusID: toStatus,
+            toStatusName: SiteObservationStatus.idToName[toStatus] ??
+                "Unknown", // ✅ Add this
             assignedUserID: user.id,
             assignedUserName: user.userName,
-            createdBy: createdBy.toString(),
+            createdBy: createdById.toString(), // ✅ integer
+            createdByName: createdByName,
             createdDate: DateTime.now(),
           ));
+          // print("activities466:$activities");
         }
 
         activities.add(ActivityDTO(
@@ -464,14 +510,18 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           actionName: "Commented",
           comments: plainComment,
           documentName: "",
-          fromStatusID: 0,
-          toStatusID: 0,
+          fromStatusID: fromStatus,
+          toStatusID: toStatus,
+          toStatusName: SiteObservationStatus.idToName[toStatus] ??
+              "Unknown", // ✅ Add this
           assignedUserID: 0,
-          createdBy: createdBy.toString(),
+          assignedUserName: '',
+          createdBy: createdById.toString(), // ✅ integer
+          createdByName: createdByName,
           createdDate: DateTime.now(),
         ));
       }
-      // Agar dono mention aur comment nahi hain, activities empty hain, kuch nahi karna
+      // print("activity483: $activities");
       if (activities.isEmpty) {
         print("No valid activity to send.");
         return;
@@ -499,6 +549,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
   }
 
+  // List<Map<String, String>> userList = [];
+
   fetchUsers() async {
     setState(() {
       isLoading = true;
@@ -506,12 +558,16 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
     try {
       int projectID = widget.projectID;
+      int? currentUserId =
+          await SharedPrefsHelper.getUserId(); // 👈 Get logged-in user ID
+
       final response = await SiteObservationService().fetchUsersForList(
         projectId: projectID,
       );
 
       setState(() {
         userList = response
+            .where((u) => u.id != currentUserId) // 👈 Exclude current user
             .map((u) => {
                   'id': u.id.toString(),
                   'display': u.userName,
@@ -525,6 +581,63 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> loadSection() async {
+    // SharedPreferences prefs = await SharedPreferences.getInstance();
+    // int? projectID = prefs.getInt('projectID');
+    int projectID = widget.projectID;
+    print(projectID);
+    // print("widget:${widget.detail}");
+    if (projectID != null) {
+      try {
+        List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        // print("sections:$sections");
+        if (sections.isNotEmpty) {
+          setState(() {
+            areaLabel = sections[0].labelName;
+            // print("areaLabel:$areaLabel");
+          });
+        }
+      } catch (e) {
+        print('Error fetching sections: $e');
+      }
+    }
+  }
+
+  Future<void> loadFloor() async {
+    int projectID = widget.projectID;
+    // print(projectID);
+    if (projectID != null) {
+      try {
+        List<FloorModel> floors = await getFloorByProjectID(projectID);
+        if (floors.isNotEmpty) {
+          setState(() {
+            floorLabel = floors[0].floorName;
+          });
+        }
+      } catch (e) {
+        print('Error fetching floors: $e');
+      }
+    }
+  }
+
+  Future<void> loadElement() async {
+    int projectID = widget.projectID;
+
+    if (projectID != null) {
+      try {
+        List<ElementModel> elements = await getElementByProjectID(projectID);
+        if (elements.isNotEmpty) {
+          setState(() {
+            elementLabel = elements[0].labelName;
+            print("elementLabel :$elementLabel");
+          });
+        }
+      } catch (e) {
+        print('Error fetching elements: $e');
+      }
     }
   }
 
@@ -548,7 +661,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               hint: const Text("-- Status --"),
               isExpanded: true,
               items: observationStatus.map((status) {
-                final idStr = status['id'].toString(); // also String
+                final idStr = status['id'].toString(); // String
                 final id = int.tryParse(idStr);
                 final name = SiteObservationStatus.idToName[id] ??
                     status['name'] ??
@@ -561,9 +674,18 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               }).toList(),
               onChanged: isStatusEnabled
                   ? (newValue) {
-                      setState(() {
-                        selectedStatus = newValue!;
-                      });
+                      if (newValue != null) {
+                        final int newStatus = int.parse(newValue);
+
+                        setState(() {
+                          fromStatus = toStatus; // 👈 old becomes fromStatus
+                          toStatus = newStatus; // 👈 selected becomes toStatus
+                          selectedStatus = newValue;
+                        });
+
+                        debugPrint(
+                            "📥 fromStatus: $fromStatus, toStatus: $toStatus");
+                      }
                     }
                   : null,
               validator: (value) {
@@ -656,12 +778,18 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               _buildAlignedRow(
                   "Activity : ",
                   widget.detail.activityName ?? 'N/A',
-                  "Section : ",
+                  "$areaLabel : ",
                   widget.detail.sectionName ?? 'N/A'),
-              _buildAlignedRow("Floor : ", widget.detail.floorName ?? 'N/A',
-                  "Part : ", widget.detail.partName ?? 'N/A'),
-              _buildAlignedRow("Element : ", widget.detail.elementName ?? 'N/A',
-                  "Contractor : ", widget.detail.contractorName ?? 'N/A'),
+              _buildAlignedRow(
+                  "$floorLabel : ",
+                  widget.detail.floorName ?? 'N/A',
+                  "Part : ",
+                  widget.detail.partName ?? 'N/A'),
+              _buildAlignedRow(
+                  "$elementLabel : ",
+                  widget.detail.elementName ?? 'N/A',
+                  "Contractor : ",
+                  widget.detail.contractorName ?? 'N/A'),
               _buildAlignedRow(
                   "Compliance Required : ",
                   widget.detail.complianceRequired ? 'True' : 'False',
@@ -714,14 +842,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         ? DateFormat('dd/MM/yyyy').format(date.toLocal())
         : 'N/A';
   }
-
-//   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-// bool isButtonDisabled = false;
-  // void updateUserList(List<Map<String, dynamic>> newUsers) {
-  //   setState(() {
-  //     userList = newUsers;
-  //   });
-  // }
 
   Widget _buildRootCauseForm() {
     return Form(
@@ -890,7 +1010,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
                           UpdateSiteObservation updatedData =
                               await getUpdatedDataFromForm(uploadedFiles);
-                          print("🔁 Updated Data: $updatedData");
+                          // print("🔁 Updated Data: $updatedData");
 
                           bool success = await SiteObservationService()
                               .updateSiteObservationByID(updatedData);
@@ -905,8 +1025,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                   actionName: "DocUploaded",
                                   comments: '',
                                   documentName: fileName,
-                                  fromStatusID: 0,
-                                  toStatusID: 0,
+                                  fromStatusID: fromStatus,
+                                  toStatusID: toStatus,
                                   assignedUserID: 0,
                                   assignedUserName: null,
                                   createdBy: userId.toString(),
@@ -1026,8 +1146,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                           actionName: "DocUploaded",
                           comments: '',
                           documentName: uploadedFileName,
-                          fromStatusID: 0,
-                          toStatusID: 0,
+                          fromStatusID: fromStatus,
+                          toStatusID: toStatus,
                           assignedUserID: userId!,
                           assignedUserName: currentUserName,
                           createdBy: currentUserName!,
@@ -1152,120 +1272,104 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Widget _buildActivityTab() {
     final activities = widget.detail.activityDTO;
-    final statusName = getStatusNameFromId(selectedStatus!);
-    final LayerLink _layerLink = LayerLink();
+    // print("activities :$activities");
     if (activities.isEmpty) {
       return const Center(child: Text("No activity recorded."));
     }
-    // Mention related state (inside StatefulBuilder)
-    final TextEditingController _controller = TextEditingController();
-    final FocusNode _focusNode = FocusNode();
-
-    List<Map<String, String>> filteredUsers = [];
-    bool showDropdown = false;
-
-    void onChanged(String val, void Function(void Function()) setState) {
-      final cursorPos = _controller.selection.baseOffset;
-      if (cursorPos > 0 && val[cursorPos - 1] == '@') {
-        filteredUsers = userList;
-        showDropdown = true;
-      } else {
-        showDropdown = false;
-      }
-      setState(() {});
-    }
-
-    void onUserSelected(
-        String userDisplay, void Function(void Function()) setState) {
-      final text = _controller.text;
-      final cursorPos = _controller.selection.baseOffset;
-      final prefix = text.substring(0, cursorPos - 1); // before '@'
-      final suffix = text.substring(cursorPos); // after cursor
-
-      final newText = '$prefix@$userDisplay $suffix';
-
-      _controller.text = newText;
-      _controller.selection = TextSelection.collapsed(
-          offset: prefix.length + userDisplay.length + 2);
-      showDropdown = false;
-      setState(() {});
-    }
-
-    if (activities.isEmpty) {
-      return const Center(child: Text("No activity recorded."));
-    }
-
     Map<String, List<ActivityDTO>> groupedActivities = {};
-    for (var activity in activities) {
-      String dateKey = activity.createdDate.toLocal().toString().split(' ')[0];
-      String userName = activity.createdBy ?? 'Unknown';
-      String groupKey = "$userName|$dateKey";
-      groupedActivities.putIfAbsent(groupKey, () => []);
-      groupedActivities[groupKey]!.add(activity);
+    Set<int> usedIndexes = {};
+
+    for (int i = 0; i < activities.length; i++) {
+      if (usedIndexes.contains(i)) continue;
+
+      final current = activities[i];
+      final group = <ActivityDTO>[current];
+      usedIndexes.add(i);
+
+      for (int j = i + 1; j < activities.length; j++) {
+        if (usedIndexes.contains(j)) continue;
+
+        final other = activities[j];
+        final timeDiff =
+            (other.createdDate.difference(current.createdDate)).inSeconds.abs();
+        final sameUser = other.createdByName == current.createdByName;
+
+        if (timeDiff <= 5 && sameUser) {
+          group.add(other);
+          usedIndexes.add(j);
+        }
+      }
+      final creator = current.createdByName ?? 'Unknown';
+      final groupKey = "$creator|${current.createdDate.toIso8601String()}";
+      groupedActivities[groupKey] = group;
     }
-
-    List<String> actionOrder = [
-      "Created",
-      "DocUploaded",
-      "Assigned",
-      "Commented"
-    ];
-
-    groupedActivities.forEach((key, acts) {
-      acts.sort((a, b) {
-        int indexA = actionOrder.indexOf(a.actionName);
-        int indexB = actionOrder.indexOf(b.actionName);
-        return (indexA == -1 ? 999 : indexA)
-            .compareTo(indexB == -1 ? 999 : indexB);
-      });
-    });
+    String getStatusNameById(int id) {
+      return SiteObservationStatus.idToName[id] ?? 'Unknown';
+    }
 
     return StatefulBuilder(builder: (context, setState) {
-      return Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                children: groupedActivities.entries.map((entry) {
-                  // Your existing activity card widget code here, simplified for brevity
-                  final activities = entry.value;
-                  final userName = activities.first.createdBy ?? 'Unknown';
-                  final date = activities.first.createdDate
-                      .toLocal()
-                      .toString()
-                      .split(' ')[0];
-                  List<ActivityDTO> docUploads = activities
-                      .where((a) => a.actionName == "DocUploaded")
-                      .toList();
-                  List<ActivityDTO> otherActivities = activities
-                      .where((a) => a.actionName != "DocUploaded")
-                      .toList();
-                  return Card(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    elevation: 3,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                  child: Text(userName[0].toUpperCase())),
-                              SizedBox(width: 10),
-                              Expanded(
-                                  child: Text(userName,
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold))),
-                              Text(date, style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          if (statusName != 'Unknown')
+      return Portal(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: groupedActivities.entries.map((entry) {
+                    final acts = entry.value;
+                    final first = acts.first;
+                    final statusName = first.toStatusName ?? "Unknown";
+                    print("🟡 toStatusID: ${first.toStatusID}");
+                    print("statusName: $statusName");
+                    // print("userList sample: ${userList.take(3).toList()}");
+                    String userName = first.createdByName ??
+                        (() {
+                          if (first.createdBy != null && userList.isNotEmpty) {
+                            final createdByStr =
+                                first.createdBy.toString().toLowerCase();
+
+                            final matchedUser = userList.firstWhere(
+                              (user) {
+                                final idMatch =
+                                    user['id'].toString() == createdByStr;
+                                final displayMatch =
+                                    (user['display'] ?? '').toLowerCase() ==
+                                        createdByStr;
+                                final fullNameMatch =
+                                    (user['full_name'] ?? '').toLowerCase() ==
+                                        createdByStr;
+                                return idMatch || displayMatch || fullNameMatch;
+                              },
+                              orElse: () => {},
+                            );
+
+                            if (matchedUser.isNotEmpty) {
+                              return matchedUser['full_name'] ??
+                                  matchedUser['display'] ??
+                                  createdByStr;
+                            }
+
+                            // Fallback to createdBy string if no match
+                            return createdByStr;
+                          }
+                          return "Unknown";
+                        })();
+                    final date =
+                        first.createdDate.toLocal().toString().split(' ')[0];
+                    String nameToShow =
+                        userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+                    // print('nameToShow: ${nameToShow[0].toUpperCase()}');
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      elevation: 3,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Padding(
                               padding: const EdgeInsets.only(bottom: 12.0),
                               child: Row(
@@ -1284,411 +1388,217 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                 ],
                               ),
                             ),
-                          Column(
-                            children:
-                                List.generate(otherActivities.length, (index) {
-                              final activity = otherActivities[index];
-                              final isLast =
-                                  index == otherActivities.length - 1;
-                              print("Doc Uploads1274: $docUploads");
-                              List<ActivityDTO> inlineCreatedDocs = [];
-                              if (activity.actionName == "Created") {
-                                inlineCreatedDocs = docUploads.where((doc) {
-                                  return doc.createdBy == activity.createdBy &&
-                                      doc.createdDate
-                                              .difference(activity.createdDate)
-                                              .inSeconds
-                                              .abs() <
-                                          5;
-                                }).toList();
-                              }
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (inlineCreatedDocs.isNotEmpty)
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 12),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Column(
-                                            children: [
-                                              Container(
-                                                width: 10,
-                                                height: 10,
-                                                decoration: const BoxDecoration(
-                                                  color: Colors.blue,
-                                                  shape: BoxShape.circle,
+                            const Divider(height: 20),
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  child: Text(nameToShow),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    userName,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                Text(
+                                  date,
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Column(
+                              children: List.generate(acts.length, (index) {
+                                final activity = acts[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Column(
+                                          children: [
+                                            Container(
+                                              width: 10,
+                                              height: 10,
+                                              decoration: const BoxDecoration(
+                                                color: Colors.blue,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            if (index != acts.length - 1)
+                                              Expanded(
+                                                child: Container(
+                                                  width: 2,
+                                                  color: Colors.grey.shade300,
                                                 ),
                                               ),
-                                              Container(
-                                                width: 2,
-                                                height: 100,
-                                                color: Colors.grey.shade300,
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: SizedBox(
-                                              height: 120,
-                                              child: ListView.builder(
-                                                scrollDirection:
-                                                    Axis.horizontal,
-                                                physics:
-                                                    const BouncingScrollPhysics(),
-                                                itemCount:
-                                                    inlineCreatedDocs.length,
-                                                itemBuilder: (context, i) {
-                                                  final doc =
-                                                      inlineCreatedDocs[i];
-                                                  final docName =
-                                                      doc.documentName ?? '';
-                                                  return Container(
-                                                    margin: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 4),
+                                          ],
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                _buildActivityStep(
+                                                  activity.actionName,
+                                                  activity.comments ?? "",
+                                                  null,
+                                                  activity.assignedUserName,
+                                                ),
+
+                                                // YEH NAYA ADD KARO HAR ACTIVITY KE LIYE
+                                                if (activity.actionName ==
+                                                        'DocUploaded' &&
+                                                    activity.documentName !=
+                                                        null)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            top: 12),
                                                     child: Column(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
                                                       children: [
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
-                                                                  horizontal: 6,
-                                                                  vertical: 2),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            color: Colors.orange
-                                                                .shade600,
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        8),
-                                                          ),
-                                                          child: const Text(
-                                                            'DocUploaded',
-                                                            style: TextStyle(
-                                                              color:
-                                                                  Colors.white,
-                                                              fontSize: 10,
+                                                        const Text(
+                                                          'DocUploaded',
+                                                          style: TextStyle(
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold,
-                                                            ),
-                                                          ),
+                                                              fontSize: 13),
                                                         ),
                                                         const SizedBox(
-                                                            height: 4),
+                                                            height: 6),
                                                         Container(
-                                                          width: 55,
-                                                          height: 55,
+                                                          height: 100,
+                                                          width: 100,
                                                           decoration:
                                                               BoxDecoration(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        10),
                                                             border: Border.all(
                                                                 color: Colors
                                                                     .grey
                                                                     .shade300),
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12),
                                                           ),
-                                                          child: docName
-                                                                  .toLowerCase()
-                                                                  .endsWith(
-                                                                      '.pdf')
-                                                              ? const Icon(
-                                                                  Icons
-                                                                      .picture_as_pdf,
-                                                                  size: 50,
-                                                                  color: Colors
-                                                                      .red)
-                                                              : ClipRRect(
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              10),
-                                                                  child: Image
-                                                                      .network(
-                                                                    "$url/$docName",
-                                                                    fit: BoxFit
-                                                                        .cover,
-                                                                    errorBuilder: (context,
-                                                                            _,
-                                                                            __) =>
-                                                                        const Icon(
-                                                                            Icons
-                                                                                .broken_image,
-                                                                            size:
-                                                                                50),
-                                                                  ),
-                                                                ),
-                                                        ),
-                                                        const SizedBox(
-                                                            height: 2),
-                                                        Text(
-                                                          resolveUserName(
-                                                              activity
-                                                                  .createdBy),
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize: 10,
-                                                                  color: Colors
-                                                                      .grey),
+                                                          child: ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        10),
+                                                            child:
+                                                                Image.network(
+                                                              "$url/${activity.documentName}",
+                                                              fit: BoxFit.cover,
+                                                              errorBuilder: (context,
+                                                                      error,
+                                                                      stackTrace) =>
+                                                                  const Icon(
+                                                                      Icons
+                                                                          .broken_image,
+                                                                      size: 50),
+                                                            ),
+                                                          ),
                                                         ),
                                                       ],
                                                     ),
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Column(
-                                        children: [
-                                          Container(
-                                            width: 10,
-                                            height: 10,
-                                            decoration: const BoxDecoration(
-                                              color: Colors.blue,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          if (!isLast)
-                                            Container(
-                                              width: 2,
-                                              height: 40,
-                                              color: Colors.grey.shade300,
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Padding(
-                                          padding:
-                                              const EdgeInsets.only(bottom: 16),
-                                          child: _buildActivityStep(
-                                            activity.actionName,
-                                            activity.comments ?? "",
-                                            null,
-                                            activity.assignedUserName,
-                                            activity.createdDate,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            }),
-                          ),
-                          ...docUploads.where((doc) {
-                            // Created ke sath already dikha diya ho to skip
-                            bool alreadyShown = otherActivities.any((act) =>
-                                act.actionName == "Created" &&
-                                act.createdBy == doc.createdBy &&
-                                (act.createdDate
-                                            .difference(doc.createdDate)
-                                            .inSeconds)
-                                        .abs() <
-                                    5);
-                            return !alreadyShown;
-                          }).map((doc) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Column(
-                                      children: [
-                                        Container(
-                                          width: 10,
-                                          height: 10,
-                                          decoration: const BoxDecoration(
-                                            color: Colors.orange,
-                                            shape: BoxShape.circle,
-                                          ),
+                                                  ),
+                                              ]),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'DocUploaded',
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Container(
-                                            height: 150,
-                                            width: 150,
-                                            decoration: BoxDecoration(
-                                              border: Border.all(
-                                                  color: Colors.grey.shade300),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              child: Image.network(
-                                                "$url/${doc.documentName}",
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error,
-                                                        stackTrace) =>
-                                                    const Icon(
-                                                        Icons.broken_image,
-                                                        size: 50),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                                  ),
+                                );
+                              }),
+                            )
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(maxHeight: 250),
+                      child: FlutterMentions(
+                        key: mentionsKey,
+                        maxLines: 5,
+                        minLines: 2,
+                        suggestionPosition: SuggestionPosition.Top,
+                        suggestionListHeight: 150,
+                        suggestionListDecoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black26, blurRadius: 4)
+                          ],
+                        ),
+                        decoration: InputDecoration(
+                          hintText: "Add comment and assign user...",
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        mentions: [
+                          Mention(
+                            trigger: '@',
+                            style: const TextStyle(color: Colors.blue),
+                            data: userList,
+                            matchAll: true,
+                            suggestionBuilder: (data) {
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  child: Text(data['display'][0].toUpperCase()),
                                 ),
-                              ))
-                          // Add other activity details as needed
+                                title: Text(data['display']),
+                                subtitle: Text(data['full_name']),
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-
-          // Mention Input Box with dropdown
-          // Container(
-          //   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          //   decoration: BoxDecoration(
-          //     color: Colors.white,
-          //     boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-          //     border: Border(top: BorderSide(color: Colors.grey.shade300)),
-          //   ),
-          //   child: LayoutBuilder(
-          //     builder: (context, constraints) {
-          //       return Column(
-          //         mainAxisSize: MainAxisSize.min,
-          //         children: [
-          //           TextField(
-          //             controller: _controller,
-          //             focusNode: _focusNode,
-          //             decoration: InputDecoration(
-          //               hintText: "Type @ to mention someone",
-          //               border: OutlineInputBorder(
-          //                   borderRadius: BorderRadius.circular(8)),
-          //             ),
-          //             maxLines: null,
-          //             onChanged: (val) {
-          //               onChanged(val, setState);
-          //             },
-          //           ),
-          //           if (showDropdown)
-          //             ConstrainedBox(
-          //               constraints: BoxConstraints(
-          //                 maxHeight: 150,
-          //                 maxWidth:
-          //                     constraints.maxWidth, // 👈 Keeps within container
-          //               ),
-          //               child: Container(
-          //                 margin: const EdgeInsets.only(top: 4),
-          //                 decoration: BoxDecoration(
-          //                   color: Colors.white,
-          //                   borderRadius: BorderRadius.circular(8),
-          //                   boxShadow: [
-          //                     BoxShadow(color: Colors.black26, blurRadius: 4)
-          //                   ],
-          //                   border: Border.all(color: Colors.grey.shade300),
-          //                 ),
-          //                 child: ListView.builder(
-          //                   padding: EdgeInsets.zero,
-          //                   shrinkWrap: true,
-          //                   itemCount: filteredUsers.length,
-          //                   itemBuilder: (context, index) {
-          //                     final user = filteredUsers[index];
-          //                     return ListTile(
-          //                       leading: CircleAvatar(
-          //                         child:
-          //                             Text(user['display']![0].toUpperCase()),
-          //                       ),
-          //                       title: Text(user['display']!),
-          //                       subtitle: Text(user['full_name']!),
-          //                       onTap: () {
-          //                         onUserSelected(user['display']!, setState);
-          //                       },
-          //                     );
-          //                   },
-          //                 ),
-          //               ),
-          //             ),
-          //         ],
-          //       );
-          //     },
-          //   ),
-          // )
-          const Divider(),
-          Container(
-            constraints: BoxConstraints(maxHeight: 250),
-            child: FlutterMentions(
-              key: mentionsKey,
-              maxLines: 5,
-              minLines: 2,
-              suggestionPosition: SuggestionPosition.Top,
-              suggestionListHeight: 150, // limit dropdown height
-              suggestionListDecoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
-              ),
-              decoration: InputDecoration(
-                hintText: "Add comment and assign user...",
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              mentions: [
-                Mention(
-                  trigger: '@',
-                  style: const TextStyle(color: Colors.blue),
-                  data: userList,
-                  matchAll: true,
-                  suggestionBuilder: (data) {
-                    return ListTile(
-                      leading: CircleAvatar(
-                        child: Text(data['display'][0].toUpperCase()),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _sendActivityComment,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(70, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      title: Text(data['display']),
-                      subtitle: Text(data['full_name']),
-                    );
-                  },
-                ),
-              ],
+                    ),
+                    child: const Text("Send"),
+                  ),
+                ],
+              ),
             ),
-          )
-        ],
+          ],
+        ),
       );
     });
   }
 
-  Widget _buildActivityStep(String action, String comment, String? image,
-      String? assignedTo, DateTime date) {
+  Widget _buildActivityStep(
+      String action, String comment, String? image, String? assignedTo) {
     Color badgeColor;
     switch (action) {
       case "Created":
@@ -1718,10 +1628,10 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
-            Text(
-              date.toLocal().toString().split('.')[0],
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
-            ),
+            // Text(
+            // date.toLocal().toString().split('.')[0],
+            // style: const TextStyle(color: Colors.grey, fontSize: 12),
+            // ),
           ],
         ),
         const SizedBox(height: 6),

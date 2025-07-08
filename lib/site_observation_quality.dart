@@ -9,6 +9,7 @@ import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:multi_select_flutter/multi_select_flutter.dart';
 import 'package:collection/collection.dart';
@@ -86,7 +87,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   TextEditingController observationDescriptionController =
       TextEditingController();
-  TextEditingController userDescriptionController = TextEditingController();
+  // TextEditingController userDescriptionController = TextEditingController();
   TextEditingController actionToBeTakenController = TextEditingController();
   TextEditingController reworkCostController = TextEditingController();
   TextEditingController observedByController = TextEditingController();
@@ -136,6 +137,11 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   }
 
   int? observedById;
+
+  bool isUserSelectionEnabled = true;
+  bool actionToBeTakenEnabled = true;
+
+  String? areaLabel;
 
   @override
   void initState() {
@@ -263,6 +269,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           await widget._siteObservationService.fetchObservationType();
       setState(() {
         observationTypeList = fetchedObservationType;
+        observationTypeList.forEach(
+            (e) => print('observationTypeList268: ${e.id} - ${e.name}'));
+        print("observationTypeList268:$observationTypeList");
       });
     } catch (e) {
       print('Error fetching ObservationType: $e');
@@ -392,17 +401,26 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     setState(() {
       isLoading = true;
     });
+
     try {
+      int? currentUserId =
+          await SharedPrefsHelper.getUserId(); // ✅ get from SharedPreferences
+
       List<User> fetchedUsers =
           await widget._siteObservationService.fetchUserList();
+
       List<User> uniqueUsers = [];
       Set<String> userNames = {};
+
       for (var user in fetchedUsers) {
-        if (!userNames.contains(user.userName)) {
+        // Assuming `user.id` or `user.userId` is the field that matches your saved ID
+        if (!userNames.contains(user.userName) && user.id != currentUserId) {
+          // ✅ filter out current user
           uniqueUsers.add(user);
           userNames.add(user.userName);
         }
       }
+
       setState(() {
         userList = uniqueUsers;
       });
@@ -546,12 +564,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     return null;
   }
 
-  String? _validateUser(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'User Description is required';
-    }
-    return null;
-  }
+  // String? _validateUser(String? value) {
+  //   if (value == null || value.isEmpty) {
+  //     return 'User Description is required';
+  //   }
+  //   return null;
+  // }
 
   String? _validateDueDate(String? value) {
     if (value == null || value.isEmpty) {
@@ -642,9 +660,29 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     }
   }
 
+  Future<void> loadSection() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    int? projectID = prefs.getInt('projectID');
+
+    if (projectID != null) {
+      try {
+        List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        if (sections.isNotEmpty) {
+          setState(() {
+            areaLabel = sections[0].labelName;
+          });
+        }
+      } catch (e) {
+        print('Error fetching sections: $e');
+      }
+    }
+  }
+
   void onFileUploadSuccess(String uploadedFileName) async {
     int? userID = await SharedPrefsHelper.getUserId();
-
+    int statusIdToSend = (selectedObservationTypeId == 1)
+        ? SiteObservationStatus.Closed
+        : SiteObservationStatus.Open;
     activityList.add(
       SiteObservationActivity(
         id: 0,
@@ -653,7 +691,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         comments: '',
         documentName: uploadedFileName,
         fromStatusID: SiteObservationStatus.Open,
-        toStatusID: SiteObservationStatus.Open,
+        toStatusID: statusIdToSend,
         assignedUserID: userID!,
         createdBy: userID,
         createdDate: formatDateForApi(DateTime.now()),
@@ -664,7 +702,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   // Function to submit the form data
   Future<void> submitForm() async {
     String observationDescription = observationDescriptionController.text;
-    String userDescription = userDescriptionController.text;
+    // String userDescription = userDescriptionController.text;
     String actionToBeTaken =
         actionToBeTakenController.text; // Add this line to get the action text
     int? projectID = await SharedPrefsHelper.getProjectID();
@@ -675,6 +713,11 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         orElse: () => {"id": 0, "observedBy": ""})['id'] as int;
 
     final String? dueDateValue;
+
+    int statusIdToSend = (selectedObservationTypeId == 1)
+        ? SiteObservationStatus.Closed
+        : SiteObservationStatus.Open;
+
     if (isDueDateEnabled) {
       if (_dateDueDateController.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -695,7 +738,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         comments: '',
         documentName: "",
         fromStatusID: SiteObservationStatus.Open,
-        toStatusID: SiteObservationStatus.Open,
+        toStatusID: statusIdToSend,
         assignedUserID: userID!, // creator ka ID
         createdBy: userID,
         createdDate: formatDateForApi(DateTime.now()),
@@ -713,7 +756,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           comments: '',
           documentName: '',
           fromStatusID: SiteObservationStatus.Open,
-          toStatusID: SiteObservationStatus.Open,
+          toStatusID: statusIdToSend,
           assignedUserID: user.id,
           createdBy: userID,
           createdDate: formatDateForApi(DateTime.now()),
@@ -738,7 +781,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           ? dueDateValue
           : formatDateForApi(DateTime.now().toUtc()),
       observationDescription: observationDescription,
-      userDescription: userDescription, // You can add more fields
+      userDescription: '', // You can add more fields
       complianceRequired: isComplianceRequired,
       escalationRequired: isEscalationRequired,
       actionToBeTaken: actionToBeTaken,
@@ -760,12 +803,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           .id,
       contractorID: ContractorList.firstWhere(
           (contractor) => contractor.partyName == selectedContractor).id,
-      reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
+      reworkCost: 0,
       comments: 'string',
       rootCauseID: 0,
       corretiveActionToBeTaken: 'Corrective action here',
       preventiveActionTaken: 'Preventive action here',
-      statusID: SiteObservationStatus.Open,
+      statusID: statusIdToSend,
       isActive: true,
       createdBy: userID,
       createdDate: formatDateForApi(DateTime.now().toUtc()),
@@ -805,6 +848,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     _formKey.currentState?.reset();
 
     setState(() {
+      // _dateController.clear();
       selectedObservation = null; // Or null based on your logic
       selectedObservationType = null;
       selectedIssueType = null;
@@ -815,9 +859,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       selectedElement = null;
       selectedContractor = null;
       actionToBeTakenController.clear();
-      reworkCostController.clear();
+      // reworkCostController.clear();
       observationDescriptionController.clear();
-      userDescriptionController.clear();
+      // userDescriptionController.clear();
       uploadedFiles.clear();
       selectedFileName = null;
       isComplianceRequired = false;
@@ -849,7 +893,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Site Observation - Safety'),
+          title: Text('Site Observation - Quality'),
           backgroundColor: Colors.blue,
           centerTitle: true,
         ),
@@ -913,6 +957,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                         itemBuilder: (context, index) {
                                           SiteObservation observation =
                                               observations[index];
+                                          // print(
+                                          //     "observation:${observation.issueType}");
                                           bool isDark =
                                               Theme.of(context).brightness ==
                                                   Brightness.dark;
@@ -1048,6 +1094,19 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                   if (selected != null) {
                                                     selectedObservationTypeId =
                                                         selected.id;
+                                                    if (selected.id == 1) {
+                                                      isUserSelectionEnabled =
+                                                          false;
+                                                      actionToBeTakenEnabled =
+                                                          false;
+                                                      selectedUsers
+                                                          .clear(); // Optionally clear users
+                                                    } else {
+                                                      isUserSelectionEnabled =
+                                                          true;
+                                                      actionToBeTakenEnabled =
+                                                          true;
+                                                    }
                                                     fetchIssueTypes();
                                                   } else {
                                                     selectedObservationTypeId =
@@ -1065,6 +1124,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       '';
                                                   isComplianceRequired = false;
                                                   isEscalationRequired = false;
+                                                  actionToBeTakenController
+                                                      .text = '';
                                                 });
                                               },
                                               decoration: InputDecoration(
@@ -1180,6 +1241,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                         isEscalationRequired =
                                                             selected
                                                                 .escalationRequired;
+                                                        actionToBeTakenController
+                                                                .text =
+                                                            selected
+                                                                .actionToBeTaken;
                                                         // Calculate due date based on start date and dueTimeInHrs
                                                         if (_dateController.text
                                                                 .isNotEmpty &&
@@ -1206,13 +1271,20 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                                           .floor()));
 
                                                               // Convert to local datetime string like 'yyyy-MM-ddTHH:mm'
+                                                              // String
+                                                              //     formattedDueDate =
+                                                              //     DateFormat(
+                                                              //             "yyyy-MM-dd HH:mm")
+                                                              //         .format(dueDate
+                                                              //             .toUtc());
                                                               String
                                                                   formattedDueDate =
                                                                   DateFormat(
                                                                           "yyyy-MM-dd HH:mm")
-                                                                      .format(dueDate
-                                                                          .toUtc());
-
+                                                                      .format(
+                                                                          dueDate);
+                                                              print(
+                                                                  "formattedDueDate1244:$formattedDueDate");
                                                               // Set this string to the controller
                                                               _dateDueDateController
                                                                       .text =
@@ -1422,19 +1494,19 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               },
                                             ),
 
-                                            SizedBox(height: 20),
-                                            TextFormField(
-                                              controller:
-                                                  userDescriptionController,
-                                              decoration: InputDecoration(
-                                                labelText: 'User Description',
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                              ),
-                                              validator: _validateUser,
-                                            ),
+                                            // SizedBox(height: 20),
+                                            // TextFormField(
+                                            //   controller:
+                                            //       userDescriptionController,
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'User Description',
+                                            //     border: OutlineInputBorder(
+                                            //       borderRadius:
+                                            //           BorderRadius.circular(8),
+                                            //     ),
+                                            //   ),
+                                            //   validator: _validateUser,
+                                            // ),
 
                                             SizedBox(height: 20),
                                             DropdownButtonFormField<String>(
@@ -1561,40 +1633,56 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
                                             SizedBox(height: 20),
                                             // MultiSelect for Assigned Users
-                                            MultiSelectDialogField<User>(
-                                              items: userList
-                                                  .map((user) =>
-                                                      MultiSelectItem<User>(
-                                                          user, user.userName))
-                                                  .toList(),
-                                              title: Text("Assigned To"),
-                                              selectedItemsTextStyle: TextStyle(
-                                                  fontWeight: FontWeight.bold),
-                                              itemsTextStyle:
-                                                  TextStyle(fontSize: 16),
-                                              searchable: true,
-                                              buttonText: Text("Select Users"),
-                                              onConfirm: (List<User> selected) {
-                                                setState(() {
-                                                  selectedUsers = selected
-                                                      .map((u) => u.userName)
-                                                      .toList(); // ✅ Strings only
-                                                });
-                                              },
-                                              chipDisplay:
-                                                  MultiSelectChipDisplay(
-                                                onTap: (user) {
-                                                  setState(() {
-                                                    selectedUsers.remove(
-                                                        user); // ✅ Remove full User object
-                                                  });
-                                                },
-                                              ),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                    color: Colors.grey),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
+                                            IgnorePointer(
+                                              ignoring: !isUserSelectionEnabled,
+                                              child: Opacity(
+                                                opacity: isUserSelectionEnabled
+                                                    ? 1.0
+                                                    : 0.5,
+                                                child: MultiSelectDialogField<
+                                                    User>(
+                                                  items: userList
+                                                      .map((user) =>
+                                                          MultiSelectItem<User>(
+                                                              user,
+                                                              user.userName))
+                                                      .toList(),
+                                                  title: Text("Assigned To"),
+                                                  selectedItemsTextStyle:
+                                                      TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold),
+                                                  itemsTextStyle:
+                                                      TextStyle(fontSize: 16),
+                                                  searchable: true,
+                                                  buttonText:
+                                                      Text("Select Users"),
+                                                  onConfirm:
+                                                      (List<User> selected) {
+                                                    setState(() {
+                                                      selectedUsers = selected
+                                                          .map(
+                                                              (u) => u.userName)
+                                                          .toList();
+                                                    });
+                                                  },
+                                                  chipDisplay:
+                                                      MultiSelectChipDisplay(
+                                                    onTap: (user) {
+                                                      setState(() {
+                                                        selectedUsers
+                                                            .remove(user);
+                                                      });
+                                                    },
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(
+                                                        color: Colors.grey),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                  ),
+                                                ),
                                               ),
                                             ),
 
@@ -1609,31 +1697,33 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       BorderRadius.circular(8),
                                                 ),
                                               ),
-                                              validator: _validateDescription,
+                                              // validator: _validateDescription,
+                                              enabled:
+                                                  actionToBeTakenEnabled, // 🔑 Use your flag here
                                             ),
 
-                                            SizedBox(height: 10),
-                                            TextFormField(
-                                              controller: reworkCostController,
-                                              keyboardType: TextInputType
-                                                  .number, // Allow only number input
-                                              decoration: InputDecoration(
-                                                labelText: 'Rework Cost',
-                                                border: OutlineInputBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8)),
-                                              ),
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty)
-                                                  return 'Please enter rework cost';
-                                                if (double.tryParse(value) ==
-                                                    null)
-                                                  return 'Enter valid number';
-                                                return null;
-                                              },
-                                            ),
+                                            // SizedBox(height: 10),
+                                            // TextFormField(
+                                            //   controller: reworkCostController,
+                                            //   keyboardType: TextInputType
+                                            //       .number, // Allow only number input
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Rework Cost',
+                                            //     border: OutlineInputBorder(
+                                            //         borderRadius:
+                                            //             BorderRadius.circular(
+                                            //                 8)),
+                                            //   ),
+                                            //   validator: (value) {
+                                            //     if (value == null ||
+                                            //         value.isEmpty)
+                                            //       return 'Please enter rework cost';
+                                            //     if (double.tryParse(value) ==
+                                            //         null)
+                                            //       return 'Enter valid number';
+                                            //     return null;
+                                            //   },
+                                            // ),
                                             SizedBox(height: 20),
                                             // 🔽 File Upload Section just like TextFormField
                                             Column(

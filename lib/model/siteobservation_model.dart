@@ -22,13 +22,14 @@ class SiteObservation {
   });
 
   factory SiteObservation.fromJson(Map<String, dynamic> json) {
+    print(json);
     return SiteObservation(
       id: (json['ID'] ?? 0) as int,
       siteObservationCode: json['SiteObservationCode'] ?? 'N/A',
       observationDescription: json['ObservationDescription'] ?? 'N/A',
-      observationType: json['ObservationType'] ?? 'N/A',
-      issueType: json['IssueType'] ?? 'N/A',
-      functionType: json['FunctionType'] ?? 'N/A',
+      observationType: json['observationtype'] ?? 'N/A',
+      issueType: json['issuetype'] ?? 'N/A',
+      functionType: json['functiontype'] ?? 'N/A',
       observationStatus: json['ObservationStatus'] ?? 'N/A',
       projectName: json['ProjectName'] ?? 'N/A',
       transactionDate: SiteObservation._parseDate(json['TrancationDate']),
@@ -465,7 +466,7 @@ class SiteObservationModel {
   final int issueTypeID;
   final String? dueDate;
   final String observationDescription;
-  final String userDescription;
+  final String? userDescription;
   final bool complianceRequired;
   final bool escalationRequired;
   final String actionToBeTaken;
@@ -502,7 +503,7 @@ class SiteObservationModel {
     required this.issueTypeID,
     required this.dueDate,
     required this.observationDescription,
-    required this.userDescription,
+    this.userDescription,
     required this.complianceRequired,
     required this.escalationRequired,
     required this.actionToBeTaken,
@@ -677,6 +678,7 @@ class NCRObservation {
   // }
 
   factory NCRObservation.fromJson(Map<String, dynamic> json) {
+    print("NCRObservation681:$json");
     return NCRObservation(
       uniqueID: json['uniqueID'] ?? '',
       id: json['id'] ?? 0,
@@ -730,6 +732,7 @@ class GetSiteObservationMasterById {
   final int projectID; // Assuming projectId is a String
 
   final List<ActivityDTO> activityDTO;
+  final List<AssignmentStatusDTO> assignmentStatusDTO;
 
   GetSiteObservationMasterById({
     required this.id,
@@ -762,10 +765,11 @@ class GetSiteObservationMasterById {
     required this.activityID,
     required this.projectID,
     required this.activityDTO,
+    required this.assignmentStatusDTO,
   });
 
   factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
-    print('GetSiteObservationMasterById.fromJson: $json');
+    // print('GetSiteObservationMasterById.fromJson: $json');
     return GetSiteObservationMasterById(
       id: json['id'] ?? 0,
       observationCode: json['siteObservationCode'] ?? '',
@@ -801,6 +805,10 @@ class GetSiteObservationMasterById {
       projectID: json['projectID'] != null ? json['projectID'] as int : 0,
       activityDTO: (json['activityDTO'] as List<dynamic>?)
               ?.map((item) => ActivityDTO.fromJson(item))
+              .toList() ??
+          [],
+      assignmentStatusDTO: (json['assignmentStatusDTO'] as List<dynamic>?)
+              ?.map((e) => AssignmentStatusDTO.fromJson(e))
               .toList() ??
           [],
     );
@@ -851,10 +859,13 @@ class ActivityDTO {
   final String comments;
   final String documentName;
   final int? fromStatusID;
+  final String? fromStatusName;
   final int? toStatusID;
+  final String? toStatusName;
   final int? assignedUserID;
   final String? assignedUserName;
   final String createdBy;
+  final String? createdByName;
   final DateTime createdDate;
   // final String statusName;
 
@@ -866,15 +877,19 @@ class ActivityDTO {
     required this.comments,
     required this.documentName,
     required this.fromStatusID,
+    this.fromStatusName,
     required this.toStatusID,
+    this.toStatusName,
     this.assignedUserID,
     this.assignedUserName,
     required this.createdBy,
+    this.createdByName,
     required this.createdDate,
     // required this.statusName,
   });
 
   factory ActivityDTO.fromJson(Map<String, dynamic> json) {
+    // print("ActivityDTO892: $json");
     return ActivityDTO(
       id: json['id'] as int?,
       siteObservationID: json['siteObservationID'] as int?,
@@ -883,10 +898,15 @@ class ActivityDTO {
       comments: json['comments'] ?? '',
       documentName: json['documentName'] ?? '',
       fromStatusID: json['fromStatusID'] as int?,
+      fromStatusName: json['fromStatusName'] as String,
       toStatusID: json['toStatusID'] as int?,
+      toStatusName: json['toStatusName'] as String,
       assignedUserID: json['assignedUserID'] as int?,
       assignedUserName: json['assignedUserName'] ?? '',
       createdBy: json['createdBy'] as String,
+      createdByName: json['createdByName'] != null
+          ? json['createdByName'] as String
+          : null,
       createdDate: DateTime.parse(json['createdDate']),
       // statusName: json['statusName'] ?? '',
     );
@@ -901,7 +921,9 @@ class ActivityDTO {
       'comments': comments,
       'documentName': documentName,
       'fromStatusID': fromStatusID,
+      'fromStatusName': fromStatusName,
       'toStatusID': toStatusID,
+      'toStatusName': toStatusName,
       'assignedUserID': assignedUserID,
       'assignedUserName': assignedUserName,
       'createdBy': createdBy,
@@ -921,13 +943,52 @@ ActivityDTO(
   comments: $comments,
   documentName: $documentName,
   fromStatusID: $fromStatusID,
+  fromStatusName:$fromStatusName,
   toStatusID: $toStatusID,
+  toStatusName:$toStatusName,
   assignedUserID: $assignedUserID,
   assignedUserName: $assignedUserName,
   createdBy: $createdBy,
   createdDate: $createdDate
 )
 ''';
+  }
+}
+
+class AssignmentStatusDTO {
+  final int siteObservationID;
+  final int assignedUserID;
+  final String assignedUserName;
+  final String statusName;
+  final int statusID;
+
+  AssignmentStatusDTO({
+    required this.siteObservationID,
+    required this.assignedUserID,
+    required this.assignedUserName,
+    required this.statusName,
+    required this.statusID,
+  });
+
+  factory AssignmentStatusDTO.fromJson(Map<String, dynamic> json) {
+    print("json974:$json");
+    return AssignmentStatusDTO(
+      siteObservationID: json['siteObservationID'] ?? 0,
+      assignedUserID: json['assignedUserID'] ?? 0,
+      assignedUserName: json['assignedUserName'] ?? '',
+      statusName: json['statusName'] ?? '',
+      statusID: json['statusID'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'siteObservationID': siteObservationID,
+      'assignedUserID': assignedUserID,
+      'assignedUserName': assignedUserName,
+      'statusName': statusName,
+      'statusID': statusID,
+    };
   }
 }
 
@@ -1073,5 +1134,45 @@ class AssignedUser {
   @override
   String toString() {
     return 'AssignedUser(siteObservationID: $siteObservationID, assignedUserID: $assignedUserID, assignedUserName: $assignedUserName, statusName: $statusName, statusID: $statusID)';
+  }
+}
+
+// labelname show
+class SectionModel {
+  final String labelName;
+
+  SectionModel({required this.labelName});
+
+  factory SectionModel.fromJson(Map<String, dynamic> json) {
+    // print(json);
+    return SectionModel(
+      labelName: json['labelName'] ?? '',
+    );
+  }
+}
+
+class FloorModel {
+  final String floorName;
+
+  FloorModel({required this.floorName});
+
+  factory FloorModel.fromJson(Map<String, dynamic> json) {
+    // print('Parsing Floor JSON: $json');
+    return FloorModel(
+      floorName: json['floorName'] ?? '',
+    );
+  }
+}
+
+class ElementModel {
+  final String labelName;
+
+  ElementModel({required this.labelName});
+
+  factory ElementModel.fromJson(Map<String, dynamic> json) {
+    // print('Parsing Element JSON: $json');
+    return ElementModel(
+      labelName: json['labelName'] ?? '',
+    );
   }
 }

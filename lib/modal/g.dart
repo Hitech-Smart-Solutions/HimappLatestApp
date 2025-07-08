@@ -1,54 +1,52 @@
-// naya code
-
+// New Naya code
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:flutter_mentions/flutter_mentions.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
-import 'package:flutter/services.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_mentions/flutter_mentions.dart';
-// import 'package:collection/collection.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_portal/flutter_portal.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class ObservationDetailDialog extends StatefulWidget {
+class ObservationQCDetailDialog extends StatefulWidget {
   final GetSiteObservationMasterById detail;
   final SiteObservationService siteObservationService;
   final int siteObservationId;
   final String? createdBy;
   final int? activityId;
-  // final String? statusName;
-  // final int activityId;
-  // final int projectId;
-  const ObservationDetailDialog({
+  final int projectID;
+
+  const ObservationQCDetailDialog({
     super.key,
     required this.detail,
     required this.siteObservationService,
     required this.siteObservationId,
     required this.createdBy,
     required this.activityId,
-    // required this.statusName,
-    // required this.activityId
-    // required this.projectId,
+    required this.projectID,
   });
 
   @override
-  State<ObservationDetailDialog> createState() =>
-      _ObservationDetailDialogState();
+  _ObservationQCDetailDialogState createState() =>
+      _ObservationQCDetailDialogState();
 }
 
-class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
-  // String selectedStatus = 'Open';
-  bool isEditingRootCause = false;
-
-  List<Map<String, String>> observationStatus = [];
+class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
+  bool isLoading = false;
   String? selectedStatus;
-  bool isStatusEnabled = false;
-  String url = AppSettings.url;
+  List<Map<String, String>> observationStatus = [];
 
-  List<User> selectedUsers = [];
+  List<RootCause> rootCauses = [];
+  RootCause? selectedRootCause;
+  bool isStatusEnabled = false;
+  bool isEditingRootCause = false;
+  bool isButtonDisabled = false;
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController rootCauseController = TextEditingController();
@@ -59,54 +57,56 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
       TextEditingController();
   final TextEditingController _activityCommentController =
       TextEditingController();
-
-  late int editingUserId;
-  bool assigned = true;
-  List<ActivityDTO> activities = [];
   final GlobalKey<FlutterMentionsState> mentionsKey =
       GlobalKey<FlutterMentionsState>();
 
-  List<Map<String, String>> userList = [];
-  List<User> allUsers = [];
-  List<RootCause> rootCauses = [];
-  RootCause? selectedRootCause;
-  bool isLoading = false;
-
-  // final int activityId;
-  // Default value, can be set later
-  int? userId;
-
-  List<String> uploadedFiles = [];
-  bool isButtonDisabled = false;
-
   String? selectedFileName;
-  bool _isReadOnly = false;
-
-  List<PlatformFile> selectedFiles = [];
-  List<String> uploadedFileNames = [];
-
-  List<String> attachmentFiles = []; // At top in your State class
+  List<String> uploadedFiles = [];
   bool showSaveAttachmentButton = false;
+  String url = AppSettings.url;
+
+  int? userId;
+  String? currentUserName;
   late GetSiteObservationMasterById currentDetail;
+  List<User> allUsers = [];
+  late int editingUserId;
+  List<Map<String, String>> userList = [];
+  List<User> selectedUsers = [];
+  List<ActivityDTO> activities = [];
+
+  int fromStatus = SiteObservationStatus.Open;
+  int toStatus = SiteObservationStatus.Open;
+  String? areaLabel;
+  String? floorLabel;
+  String? elementLabel;
+
   @override
   void initState() {
     super.initState();
+    // print("widget.detail ${widget.detail}");
     currentDetail = widget.detail;
     _setupPage();
+    loadSection();
+    loadFloor();
+    loadElement();
   }
 
   Future<void> _setupPage() async {
-    // Parse status ID
-    final rawStatus = widget.detail.statusName;
-    final int statusId = int.tryParse(rawStatus ?? '') ?? 0;
+    final statusId = widget.detail.statusID;
+    // print('🔁 rawStatus: $statusId');
 
     if (statusId != 0) {
+      selectedStatus = statusId.toString(); // <-- Yeh add karo
+      fromStatus = statusId;
+      toStatus = statusId;
       await setObservationStatusDropdown(
-          statusId, widget.detail.createdBy, widget.detail);
+        statusId,
+        widget.detail.createdBy,
+        widget.detail,
+      );
     } else {
-      print("⚠️ Invalid status ID string: ${widget.detail.statusName}");
+      print("⚠️ Invalid status name: ${widget.detail.statusName}");
     }
-
     await _loadRootCauses(); // wait for root causes to load before proceeding
 
     _initializeFormFields(); // now safe to initialize form fields with loaded data
@@ -116,25 +116,28 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
   }
 
   Future<void> initData() async {
-    int? projectId = await SharedPrefsHelper.getProjectID();
-    if (projectId == null) {
-      return;
-    }
-    await fetchUsers(); // Only fetch after getting valid ProjectID
+    int projectID = widget.projectID;
+    await fetchUsers();
     userId = await SharedPrefsHelper.getUserId();
+    currentUserName = await SharedPrefsHelper.getUserName();
   }
+
+  // void onStatusChanged(int newStatusId) {
+  //   setState(() {
+  //     fromStatus = toStatus; // Old "toStatus" now becomes "fromStatus"
+  //     toStatus = newStatusId; // New selected status
+  //   });
+  // }
 
   void _initializeFormFields() {
     if (selectedStatus == SiteObservationStatus.Open.toString()) {
       try {
-        // If rootCauseID is valid, find matching RootCause
         if (widget.detail.rootCauseID != null &&
             widget.detail.rootCauseID != 0) {
           selectedRootCause = rootCauses.firstWhere(
             (rc) => rc.id == widget.detail.rootCauseID,
           );
         } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-          // If rootCauseID is 0, fallback to first in list
           selectedRootCause = rootCauses.first;
         } else {
           selectedRootCause = null;
@@ -151,16 +154,13 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     }
     if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
         selectedStatus == SiteObservationStatus.Closed.toString()) {
-      _isReadOnly = true;
       try {
-        // If rootCauseID is valid, find matching RootCause
         if (widget.detail.rootCauseID != null &&
             widget.detail.rootCauseID != 0) {
           selectedRootCause = rootCauses.firstWhere(
             (rc) => rc.id == widget.detail.rootCauseID,
           );
         } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-          // If rootCauseID is 0, fallback to first in list
           selectedRootCause = rootCauses.first;
         } else {
           selectedRootCause = null;
@@ -169,7 +169,9 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         selectedRootCause = null;
       }
 
-      reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
+      reworkCostController.text = widget.detail.reworkCost != null
+          ? widget.detail.reworkCost!.toStringAsFixed(2)
+          : '';
       preventiveActionController.text =
           widget.detail.preventiveActionTaken ?? '';
       correctiveActionController.text =
@@ -177,13 +179,205 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     }
   }
 
-  @override
-  void dispose() {
-    rootCauseController.dispose();
-    reworkCostController.dispose();
-    preventiveActionController.dispose();
-    correctiveActionController.dispose();
-    super.dispose();
+  Future<void> _loadRootCauses() async {
+    setState(() => isLoading = true);
+    try {
+      int? companyId = await SharedPrefsHelper.getCompanyId();
+      if (companyId == null) {
+        print('Error: Company ID is null');
+        return;
+      }
+      rootCauses =
+          await SiteObservationService().fatchRootCausesByActivityID(companyId);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load root causes: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<UpdateSiteObservation> getUpdatedDataFromForm(
+      List<String> uploadedFiles) async {
+    int id = widget.detail.id;
+    int rootCauseID = selectedRootCause?.id ?? 0;
+
+    List<ActivityDTO> activities = [];
+    int selectedStatusId =
+        int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
+    if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
+      activities.add(
+        ActivityDTO(
+          id: 0,
+          siteObservationID: id,
+          actionID: SiteObservationActions.Assigned,
+          actionName: 'Assigned',
+          comments: '',
+          documentName: '',
+          fromStatusID: fromStatus,
+          toStatusID: toStatus,
+          assignedUserID: widget.detail.createdBy,
+          assignedUserName: null,
+          createdBy: userId!.toString(),
+          createdDate: DateTime.now(),
+        ),
+      );
+      print("🔁 selectedStatusId 510: $selectedStatusId");
+    } else if (selectedStatusId == SiteObservationStatus.Reopen) {
+      final assignedUsers =
+          await SiteObservationService().fetchGetassignedusersforReopen(id);
+      print("🔁 Assigned Users210: $assignedUsers");
+      String currentUserId = userId!.toString();
+      // Add an activity for each assigned user
+      for (var user in assignedUsers) {
+        activities.add(
+          ActivityDTO(
+            id: 0,
+            siteObservationID: id,
+            actionID: SiteObservationActions.Assigned,
+            actionName: 'Assigned',
+            comments: '',
+            documentName: '',
+            fromStatusID: fromStatus,
+            toStatusID: toStatus,
+            assignedUserID: user.assignedUserID,
+            createdBy: currentUserId,
+            createdDate: DateTime.now(),
+          ),
+        );
+      }
+    }
+
+    // Add file uploads if available
+    for (String fileName in uploadedFiles) {
+      activities.add(
+        ActivityDTO(
+          id: 0,
+          siteObservationID: id,
+          actionID: SiteObservationActions.DocUploaded,
+          actionName: 'DocUploaded',
+          comments: '',
+          documentName: fileName,
+          fromStatusID: fromStatus,
+          toStatusID: toStatus,
+          assignedUserID: userId!,
+          assignedUserName: null,
+          createdBy: userId!.toString(),
+          createdDate: DateTime.now(),
+        ),
+      );
+    }
+
+    return UpdateSiteObservation(
+      id: id,
+      rootCauseID: rootCauseID,
+      corretiveActionToBeTaken: correctiveActionController.text,
+      preventiveActionTaken: preventiveActionController.text,
+      reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
+      statusID: selectedStatusId,
+      lastModifiedBy: userId!,
+      lastModifiedDate: DateTime.now(),
+      activityDTO: activities,
+    );
+  }
+
+  String getStatusNameFromId(String id) {
+    final status = observationStatus.firstWhere(
+      (e) => e['id'].toString() == id,
+      orElse: () => {'name': 'Unknown'},
+    );
+    return status['name'] ?? 'Unknown';
+  }
+
+  Future<void> setObservationStatusDropdown(
+      int statusId, int? createdBy, GetSiteObservationMasterById detail) async {
+    int? userID = await SharedPrefsHelper.getUserId();
+    var isAssign = detail.activityDTO
+        .where((activity) => activity.assignedUserID == userID)
+        .toList();
+
+    List<Map<String, String>> newStatusList = [];
+    String? newSelectedStatus;
+    bool newStatusEnabled = true;
+
+    switch (statusId) {
+      case SiteObservationStatus.Closed:
+        newStatusList = [
+          {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"}
+        ];
+        newSelectedStatus = SiteObservationStatus.Closed.toString();
+        newStatusEnabled = false;
+        break;
+
+      case SiteObservationStatus.ReadyToInspect:
+        if (createdBy == userID) {
+          newStatusList = [
+            {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"},
+            {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"},
+            {
+              "id": SiteObservationStatus.ReadyToInspect.toString(),
+              "name": "Ready To Inspect"
+            }
+          ];
+        } else if (isAssign.isEmpty && createdBy != userID) {
+          newStatusList = [
+            {
+              "id": SiteObservationStatus.ReadyToInspect.toString(),
+              "name": "Ready To Inspect"
+            }
+          ];
+          newStatusEnabled = false;
+        }
+        newSelectedStatus = SiteObservationStatus.ReadyToInspect.toString();
+        break;
+
+      case SiteObservationStatus.Open:
+        newStatusList = [
+          {"id": SiteObservationStatus.Open.toString(), "name": "Open"},
+          {
+            "id": SiteObservationStatus.InProgress.toString(),
+            "name": "In Progress"
+          },
+          {
+            "id": SiteObservationStatus.ReadyToInspect.toString(),
+            "name": "Ready To Inspect"
+          },
+        ];
+        newSelectedStatus = SiteObservationStatus.Open.toString();
+        break;
+
+      default:
+        newStatusList = [
+          {
+            "id": SiteObservationStatus.InProgress.toString(),
+            "name": "In Progress"
+          },
+          {
+            "id": SiteObservationStatus.ReadyToInspect.toString(),
+            "name": "Ready To Inspect"
+          },
+        ];
+        newSelectedStatus = statusId.toString();
+        break;
+    }
+    if (!newStatusList.any((s) => s['id'] == statusId.toString())) {
+      newStatusList.add({
+        "id": statusId.toString(),
+        "name": SiteObservationStatus.idToName[statusId] ?? "Reopen"
+      });
+    }
+    setState(() {
+      observationStatus = newStatusList;
+      final statusExists =
+          newStatusList.any((item) => item['id'] == newSelectedStatus);
+      selectedStatus = statusExists ? newSelectedStatus : null;
+      isStatusEnabled = newStatusEnabled;
+      if (!statusExists) {
+        print(
+            '⚠️ selectedStatus "$newSelectedStatus" not found in dropdown list');
+      }
+    });
   }
 
   Future<void> _sendActivityComment() async {
@@ -201,9 +395,15 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
         int userId = int.tryParse(cleanedIdStr) ?? 0;
 
+        // final matchedUser = allUsers.firstWhere(
+        //   (user) => user.id == userId,
+        //   orElse: () => User(id: 0, userName: ''),
+        // );
         final matchedUser = allUsers.firstWhere(
           (user) => user.id == userId,
-          orElse: () => User(id: 0, userName: ''),
+          orElse: () => User(
+              id: userId,
+              userName: cleanedUserName), // ✅ fallback me bhi name jaaye
         );
 
         String finalUserName = matchedUser.userName.isNotEmpty
@@ -213,21 +413,25 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         return User(id: userId, userName: finalUserName);
       }).toList();
 
-      int? createdBy = await SharedPrefsHelper.getUserId();
+      // ✅ Fix is here — get int userId only
+      // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
+      // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
+      // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
+      int createdById = await SharedPrefsHelper.getUserId() ?? 0;
+      String createdByName = await SharedPrefsHelper.getUserName() ?? 'Unknown';
 
+      // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
       List<ActivityDTO> activities = [];
 
       final commentText =
           mentionsKey.currentState?.controller?.text.trim() ?? "";
-
-      // Remove mentions to get only the actual comment text
       final plainComment =
           commentText.replaceAll(RegExp(r'\@\[(.*?)\]\((.*?)\)'), '').trim();
 
       bool hasMentions = selectedUsers.isNotEmpty;
       bool hasComment = plainComment.isNotEmpty;
-
-      // 1) Agar sirf mention hai (comment empty) → assigned activity banega
+      // print("activities413:$activities");
+      // CASE 1 — Only mention(s)
       if (hasMentions && !hasComment) {
         for (var user in selectedUsers) {
           activities.add(ActivityDTO(
@@ -237,17 +441,18 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             actionName: "Assigned",
             comments: "",
             documentName: "",
-            fromStatusID: 0,
-            toStatusID: 0,
+            fromStatusID: fromStatus,
+            toStatusID: toStatus,
             assignedUserID: user.id,
             assignedUserName: user.userName,
-            createdBy: createdBy.toString(),
+            createdBy: createdById.toString(), // ✅ send as integer
+            createdByName: createdByName,
             createdDate: DateTime.now(),
           ));
         }
       }
 
-      // 2) Agar sirf comment hai (mention nahi) → comment activity banega
+      // CASE 2 — Only comment
       else if (!hasMentions && hasComment) {
         activities.add(ActivityDTO(
           id: 0,
@@ -256,15 +461,19 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           actionName: "Commented",
           comments: plainComment,
           documentName: "",
-          fromStatusID: 0,
-          toStatusID: 0,
+          fromStatusID: fromStatus,
+          toStatusID: toStatus,
           assignedUserID: 0,
-          createdBy: createdBy.toString(),
+          // assignedUserName: '',
+          // createdBy: createdBy, // ✅ integer
+          createdBy: createdById.toString(),
+          createdByName: createdByName,
+          assignedUserName: createdByName,
           createdDate: DateTime.now(),
         ));
       }
 
-      // 3) Agar dono mention + comment hain → dono activities banenge
+      // CASE 3 — Both mention(s) and comment
       else if (hasMentions && hasComment) {
         for (var user in selectedUsers) {
           activities.add(ActivityDTO(
@@ -274,13 +483,15 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             actionName: "Assigned",
             comments: "",
             documentName: "",
-            fromStatusID: 0,
-            toStatusID: 0,
+            fromStatusID: fromStatus,
+            toStatusID: toStatus,
             assignedUserID: user.id,
             assignedUserName: user.userName,
-            createdBy: createdBy.toString(),
+            createdBy: createdById.toString(), // ✅ integer
+            createdByName: createdByName,
             createdDate: DateTime.now(),
           ));
+          // print("activities466:$activities");
         }
 
         activities.add(ActivityDTO(
@@ -290,17 +501,16 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           actionName: "Commented",
           comments: plainComment,
           documentName: "",
-          fromStatusID: 0,
-          toStatusID: 0,
+          fromStatusID: fromStatus,
+          toStatusID: toStatus,
           assignedUserID: 0,
-          createdBy: createdBy.toString(),
+          assignedUserName: '',
+          createdBy: createdById.toString(), // ✅ integer
+          createdByName: createdByName,
           createdDate: DateTime.now(),
         ));
       }
-
-      // Agar dono mention aur comment nahi hain, activities empty hain, kuch nahi karna
-
-      print("Activities to send: $commentText");
+      // print("activity483: $activities");
       if (activities.isEmpty) {
         print("No valid activity to send.");
         return;
@@ -328,81 +538,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     }
   }
 
-  Future<void> setObservationStatusDropdown(
-      int statusId, int? createdBy, GetSiteObservationMasterById detail) async {
-    observationStatus = [];
-    selectedStatus = null;
-    isStatusEnabled = true;
-    int? userID = await SharedPrefsHelper.getUserId();
-    // this.editDetails.activityDTO.filter(x => x.assignedToUserID == userID)
-    var isAssign = detail.activityDTO
-        .where((activity) => activity.assignedUserID == userID)
-        .toList();
-
-    switch (statusId) {
-      case SiteObservationStatus.Closed:
-        observationStatus = [
-          {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"}
-        ];
-        selectedStatus = SiteObservationStatus.Closed.toString();
-        isStatusEnabled = false;
-        break;
-
-      case SiteObservationStatus.ReadyToInspect:
-        if (createdBy == userID) {
-          observationStatus = [
-            {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"},
-            {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"},
-            {
-              "id": SiteObservationStatus.ReadyToInspect.toString(),
-              "name": "Ready To Inspect"
-            }
-          ];
-          isStatusEnabled = true;
-        } else if (isAssign.isEmpty && createdBy != userID) {
-          observationStatus = [
-            {
-              "id": SiteObservationStatus.ReadyToInspect.toString(),
-              "name": "Ready To Inspect"
-            }
-          ];
-          isStatusEnabled = false;
-        }
-        selectedStatus = SiteObservationStatus.ReadyToInspect.toString();
-        break;
-
-      case SiteObservationStatus.Open:
-        observationStatus = [
-          {"id": SiteObservationStatus.Open.toString(), "name": "Open"},
-          {
-            "id": SiteObservationStatus.InProgress.toString(),
-            "name": "In Progress"
-          },
-          {
-            "id": SiteObservationStatus.ReadyToInspect.toString(),
-            "name": "Ready To Inspect"
-          },
-        ];
-        selectedStatus = SiteObservationStatus.Open.toString();
-        isStatusEnabled = true;
-        break;
-
-      default:
-        observationStatus = [
-          {
-            "id": SiteObservationStatus.InProgress.toString(),
-            "name": "In Progress"
-          },
-          {
-            "id": SiteObservationStatus.ReadyToInspect.toString(),
-            "name": "Ready To Inspect"
-          },
-        ];
-        selectedStatus = statusId.toString();
-        isStatusEnabled = true;
-        break;
-    }
-  }
+  // List<Map<String, String>> userList = [];
 
   fetchUsers() async {
     setState(() {
@@ -410,8 +546,9 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     });
 
     try {
-      int? projectID = await SharedPrefsHelper.getProjectID();
-      if (projectID == null) throw Exception("Project ID not found");
+      int projectID = widget.projectID;
+      int? currentUserId =
+          await SharedPrefsHelper.getUserId(); // 👈 Get logged-in user ID
 
       final response = await SiteObservationService().fetchUsersForList(
         projectId: projectID,
@@ -419,6 +556,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
       setState(() {
         userList = response
+            .where((u) => u.id != currentUserId) // 👈 Exclude current user
             .map((u) => {
                   'id': u.id.toString(),
                   'display': u.userName,
@@ -435,111 +573,487 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     }
   }
 
-  UpdateSiteObservation getUpdatedDataFromForm(List<String> uploadedFiles) {
-    int id = widget.detail.id;
-    int rootCauseID = selectedRootCause?.id ?? 0;
+  Future<void> loadSection() async {
+    // SharedPreferences prefs = await SharedPreferences.getInstance();
+    // int? projectID = prefs.getInt('projectID');
+    int projectID = widget.projectID;
+    print(projectID);
+    print("widget:${widget.detail}");
+    if (projectID != null) {
+      try {
+        List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        print("sections:$sections");
+        if (sections.isNotEmpty) {
+          setState(() {
+            areaLabel = sections[0].labelName;
+            print("areaLabel:$areaLabel");
+          });
+        }
+      } catch (e) {
+        print('Error fetching sections: $e');
+      }
+    }
+  }
 
-    List<ActivityDTO> activities = [];
+  Future<void> loadFloor() async {
+    int projectID = widget.projectID;
+    // print(projectID);
+    if (projectID != null) {
+      try {
+        List<FloorModel> floors = await getFloorByProjectID(projectID);
+        if (floors.isNotEmpty) {
+          setState(() {
+            floorLabel = floors[0].floorName;
+          });
+        }
+      } catch (e) {
+        print('Error fetching floors: $e');
+      }
+    }
+  }
 
-    // Assigned action (static entry like Angular)
-    activities.add(
-      ActivityDTO(
-        id: 0,
-        siteObservationID: editingUserId,
-        actionID: SiteObservationActions.Assigned,
-        actionName: '', // ✅ Required field
-        comments: '',
-        documentName: '',
-        fromStatusID: 0,
-        toStatusID: SiteObservationStatus.ReadyToInspect,
-        assignedUserID: widget.detail.createdBy,
-        assignedUserName: null, // Optional
-        createdBy: userId!.toString(), // ✅ createdBy is a String in your model
-        createdDate: DateTime.now(),
+  Future<void> loadElement() async {
+    int projectID = widget.projectID;
+
+    if (projectID != null) {
+      try {
+        List<ElementModel> elements = await getElementByProjectID(projectID);
+        if (elements.isNotEmpty) {
+          setState(() {
+            elementLabel = elements[0].labelName;
+            print("elementLabel :$elementLabel");
+          });
+        }
+      } catch (e) {
+        print('Error fetching elements: $e');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              widget.detail.observationCode ?? 'No Code',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            // Add this line
+            child: DropdownButtonFormField<String>(
+              value: selectedStatus, // must be String
+              hint: const Text("-- Status --"),
+              isExpanded: true,
+              items: observationStatus.map((status) {
+                final idStr = status['id'].toString(); // String
+                final id = int.tryParse(idStr);
+                final name = SiteObservationStatus.idToName[id] ??
+                    status['name'] ??
+                    'Unknown';
+
+                return DropdownMenuItem<String>(
+                  value: idStr,
+                  child: Text(name),
+                );
+              }).toList(),
+              onChanged: isStatusEnabled
+                  ? (newValue) {
+                      if (newValue != null) {
+                        final int newStatus = int.parse(newValue);
+
+                        setState(() {
+                          fromStatus = toStatus; // 👈 old becomes fromStatus
+                          toStatus = newStatus; // 👈 selected becomes toStatus
+                          selectedStatus = newValue;
+                        });
+
+                        debugPrint(
+                            "📥 fromStatus: $fromStatus, toStatus: $toStatus");
+                      }
+                    }
+                  : null,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please select a status';
+                }
+                return null;
+              },
+            ),
+          ),
+        ],
+      ),
+      content: Portal(
+        child: SizedBox(
+          width: double.maxFinite,
+          child: DefaultTabController(
+            length: 3,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const TabBar(
+                  labelColor: Colors.black,
+                  tabs: [
+                    Tab(text: "Detail"),
+                    Tab(text: "Attachment"),
+                    Tab(text: "Activity"),
+                  ],
+                ),
+                SizedBox(
+                  height: 422,
+                  width: 700,
+                  child: TabBarView(
+                    children: [
+                      _buildDetailTab(),
+                      _buildAttachmentTab(),
+                      _buildActivityTab(), // contains FlutterMentions
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          child: const Text("Close"),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.detail.description ?? 'N/A',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(1),
+              1: FlexColumnWidth(1),
+            },
+            children: [
+              _buildAlignedRow(
+                  "Observation Date : ",
+                  _formatDate(widget.detail.trancationDate),
+                  "Created Date : ",
+                  _formatDate(widget.detail.createdDate)),
+              _buildAlignedRow(
+                "Observation Type : ",
+                widget.detail.observationType ?? 'N/A',
+                "Issue Type : ",
+                widget.detail.issueType ?? 'N/A',
+              ),
+              _buildAlignedRow(
+                  "Created By : ",
+                  widget.detail.createdByName ?? 'N/A',
+                  "Due Date : ",
+                  _formatDate(widget.detail.dueDate)),
+              _buildAlignedRow(
+                  "Activity : ",
+                  widget.detail.activityName ?? 'N/A',
+                  "$areaLabel : ",
+                  widget.detail.sectionName ?? 'N/A'),
+              _buildAlignedRow(
+                  "$floorLabel : ",
+                  widget.detail.floorName ?? 'N/A',
+                  "Part : ",
+                  widget.detail.partName ?? 'N/A'),
+              _buildAlignedRow(
+                  "$elementLabel : ",
+                  widget.detail.elementName ?? 'N/A',
+                  "Contractor : ",
+                  widget.detail.contractorName ?? 'N/A'),
+              _buildAlignedRow(
+                  "Compliance Required : ",
+                  widget.detail.complianceRequired ? 'True' : 'False',
+                  "Escalation Required : ",
+                  widget.detail.escalationRequired ? 'True' : 'False'),
+            ],
+          ),
+          const SizedBox(height: 24), // spacing between detail and form
+          // Root Cause Form below details
+          _buildRootCauseForm(),
+        ],
       ),
     );
-    print("Uploaded files list: $uploadedFiles");
-    // Add file uploads if available
-    for (String fileName in uploadedFiles) {
-      activities.add(
-        ActivityDTO(
-          id: 0,
-          siteObservationID: id,
-          actionID: SiteObservationActions.DocUploaded,
-          actionName: '', // ✅ Must provide even if empty
-          comments: '',
-          documentName: fileName,
-          fromStatusID: 0,
-          toStatusID: 0,
-          assignedUserID: userId!,
-          assignedUserName: null,
-          createdBy: userId!.toString(), // ✅ Ensure it's a String
-          createdDate: DateTime.now(),
+  }
+
+  TableRow _buildAlignedRow(
+      String label1, String value1, String label2, String value2) {
+    return TableRow(
+      children: [
+        _buildLabelValue(label1, value1),
+        _buildLabelValue(label2, value2),
+      ],
+    );
+  }
+
+  Widget _buildLabelValue(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              value,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime? date) {
+    return date != null
+        ? DateFormat('dd/MM/yyyy').format(date.toLocal())
+        : 'N/A';
+  }
+
+  Widget _buildRootCauseForm() {
+    return Form(
+      key: _formKey, // <-- Form key yahan lagao
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Existing form fields (Dropdown, TextFormFields)
+            if (selectedStatus ==
+                    SiteObservationStatus.ReadyToInspect.toString() ||
+                selectedStatus == SiteObservationStatus.Closed.toString()) ...[
+              DropdownButtonFormField<RootCause>(
+                value: selectedRootCause,
+                decoration: const InputDecoration(
+                  labelText: 'Select Root Cause',
+                  border: OutlineInputBorder(),
+                ),
+                items: rootCauses.map((cause) {
+                  return DropdownMenuItem<RootCause>(
+                    value: cause,
+                    child: Text(cause.rootCauseName),
+                  );
+                }).toList(),
+                onChanged: (newValue) {
+                  setState(() {
+                    selectedRootCause = newValue;
+                  });
+                },
+                validator: (value) {
+                  if (value == null) return 'Root Cause is required';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: reworkCostController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Rework Cost',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Rework Cost is required';
+                  }
+                  final numValue = num.tryParse(value);
+                  if (numValue == null) {
+                    return 'Please enter a valid number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: preventiveActionController,
+                decoration: const InputDecoration(
+                  labelText: 'Preventive Action To Be Taken',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Preventive Action To Be Taken is required';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: correctiveActionController,
+                decoration: const InputDecoration(
+                  labelText: 'Corrective Action To Be Taken',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Corrective Action To Be Taken is required';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // File upload section
+            if (selectedStatus ==
+                    SiteObservationStatus.ReadyToInspect.toString() ||
+                selectedStatus == SiteObservationStatus.Closed.toString() ||
+                selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
+              const Text(
+                "Upload File",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  FilePickerResult? result =
+                      await FilePicker.platform.pickFiles(
+                    allowMultiple: false,
+                    withData: true,
+                  );
+
+                  if (result != null && result.files.isNotEmpty) {
+                    final file = result.files.first;
+
+                    setState(() {
+                      selectedFileName = file.name;
+                    });
+
+                    final uploadedFileName = await SiteObservationService()
+                        .uploadFileAndGetFileName(file.name, file.bytes!);
+
+                    if (uploadedFileName != null) {
+                      setState(() {
+                        uploadedFiles.add(uploadedFileName);
+                      });
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("File upload failed")),
+                      );
+                    }
+                  } else {
+                    print("No file selected");
+                  }
+                },
+                child: const Text("Choose File"),
+              ),
+              if (selectedFileName != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  "Selected file: $selectedFileName",
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+              const SizedBox(height: 16),
+            ],
+
+            // Message if form is hidden (adjust condition as per your logic)
+            if (selectedStatus !=
+                    SiteObservationStatus.ReadyToInspect.toString() &&
+                selectedStatus != SiteObservationStatus.InProgress.toString() &&
+                selectedStatus == SiteObservationStatus.Closed.toString() &&
+                selectedStatus == SiteObservationStatus.Reopen.toString())
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  "Root Cause Details are hidden for the current status.",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+
+            // Update Button with validation
+            if (selectedStatus != SiteObservationStatus.Open.toString())
+              ElevatedButton(
+                onPressed: isButtonDisabled
+                    ? null
+                    : () async {
+                        if (_formKey.currentState?.validate() ?? false) {
+                          setState(() {
+                            isButtonDisabled = true;
+                            isEditingRootCause = false;
+                          });
+
+                          UpdateSiteObservation updatedData =
+                              await getUpdatedDataFromForm(uploadedFiles);
+                          // print("🔁 Updated Data: $updatedData");
+
+                          bool success = await SiteObservationService()
+                              .updateSiteObservationByID(updatedData);
+
+                          if (success) {
+                            for (var fileName in uploadedFiles) {
+                              widget.detail.activityDTO.add(
+                                ActivityDTO(
+                                  id: 0,
+                                  siteObservationID: widget.detail.id,
+                                  actionID: SiteObservationActions.DocUploaded,
+                                  actionName: "DocUploaded",
+                                  comments: '',
+                                  documentName: fileName,
+                                  fromStatusID: fromStatus,
+                                  toStatusID: toStatus,
+                                  assignedUserID: 0,
+                                  assignedUserName: null,
+                                  createdBy: userId.toString(),
+                                  createdDate: DateTime.now(),
+                                ),
+                              );
+                            }
+
+                            setState(() {
+                              uploadedFiles.clear();
+                            });
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Update successful!')),
+                            );
+
+                            Navigator.of(context).pop(true);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('Update failed! Please try again.')),
+                            );
+                            setState(() {
+                              isButtonDisabled = false;
+                            });
+                          }
+                        } else {
+                          print("Validation failed.");
+                        }
+                      },
+                child: const Text('Update'),
+              ),
+          ],
         ),
-      );
-    }
-
-    return UpdateSiteObservation(
-      id: editingUserId,
-      rootCauseID: rootCauseID,
-      corretiveActionToBeTaken: correctiveActionController.text,
-      preventiveActionTaken: preventiveActionController.text,
-      reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
-      statusID: 3,
-      lastModifiedBy: userId!,
-      lastModifiedDate: DateTime.now(),
-      activityDTO: activities,
+      ),
     );
-  }
-
-  Future<void> pickAndUploadFiles() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      withData: true, // required for bytes
-    );
-
-    if (result != null && result.files.isNotEmpty) {
-      selectedFiles = result.files;
-
-      uploadedFileNames.clear();
-
-      for (var file in selectedFiles) {
-        if (file.bytes != null) {
-          final uploadedName = await SiteObservationService()
-              .uploadFileAndGetFileName(file.name, file.bytes!);
-          if (uploadedName != null) {
-            uploadedFileNames.add(uploadedName);
-          } else {
-            print("❌ Failed to upload ${file.name}");
-          }
-        }
-      }
-
-      print("✅ Uploaded filenames: $uploadedFileNames");
-    }
-  }
-
-  Future<void> _loadRootCauses() async {
-    // if (activityIds == null) return; // safety check
-    // print("Loading root causes for activity ID: $activityIds");
-    setState(() => isLoading = true);
-    try {
-      int? activityId = widget.activityId;
-      if (activityId == null) {
-        print("⚠️ activityId is null, skipping root cause fetch");
-        return;
-      }
-      print("Fetching root causes for activity ID: ${widget.activityId}");
-      rootCauses = await SiteObservationService()
-          .fatchRootCausesByActivityID(activityId!);
-      print("Fetched root causes: $rootCauses");
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load root causes: $e')),
-      );
-    } finally {
-      setState(() => isLoading = false);
-    }
   }
 
   Future<Uint8List?> compressImage(File file) async {
@@ -552,594 +1066,430 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     return result;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      contentPadding: EdgeInsets.zero,
-      content: SizedBox(
-        width: media.size.width * 0.9,
-        height: media.size.height * 0.8, // 80% of screen height for more space
-        child: DefaultTabController(
-          length: 3,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                // Header
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade700,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    ),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.detail.observationCode,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Colors.white),
+  String resolveUserName(dynamic value) {
+    if (value == null) return 'Unknown';
+
+    // Convert to string for consistency
+    final val = value.toString();
+
+    // Try to match ID
+    final isId = int.tryParse(val) != null;
+    if (isId) {
+      final user = userList.firstWhere(
+        (u) => u['id'].toString() == val,
+        orElse: () => {'display': 'Unknown'},
+      );
+      return user['display'] ?? 'Unknown';
+    } else {
+      // Match by name (case-insensitive)
+      final user = userList.firstWhere(
+        (u) => (u['display'] as String).toLowerCase() == val.toLowerCase(),
+        orElse: () => {'display': val}, // fallback to value itself
+      );
+      return user['display'] ?? val;
+    }
+  }
+
+  Widget _buildAttachmentTab() {
+    // return Portal(
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// Upload Image Button
+            ElevatedButton.icon(
+              onPressed: () async {
+                final ImagePicker picker = ImagePicker();
+                final XFile? pickedFile =
+                    await picker.pickImage(source: ImageSource.gallery);
+
+                if (pickedFile != null) {
+                  File imageFile = File(pickedFile.path);
+                  final fileName = imageFile.path.split('/').last;
+                  final fileBytes = await compressImage(imageFile);
+
+                  if (fileBytes == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Compression failed")),
+                    );
+                    return;
+                  }
+
+                  final uploadedFileName =
+                      await SiteObservationService().uploadFileAndGetFileName(
+                    fileName,
+                    fileBytes,
+                  );
+
+                  if (uploadedFileName != null) {
+                    uploadedFiles.add(uploadedFileName);
+                    setState(() {
+                      showSaveAttachmentButton = true;
+                      widget.detail.activityDTO.add(
+                        ActivityDTO(
+                          id: 0,
+                          siteObservationID: widget.detail.id,
+                          actionID: SiteObservationActions.DocUploaded,
+                          actionName: "DocUploaded",
+                          comments: '',
+                          documentName: uploadedFileName,
+                          fromStatusID: fromStatus,
+                          toStatusID: toStatus,
+                          assignedUserID: userId!,
+                          assignedUserName: currentUserName,
+                          createdBy: currentUserName!,
+                          createdDate: DateTime.now(),
                         ),
-                      ),
-                      Expanded(
-                          child: DropdownButtonFormField<String>(
-                        value: selectedStatus,
-                        hint: const Text("-- Status --"),
-                        isExpanded: true,
-                        items: observationStatus.map((status) {
-                          final idStr = status['id'].toString();
-                          final id = int.tryParse(idStr);
-                          final name = SiteObservationStatus.idToName[id] ??
-                              status['name'] ??
-                              'Unknown';
+                      );
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Upload failed.")),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.upload_file),
+              label: const Text("Upload Image"),
+            ),
 
-                          return DropdownMenuItem<String>(
-                            value: idStr,
-                            child: Text(name),
-                          );
-                        }).toList(),
-                        onChanged: isStatusEnabled
-                            ? (newValue) {
-                                setState(() {
-                                  selectedStatus = newValue!;
-                                });
-                              }
-                            : null,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select a status';
-                          }
-                          return null;
-                        },
-                      )),
-                    ],
-                  ),
-                ),
+            const SizedBox(height: 12),
 
-                const TabBar(
-                  labelColor: Colors.blue,
-                  unselectedLabelColor: Colors.black54,
-                  indicatorColor: Colors.blue,
-                  tabs: [
-                    Tab(text: "Details"),
-                    Tab(text: "Attachments"),
-                    Tab(text: "Activity"),
-                  ],
-                ),
-
-                // Use Expanded + SingleChildScrollView with Column instead of ListView for smooth scrolling
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Status
-                                RichText(
-                                  text: TextSpan(
-                                    style: DefaultTextStyle.of(context).style,
-                                    children: [
-                                      const TextSpan(
-                                        text: 'Status: ',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      TextSpan(
-                                        text: observationStatus.firstWhere(
-                                            (element) =>
-                                                element['id'] == selectedStatus,
-                                            orElse: () =>
-                                                {'name': 'Unknown'})['name'],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                const SizedBox(height: 16),
-
-                                // Description - full width (col-md-12)
-                                RichText(
-                                  text: TextSpan(
-                                    style: DefaultTextStyle.of(context).style,
-                                    children: [
-                                      const TextSpan(
-                                        text: 'Description: ',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      TextSpan(
-                                          text: widget.detail.description ??
-                                              'N/A'),
-                                    ],
-                                  ),
-                                ),
-
-                                const SizedBox(height: 24),
-
-                                // Now 6 rows with 2 columns each (col-md-6)
-                                _buildTwoColumnRow(
-                                    'Observation Date',
-                                    widget.detail.trancationDate,
-                                    'Created Date',
-                                    widget.detail.createdDate),
-
-                                _buildTwoColumnRow(
-                                    'Observation Type',
-                                    widget.detail.observationType,
-                                    'Issue Type',
-                                    widget.detail.issueType),
-
-                                _buildTwoColumnRow(
-                                    'Due Date',
-                                    widget.detail.dueDate,
-                                    'Activity',
-                                    widget.detail.activityName),
-
-                                _buildTwoColumnRow(
-                                    'Section',
-                                    widget.detail.sectionName,
-                                    'Floor',
-                                    widget.detail.floorName),
-
-                                _buildTwoColumnRow(
-                                    'Part',
-                                    widget.detail.partName,
-                                    'Element',
-                                    widget.detail.elementName),
-
-                                _buildTwoColumnRow(
-                                    'Contractor',
-                                    widget.detail.contractorName,
-                                    'Compliance Required',
-                                    widget.detail.complianceRequired),
-
-                                // If you want, you can add more rows below similarly...
-
-                                const SizedBox(height: 24),
-
-                                if (selectedStatus ==
-                                        SiteObservationStatus.Open.toString() ||
-                                    selectedStatus ==
-                                        SiteObservationStatus.ReadyToInspect
-                                            .toString() ||
-                                    selectedStatus ==
-                                        SiteObservationStatus.InProgress
-                                            .toString() ||
-                                    selectedStatus ==
-                                        SiteObservationStatus.Closed
-                                            .toString() ||
-                                    selectedStatus ==
-                                        SiteObservationStatus.Reopen.toString())
-                                  Card(
-                                    elevation: 3,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12.0),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              const Text(
-                                                "Root Cause Details",
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
-                                                ),
-                                              ),
-                                              IconButton(
-                                                icon: const Icon(Icons.edit),
-                                                onPressed: () {
-                                                  setState(() {
-                                                    isEditingRootCause = true;
-                                                  });
-                                                },
-                                              )
-                                            ],
-                                          ),
-                                          if (!isEditingRootCause)
-                                            const Text(
-                                                "Root Cause info here...")
-                                          else
-                                            _buildRootCauseForm(),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
+            /// Save Button
+            if (showSaveAttachmentButton)
+              ElevatedButton(
+                onPressed: () async {
+                  setState(() {
+                    showSaveAttachmentButton = false;
+                  });
+                  UpdateSiteObservation updatedData =
+                      await getUpdatedDataFromForm(uploadedFiles);
+                  bool success = await SiteObservationService()
+                      .updateSiteObservationByID(updatedData);
+                  if (success) {
+                    final newDetail = (await widget.siteObservationService
+                            .fetchGetSiteObservationMasterById(
+                                widget.detail.id))
+                        .first;
+                    setState(() {
+                      currentDetail = newDetail;
+                      uploadedFiles.clear();
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: const [
+                            Icon(Icons.error, color: Colors.red),
+                            SizedBox(width: 10),
+                            Text("Failed to save attachment."),
+                          ],
                         ),
+                        backgroundColor: Colors.black87,
+                        duration: Duration(seconds: 3),
                       ),
-                      // Attachments Tab
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
+                    );
+                    setState(() {
+                      showSaveAttachmentButton = true;
+                    });
+                  }
+                },
+                child: const Text("Save Attachment"),
+              ),
+
+            const SizedBox(height: 16),
+
+            /// Show Uploaded Images
+            widget.detail.activityDTO.isNotEmpty
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: widget.detail.activityDTO
+                        .where((activity) => activity.documentName.isNotEmpty)
+                        .map((activity) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            /// Upload Image Button
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final ImagePicker picker = ImagePicker();
-                                final XFile? pickedFile = await picker
-                                    .pickImage(source: ImageSource.gallery);
-
-                                if (pickedFile != null) {
-                                  File imageFile = File(pickedFile.path);
-                                  final fileName =
-                                      imageFile.path.split('/').last;
-                                  final fileBytes =
-                                      await compressImage(imageFile);
-
-                                  if (fileBytes == null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                            content:
-                                                Text("Compression failed")));
-                                    return;
-                                  }
-
-                                  final uploadedFileName =
-                                      await SiteObservationService()
-                                          .uploadFileAndGetFileName(
-                                    fileName,
-                                    fileBytes,
-                                  );
-
-                                  if (uploadedFileName != null) {
-                                    uploadedFiles.add(uploadedFileName);
-                                    setState(() {
-                                      showSaveAttachmentButton = true;
-                                      widget.detail.activityDTO.add(
-                                        ActivityDTO(
-                                          id: 0,
-                                          siteObservationID: widget.detail.id,
-                                          actionID: 0,
-                                          actionName: "Created",
-                                          comments: '',
-                                          documentName: uploadedFileName,
-                                          fromStatusID: 0,
-                                          toStatusID: 0,
-                                          assignedUserID: 0,
-                                          assignedUserName: null,
-                                          createdBy: 'You',
-                                          createdDate: DateTime.now(),
-                                        ),
-                                      );
-                                    });
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text("Upload failed.")),
-                                    );
-                                  }
-                                }
+                            Text(activity.actionName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: () {
+                                openImageModal(activity.documentName);
                               },
-                              icon: const Icon(Icons.upload_file),
-                              label: const Text("Upload Image"),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            /// Save Button
-                            if (showSaveAttachmentButton)
-                              ElevatedButton(
-                                onPressed: () async {
-                                  print("Save button pressed");
-                                  setState(() {
-                                    showSaveAttachmentButton =
-                                        false; // Disable button immediately to avoid multiple taps
-                                  });
-                                  print("SetState completed");
-                                  UpdateSiteObservation updatedData =
-                                      getUpdatedDataFromForm(uploadedFiles);
-                                  print("Before API call");
-                                  bool success = await SiteObservationService()
-                                      .updateSiteObservationByID(updatedData);
-                                  print("After API call, success: $success");
-                                  print("success:$success");
-                                  if (success) {
-                                    final newDetail = (await widget
-                                            .siteObservationService
-                                            .fetchGetSiteObservationMasterById(
-                                                currentDetail.id))
-                                        .first;
-                                    setState(() {
-                                      currentDetail = newDetail;
-                                      uploadedFiles.clear();
-                                    });
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Row(
-                                          children: const [
-                                            Icon(Icons.error,
-                                                color: Colors.red),
-                                            SizedBox(width: 10),
-                                            Text("Failed to save attachment."),
-                                          ],
-                                        ),
-                                        backgroundColor: Colors.black87,
-                                        duration: Duration(seconds: 3),
-                                      ),
-                                    );
-                                    setState(() {
-                                      showSaveAttachmentButton =
-                                          true; // Re-enable button on failure
-                                    });
-                                  }
-                                },
-                                child: const Text("Save Attachment"),
+                              child: Container(
+                                height: 150,
+                                width: 150,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                    width: 2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.network(
+                                    isImage(activity.documentName)
+                                        ? "$url/${activity.documentName}"
+                                        : "assets/default-image.png",
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const Icon(Icons.broken_image,
+                                                size: 50),
+                                  ),
+                                ),
                               ),
-
-                            const SizedBox(height: 16),
-
-                            /// Show Uploaded Images
-                            widget.detail.activityDTO.isNotEmpty
-                                ? Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: widget.detail.activityDTO
-                                        .where((activity) =>
-                                            activity.documentName.isNotEmpty)
-                                        .map((activity) {
-                                      return Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 16),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(activity.actionName,
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold)),
-                                            const SizedBox(height: 6),
-                                            GestureDetector(
-                                              onTap: () {
-                                                openImageModal(
-                                                    activity.documentName);
-                                              },
-                                              child: Container(
-                                                height: 150,
-                                                width: 150,
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                    color: Colors.grey.shade300,
-                                                    width: 2,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  child: Image.network(
-                                                    isImage(activity
-                                                            .documentName)
-                                                        ? "$url/${activity.documentName}"
-                                                        : "assets/default-image.png",
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder: (context,
-                                                            error,
-                                                            stackTrace) =>
-                                                        const Icon(
-                                                      Icons.broken_image,
-                                                      size: 50,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }).toList(),
-                                  )
-                                : const Text("No attachments available."),
+                            ),
                           ],
                         ),
-                      ),
+                      );
+                    }).toList(),
+                  )
+                : const Text("No attachments available."),
+          ],
+        ),
+      ),
+    );
+    // );
+  }
 
-                      // Activity Tab
-                      Portal(
-                          child: SingleChildScrollView(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(children: [
-                            widget.detail.activityDTO.isEmpty
-                                ? const Center(
-                                    child: Text("No activity recorded."))
-                                : ListView.builder(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    itemCount: widget.detail.activityDTO.length,
-                                    itemBuilder: (context, index) {
-                                      final activity =
-                                          widget.detail.activityDTO[index];
-                                      print(
-                                          'ActivityLatest #$index: actionNameLatest=${activity.actionName}, commentsLatest=${activity.comments}');
-                                      return Card(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        elevation: 3,
-                                        child: Column(
+  Widget _buildActivityTab() {
+    final activities = widget.detail.activityDTO;
+    if (activities.isEmpty) {
+      return const Center(child: Text("No activity recorded."));
+    }
+    Map<String, List<ActivityDTO>> groupedActivities = {};
+    Set<int> usedIndexes = {};
+
+    for (int i = 0; i < activities.length; i++) {
+      if (usedIndexes.contains(i)) continue;
+
+      final current = activities[i];
+      final group = <ActivityDTO>[current];
+      usedIndexes.add(i);
+
+      for (int j = i + 1; j < activities.length; j++) {
+        if (usedIndexes.contains(j)) continue;
+
+        final other = activities[j];
+        final timeDiff =
+            (other.createdDate.difference(current.createdDate)).inSeconds.abs();
+        final sameUser = other.createdByName == current.createdByName;
+
+        if (timeDiff <= 5 && sameUser) {
+          group.add(other);
+          usedIndexes.add(j);
+        }
+      }
+      final creator = current.createdByName ?? 'Unknown';
+      final groupKey = "$creator|${current.createdDate.toIso8601String()}";
+      groupedActivities[groupKey] = group;
+    }
+    return StatefulBuilder(builder: (context, setState) {
+      return Portal(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: groupedActivities.entries.map((entry) {
+                    final acts = entry.value;
+                    final first = acts.first;
+                    // print("createdBy: ${first.createdBy}");
+                    // print("userList sample: ${userList.take(3).toList()}");
+                    String userName = first.createdByName ??
+                        (() {
+                          if (first.createdBy != null && userList.isNotEmpty) {
+                            final createdByStr =
+                                first.createdBy.toString().toLowerCase();
+
+                            final matchedUser = userList.firstWhere(
+                              (user) {
+                                final idMatch =
+                                    user['id'].toString() == createdByStr;
+                                final displayMatch =
+                                    (user['display'] ?? '').toLowerCase() ==
+                                        createdByStr;
+                                final fullNameMatch =
+                                    (user['full_name'] ?? '').toLowerCase() ==
+                                        createdByStr;
+                                return idMatch || displayMatch || fullNameMatch;
+                              },
+                              orElse: () => {},
+                            );
+
+                            if (matchedUser.isNotEmpty) {
+                              return matchedUser['full_name'] ??
+                                  matchedUser['display'] ??
+                                  createdByStr;
+                            }
+
+                            // Fallback to createdBy string if no match
+                            return createdByStr;
+                          }
+                          return "Unknown";
+                        })();
+
+                    // print("userName: $userName");
+
+                    String statusName = 'Open';
+
+                    for (var status in widget.detail.assignmentStatusDTO) {
+                      final assignedUser =
+                          status.assignedUserName?.trim().toLowerCase();
+                      final createdByUser =
+                          first.createdBy?.trim().toLowerCase();
+                      // print(
+                      //     "Comparing: assignedUser='$assignedUser' <==> createdByUser='$createdByUser'");
+                      if (assignedUser != null &&
+                          assignedUser == createdByUser) {
+                        statusName = status.statusName ?? 'Unknown';
+                        break;
+                      }
+                    }
+                    // print("statusName1501:$statusName");
+                    final date =
+                        first.createdDate.toLocal().toString().split(' ')[0];
+                    String nameToShow =
+                        userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+                    // print('nameToShow: ${nameToShow[0].toUpperCase()}');
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      elevation: 3,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.flag,
+                                      size: 16, color: Colors.orange),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Status: $statusName',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.blueGrey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(height: 20),
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  child: Text(nameToShow),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    userName,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                Text(
+                                  date,
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Column(
+                              children: List.generate(acts.length, (index) {
+                                final activity = acts[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Column(
                                           children: [
-                                            const Divider(height: 1),
-                                            ListTile(
-                                              leading: CircleAvatar(
-                                                child: Text(
-                                                  (activity.assignedUserName
-                                                              ?.isNotEmpty ??
-                                                          false)
-                                                      ? activity
-                                                          .assignedUserName![0]
-                                                          .toUpperCase()
-                                                      : (activity.createdBy
-                                                              .isNotEmpty
-                                                          ? activity
-                                                              .createdBy[0]
-                                                              .toUpperCase()
-                                                          : '?'),
+                                            Container(
+                                              width: 10,
+                                              height: 10,
+                                              decoration: const BoxDecoration(
+                                                color: Colors.blue,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            if (index != acts.length - 1)
+                                              Expanded(
+                                                child: Container(
+                                                  width: 2,
+                                                  color: Colors.grey.shade300,
                                                 ),
                                               ),
-                                              title: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      activity.assignedUserName
-                                                                  ?.isNotEmpty ==
-                                                              true
-                                                          ? activity
-                                                              .assignedUserName!
-                                                          : activity.createdBy,
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Flexible(
-                                                    child: Text(
-                                                      activity.createdDate
-                                                          .toLocal()
-                                                          .toString()
-                                                          .split('.')[0],
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: Colors.grey,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              subtitle: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  const SizedBox(height: 4),
-                                                  Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: activity
-                                                                  .actionName ==
-                                                              'Commented'
-                                                          ? Colors.pink.shade100
-                                                          : Colors
-                                                              .orange.shade100,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              12),
-                                                    ),
-                                                    child: Text(
-                                                      activity.actionName,
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  // Show comment text only if action is "Commented" and comment exists
-                                                  if (activity.actionName ==
-                                                          "Commented" &&
-                                                      activity
-                                                          .comments.isNotEmpty)
-                                                    Text(activity.comments),
+                                          ],
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                _buildActivityStep(
+                                                  activity.actionName,
+                                                  activity.comments ?? "",
+                                                  null,
+                                                  activity.assignedUserName,
+                                                ),
 
-                                                  // ✅ Show only if actionName == Assigned
-                                                  if (activity.actionName ==
-                                                          "Assigned" &&
-                                                      activity.assignedUserName !=
-                                                          null &&
-                                                      activity.assignedUserName!
-                                                          .isNotEmpty)
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              top: 4),
-                                                      child: Row(
-                                                        children: [
-                                                          const Icon(
-                                                              Icons.person,
-                                                              size: 16),
-                                                          const SizedBox(
-                                                              width: 4),
-                                                          Text(activity
-                                                              .assignedUserName!),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  // ✅ This is your solution
-                                                  if ((activity.actionName ==
-                                                              "DocUploaded" ||
-                                                          activity.actionName ==
-                                                              "Created") &&
-                                                      activity.documentName !=
-                                                          null &&
-                                                      activity.documentName!
-                                                          .isNotEmpty &&
-                                                      isImage(activity
-                                                          .documentName!))
-                                                    Padding(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .only(top: 8.0),
-                                                        child: SizedBox(
-                                                          height: 150,
-                                                          width: 150,
+                                                // YEH NAYA ADD KARO HAR ACTIVITY KE LIYE
+                                                if (activity.actionName ==
+                                                        'DocUploaded' &&
+                                                    activity.documentName !=
+                                                        null)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            top: 12),
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        const Text(
+                                                          'DocUploaded',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              fontSize: 13),
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 6),
+                                                        Container(
+                                                          height: 100,
+                                                          width: 100,
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            border: Border.all(
+                                                                color: Colors
+                                                                    .grey
+                                                                    .shade300),
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12),
+                                                          ),
                                                           child: ClipRRect(
                                                             borderRadius:
                                                                 BorderRadius
@@ -1147,127 +1497,170 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                                                         10),
                                                             child:
                                                                 Image.network(
-                                                              "$url/${activity.documentName!}",
+                                                              "$url/${activity.documentName}",
                                                               fit: BoxFit.cover,
                                                               errorBuilder: (context,
                                                                       error,
                                                                       stackTrace) =>
-                                                                  const Icon(Icons
-                                                                      .broken_image),
+                                                                  const Icon(
+                                                                      Icons
+                                                                          .broken_image,
+                                                                      size: 50),
                                                             ),
                                                           ),
-                                                        )),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                            const Divider(),
-                            Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        constraints:
-                                            BoxConstraints(maxHeight: 250),
-                                        child: FlutterMentions(
-                                          key: mentionsKey,
-                                          maxLines: 5,
-                                          minLines: 2,
-                                          suggestionPosition:
-                                              SuggestionPosition.Top,
-                                          decoration: InputDecoration(
-                                            hintText:
-                                                "Add comment and assign user...",
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 12),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          mentions: [
-                                            Mention(
-                                              trigger: '@',
-                                              style: const TextStyle(
-                                                  color: Colors.blue),
-                                              data: userList,
-                                              matchAll: true,
-                                              suggestionBuilder: (data) {
-                                                return ListTile(
-                                                  leading: CircleAvatar(
-                                                    child: Text(data['display']
-                                                            [0]
-                                                        .toUpperCase()),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
-                                                  title: Text(data['display']),
-                                                  subtitle:
-                                                      Text(data['full_name']),
-                                                );
-                                              },
-                                            ),
-                                          ],
+                                              ]),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 20),
-                                    ElevatedButton(
-                                      onPressed: _sendActivityComment,
-                                      style: ElevatedButton.styleFrom(
-                                        minimumSize: const Size(70, 48),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                      child: const Text("Send"),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ]),
+                                  ),
+                                );
+                              }),
+                            )
+                          ],
                         ),
-                      )),
-                    ],
-                  ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 12, bottom: 12),
-                    child: TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text("Close"),
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(maxHeight: 250),
+                      child: FlutterMentions(
+                        key: mentionsKey,
+                        maxLines: 5,
+                        minLines: 2,
+                        suggestionPosition: SuggestionPosition.Top,
+                        suggestionListHeight: 150,
+                        suggestionListDecoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black26, blurRadius: 4)
+                          ],
+                        ),
+                        decoration: InputDecoration(
+                          hintText: "Add comment and assign user...",
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        mentions: [
+                          Mention(
+                            trigger: '@',
+                            style: const TextStyle(color: Colors.blue),
+                            data: userList,
+                            matchAll: true,
+                            suggestionBuilder: (data) {
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  child: Text(data['display'][0].toUpperCase()),
+                                ),
+                                title: Text(data['display']),
+                                subtitle: Text(data['full_name']),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _sendActivityComment,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(70, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text("Send"),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ),
-      ),
-    );
+      );
+    });
   }
 
-  // Utility method to check image file type
-  bool isImage(String fileName) {
-    final lower = fileName.toLowerCase();
-    return lower.endsWith('.jpg') ||
-        lower.endsWith('.jpeg') ||
-        lower.endsWith('.png') ||
-        lower.endsWith('.gif') ||
-        lower.endsWith('.bmp') ||
-        lower.endsWith('.webp');
+  Widget _buildActivityStep(
+      String action, String comment, String? image, String? assignedTo) {
+    Color badgeColor;
+    switch (action) {
+      case "Created":
+        badgeColor = Colors.blue;
+        break;
+      case "DocUploaded":
+        badgeColor = Colors.green;
+        break;
+      case "Assigned":
+        badgeColor = Colors.orange;
+        break;
+      case "Commented":
+        badgeColor = Colors.pink;
+        break;
+      default:
+        badgeColor = Colors.grey;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                assignedTo ?? "",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            // Text(
+            // date.toLocal().toString().split('.')[0],
+            // style: const TextStyle(color: Colors.grey, fontSize: 12),
+            // ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: badgeColor,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            action,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ),
+        if (image != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Image.network(
+              "your_url/$image",
+              width: 150,
+              height: 150,
+              fit: BoxFit.cover,
+            ),
+          ),
+        if (comment.isNotEmpty) Text(comment),
+      ],
+    );
   }
 
   void openImageModal(String documentName) {
@@ -1275,10 +1668,10 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
     showDialog(
       context: context,
-      barrierColor: Colors.black54, // Dim background for focus on image
+      barrierColor: Colors.black54,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16), // Padding from screen edges
+        insetPadding: const EdgeInsets.all(16),
         child: GestureDetector(
           onTap: () => Navigator.pop(context),
           child: InteractiveViewer(
@@ -1302,299 +1695,13 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     );
   }
 
-  Widget _buildRootCauseForm() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Show form fields only for ReadyToInspect
-          if (selectedStatus ==
-                  SiteObservationStatus.ReadyToInspect.toString() ||
-              selectedStatus == SiteObservationStatus.Open.toString() ||
-              selectedStatus == SiteObservationStatus.Closed.toString() ||
-              selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
-            DropdownButtonFormField<RootCause>(
-              value: selectedRootCause,
-              decoration: const InputDecoration(
-                labelText: 'Select Root Cause',
-                border: OutlineInputBorder(),
-              ),
-              items: rootCauses.map((cause) {
-                return DropdownMenuItem<RootCause>(
-                  value: cause,
-                  child: Text(cause.rootCauseName),
-                );
-              }).toList(),
-              onChanged: _isReadOnly
-                  ? null // 👈 disables the dropdown
-                  : (newValue) {
-                      setState(() {
-                        selectedRootCause = newValue;
-                      });
-                    },
-              validator: (value) {
-                if (value == null) return 'Root Cause is required';
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: reworkCostController,
-              readOnly: _isReadOnly,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Rework Cost',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Rework Cost is required';
-                }
-                final numValue = num.tryParse(value);
-                if (numValue == null) {
-                  return 'Please enter a valid number';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: preventiveActionController,
-              readOnly: _isReadOnly,
-              decoration: const InputDecoration(
-                labelText: 'Preventive Action To Be Taken',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Preventive Action To Be Taken is required';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: correctiveActionController,
-              readOnly: _isReadOnly,
-              decoration: const InputDecoration(
-                labelText: 'Corrective Action To Be Taken',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Corrective Action To Be Taken is required';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // Show file upload for both InProgress and ReadyToInspect
-          if (selectedStatus == SiteObservationStatus.InProgress.toString() ||
-              selectedStatus ==
-                  SiteObservationStatus.ReadyToInspect.toString() ||
-              selectedStatus == SiteObservationStatus.Open.toString() ||
-              selectedStatus == SiteObservationStatus.Closed.toString() ||
-              selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
-            const Text(
-              "Upload File",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                FilePickerResult? result = await FilePicker.platform.pickFiles(
-                  allowMultiple: false,
-                  withData: true,
-                );
-
-                if (result != null && result.files.isNotEmpty) {
-                  final file = result.files.first;
-                  print("Picked file: ${file.name}");
-
-                  setState(() {
-                    selectedFileName = file.name;
-                  });
-
-                  // ✅ Upload file here
-                  final uploadedFileName =
-                      await SiteObservationService().uploadFileAndGetFileName(
-                    file.name,
-                    file.bytes!,
-                  );
-
-                  if (uploadedFileName != null) {
-                    print("Uploaded file name: $uploadedFileName");
-
-                    setState(() {
-                      uploadedFiles.add(
-                          uploadedFileName); // 🔁 Add to your list for saving in activityDTO
-                    });
-                    print("Current uploadedFiles list: $uploadedFiles");
-                    print("File upload successful: $uploadedFileName");
-                  } else {
-                    print("Upload failed");
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("File upload failed")),
-                    );
-                  }
-                } else {
-                  print("No file selected");
-                }
-              },
-              child: const Text("Choose File"),
-            ),
-            if (selectedFileName != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                "Selected file: $selectedFileName",
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ],
-            const SizedBox(height: 16),
-          ],
-
-          // Update button only if form fields are shown (i.e. ReadyToInspect)
-          if (selectedStatus == SiteObservationStatus.Open.toString() ||
-              selectedStatus ==
-                  SiteObservationStatus.ReadyToInspect.toString() ||
-              selectedStatus ==
-                  SiteObservationStatus.ReadyToInspect.toString() ||
-              selectedStatus == SiteObservationStatus.Closed.toString() ||
-              selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton(
-                onPressed: isButtonDisabled
-                    ? null
-                    : () async {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          setState(() {
-                            isEditingRootCause = false;
-                            isButtonDisabled = true;
-                          });
-
-                          print("uploadedFiles before update: $uploadedFiles");
-
-                          UpdateSiteObservation updatedData =
-                              getUpdatedDataFromForm(uploadedFiles);
-
-                          bool success = await SiteObservationService()
-                              .updateSiteObservationByID(updatedData);
-
-                          if (success) {
-                            // 👇👇 Add uploaded files to activityDTO here
-                            for (var fileName in uploadedFiles) {
-                              widget.detail.activityDTO.add(
-                                ActivityDTO(
-                                  id: 0,
-                                  siteObservationID: widget.detail.id,
-                                  actionID: 0,
-                                  actionName: '',
-                                  comments: '',
-                                  documentName: fileName,
-                                  fromStatusID: 0,
-                                  toStatusID: 0,
-                                  assignedUserID: 0,
-                                  assignedUserName: null,
-                                  createdBy: 'You',
-                                  createdDate: DateTime.now(),
-                                ),
-                              );
-                            }
-
-                            setState(() {
-                              uploadedFiles
-                                  .clear(); // Reset after successful update
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Update successful!')),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content:
-                                      Text('Update failed! Please try again.')),
-                            );
-                            setState(() {
-                              isButtonDisabled = false;
-                            });
-                          }
-                        } else {
-                          print("Validation failed.");
-                        }
-                      },
-                child: const Text('Update'),
-              ),
-            ),
-          ],
-
-          // Show this text if status is neither InProgress nor ReadyToInspect
-          if (selectedStatus !=
-                  SiteObservationStatus.ReadyToInspect.toString() &&
-              selectedStatus != SiteObservationStatus.InProgress.toString() &&
-              selectedStatus != SiteObservationStatus.Open.toString() &&
-              selectedStatus == SiteObservationStatus.Closed.toString() &&
-              selectedStatus == SiteObservationStatus.Reopen.toString())
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text(
-                "Root Cause Details are hidden for the current status.",
-                style: TextStyle(color: Colors.grey),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method inside your State class to create 2 columns row
-  Widget _buildTwoColumnRow(
-      String label1, dynamic value1, String label2, dynamic value2) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: DefaultTextStyle.of(context).style,
-                children: [
-                  TextSpan(
-                    text: '$label1: ',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  TextSpan(text: value1?.toString() ?? 'N/A'),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: DefaultTextStyle.of(context).style,
-                children: [
-                  TextSpan(
-                    text: '$label2: ',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  TextSpan(text: value2?.toString() ?? 'N/A'),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  bool isImage(String fileName) {
+    final lower = fileName.toLowerCase();
+    return lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.bmp') ||
+        lower.endsWith('.webp');
   }
 }

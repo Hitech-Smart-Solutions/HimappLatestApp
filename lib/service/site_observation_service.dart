@@ -780,7 +780,7 @@ class SiteObservationService {
         'Content-Type': 'application/json',
       },
     );
-    print("Response body: ${response.body}");
+    // print("Response body: ${response.body}");
     if (response.statusCode == 200) {
       try {
         final List<dynamic> jsonData = jsonDecode(response.body);
@@ -797,5 +797,89 @@ class SiteObservationService {
     } else {
       throw Exception('Failed to load quality observations');
     }
+  }
+}
+
+Future<List<SectionModel>> getSectionsByProjectID(int projectID) async {
+  String? token = await SharedPrefsHelper.getToken();
+  final response = await http.get(
+    Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/ProjectSectionMapping/GetSectionsByProjectID/$projectID'),
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    // print('Response body: ${response.body}');
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is List) {
+      return decoded.map((json) => SectionModel.fromJson(json)).toList();
+    } else if (decoded is Map && decoded.containsKey('value')) {
+      List<dynamic> data = decoded['value'];
+      return data.map((json) => SectionModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Unexpected response format');
+    }
+  } else {
+    throw Exception('Failed to load sections');
+  }
+}
+
+Future<List<FloorModel>> getFloorByProjectID(int projectID) async {
+  String? token = await SharedPrefsHelper.getToken();
+  final response = await http.get(
+    Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/ProjectFloorMapping/GetFloorsByProjectID/$projectID'),
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    // print('Floor API response: ${response.body}');
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is List) {
+      return decoded.map((json) => FloorModel.fromJson(json)).toList();
+    } else if (decoded is Map && decoded.containsKey('value')) {
+      List<dynamic> data = decoded['value'];
+      return data.map((json) => FloorModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Unexpected response format for floor');
+    }
+  } else {
+    throw Exception('Failed to load floors');
+  }
+}
+
+Future<List<ElementModel>> getElementByProjectID(int projectID) async {
+  String? token = await SharedPrefsHelper.getToken();
+  final response = await http.get(
+    Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/ProjectElementMapping/GetElementsByProjectID/$projectID'),
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    // print('Element API response: ${response.body}');
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is List) {
+      return decoded.map((json) => ElementModel.fromJson(json)).toList();
+    } else if (decoded is Map && decoded.containsKey('value')) {
+      List<dynamic> data = decoded['value'];
+      return data.map((json) => ElementModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Unexpected response format for elements');
+    }
+  } else {
+    throw Exception('Failed to load elements');
   }
 }

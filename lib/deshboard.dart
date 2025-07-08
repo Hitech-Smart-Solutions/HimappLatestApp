@@ -186,7 +186,7 @@ class _DashboardPageState extends State<DashboardPage> {
         },
         child: _buildNeonGlassCard(
           icon: Icons.visibility,
-          title: "Observations",
+          title: "SiteObservations Safety",
           value: "$safetyObservationsCount",
           color: Color(0xFFFFB703),
         ),
