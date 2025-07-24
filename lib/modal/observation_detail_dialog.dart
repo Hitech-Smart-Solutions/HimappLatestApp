@@ -233,7 +233,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             toStatusID: 0,
             assignedUserID: user.id,
             assignedUserName: user.userName,
-            createdBy: createdBy.toString(),
+            createdBy: createdBy,
             createdDate: DateTime.now(),
           ));
         }
@@ -251,7 +251,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           fromStatusID: 0,
           toStatusID: 0,
           assignedUserID: 0,
-          createdBy: createdBy.toString(),
+          createdBy: createdBy,
           createdDate: DateTime.now(),
         ));
       }
@@ -270,7 +270,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             toStatusID: 0,
             assignedUserID: user.id,
             assignedUserName: user.userName,
-            createdBy: createdBy.toString(),
+            createdBy: createdBy,
             createdDate: DateTime.now(),
           ));
         }
@@ -285,7 +285,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           fromStatusID: 0,
           toStatusID: 0,
           assignedUserID: 0,
-          createdBy: createdBy.toString(),
+          createdBy: createdBy,
           createdDate: DateTime.now(),
         ));
       }
@@ -459,7 +459,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           toStatusID: SiteObservationStatus.ReadyToInspect,
           assignedUserID: widget.detail.createdBy,
           assignedUserName: null,
-          createdBy: userId!.toString(),
+          createdBy: userId,
           createdDate: DateTime.now(),
         ),
       );
@@ -468,7 +468,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
       final assignedUsers =
           await SiteObservationService().fetchGetassignedusersforReopen(id);
       print("🔁 Assigned Users: $assignedUsers");
-      String currentUserId = userId!.toString();
+      // String currentUserId = userId!.toString();
       // Add an activity for each assigned user
       for (var user in assignedUsers) {
         activities.add(
@@ -482,7 +482,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
             fromStatusID: SiteObservationStatus.Open,
             toStatusID: SiteObservationStatus.Reopen,
             assignedUserID: user.assignedUserID,
-            createdBy: currentUserId,
+            createdBy: userId,
             createdDate: DateTime.now(),
           ),
         );
@@ -504,7 +504,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
           toStatusID: 0,
           assignedUserID: userId!,
           assignedUserName: null,
-          createdBy: userId!.toString(),
+          createdBy: userId,
           createdDate: DateTime.now(),
         ),
       );
@@ -865,8 +865,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                                         toStatusID: 0,
                                                         assignedUserID: 0,
                                                         assignedUserName: null,
-                                                        createdBy:
-                                                            userId.toString(),
+                                                        createdBy: userId,
                                                         createdDate:
                                                             DateTime.now(),
                                                       ),
@@ -963,7 +962,7 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
                                             toStatusID: 0,
                                             assignedUserID: userId!,
                                             assignedUserName: currentUserName,
-                                            createdBy: userId.toString(),
+                                            createdBy: userId,
                                             createdDate: DateTime.now(),
                                           ),
                                         );

@@ -429,6 +429,40 @@ class SiteObservationService {
     }
   }
 
+  Future<bool> updateSiteObservationDraft(
+      SiteObservationUpdateDraftModel updateDraft) async {
+    String? token = await SharedPrefsHelper.getToken();
+    if (token == null) {
+      print("❌ Token not found.");
+      throw 'Authorization token not found.';
+    }
+    // final jsonBody = json.encode(updateDraft.toJson());
+    // print("🔄 Update payload JSON: $jsonBody");
+    try {
+      final response = await http.put(
+        Uri.parse(
+          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/UpdateSiteObservationDraftByID/${updateDraft.id}',
+        ),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode(updateDraft.toJson()),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+      } else {
+        print('❌ Failed to update. Status: ${response.statusCode}');
+        print('❌ Body: ${response.body}');
+        throw response.body;
+      }
+    } catch (e) {
+      print('❌ Error occurred: $e');
+      throw e.toString();
+    }
+  }
+
   Future<List<Activity>> fatchActivityByCompanyIdAndScreenTypeId(
       int companyID, int screentypeID) async {
     try {

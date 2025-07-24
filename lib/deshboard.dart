@@ -107,31 +107,31 @@ class _DashboardPageState extends State<DashboardPage> {
             _buildStatsCards(context),
             const SizedBox(height: 30),
             Center(
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  await FirebaseMessaging.instance.requestPermission();
-                  final token = await FirebaseMessaging.instance.getToken();
-                  final userId = await SharedPrefsHelper.getUserId();
-                  if (token != null && userId != null) {
-                    await firebaseService.updateUserMobileAppTokenPut(
-                      userId: userId,
-                      webTokenID: "from_web_or_blank",
-                      mobileAppTokenID: token,
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('✅ Token updated on server')),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text('⚠️ Failed to get token or user ID')),
-                    );
-                  }
-                },
-                icon: Icon(Icons.notifications_active),
-                label: Text("Save Notification Token"),
-              ),
-            ),
+                // child: ElevatedButton.icon(
+                //   onPressed: () async {
+                //     await FirebaseMessaging.instance.requestPermission();
+                //     final token = await FirebaseMessaging.instance.getToken();
+                //     final userId = await SharedPrefsHelper.getUserId();
+                //     if (token != null && userId != null) {
+                //       await firebaseService.updateUserMobileAppTokenPut(
+                //         userId: userId,
+                //         webTokenID: "from_web_or_blank",
+                //         mobileAppTokenID: token,
+                //       );
+                //       ScaffoldMessenger.of(context).showSnackBar(
+                //         SnackBar(content: Text('✅ Token updated on server')),
+                //       );
+                //     } else {
+                //       ScaffoldMessenger.of(context).showSnackBar(
+                //         SnackBar(
+                //             content: Text('⚠️ Failed to get token or user ID')),
+                //       );
+                //     }
+                //   },
+                //   icon: Icon(Icons.notifications_active),
+                //   label: Text("Save Notification Token"),
+                // ),
+                ),
           ],
         ),
       ),

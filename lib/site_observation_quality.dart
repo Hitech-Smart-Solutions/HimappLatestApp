@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:himappnew/constants.dart';
@@ -78,7 +80,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   List<String> selectedUsers = [];
   List<User> userList = [];
   List<User> selectedMultiUsers = []; // Selected users (multi-select)
+  List<User> selectedUserObjects = [];
   List<MultiSelectItem<User>> userItems = [];
+  List<AssignmentStatusDTO> assignmentList = [];
 
   bool isComplianceRequired = false; // Compliance toggle state
   bool isEscalationRequired = false; // Escalation toggle state
@@ -102,6 +106,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   int? selectedObservationTypeId;
   int? selectedIssueTypeId;
   bool get isToggleEnabled {
+    if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
+      return false;
+    }
     if (selectedObservation == null || selectedObservation!.isEmpty) {
       return true; // toggle enabled
     }
@@ -124,6 +131,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   }
 
   bool get isDueDateEnabled {
+    if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
+      return false;
+    }
     if (selectedObservation == null || selectedObservation!.isEmpty) {
       return true; // enable by default
     }
@@ -140,16 +150,24 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   bool isUserSelectionEnabled = true;
   bool actionToBeTakenEnabled = true;
-
+  bool isDraft = true;
+  bool isLoadingObservationForm = true;
   String? areaLabel;
-
+  late Future<List<NCRObservation>> futureObservations;
+  int selectedObservationId = 0;
+  bool isEditMode = false;
+  // bool isDueDateEnabled = true;
+  // bool isToggleEnabled = true;
+  SiteObservation? selectedObservationForView;
+  GetSiteObservationMasterById? _currentObservation;
+  List<ActivityDTO> activityDTOList = [];
   @override
   void initState() {
     super.initState();
     _initializeData();
-    userItems = userList
-        .map((user) => MultiSelectItem<User>(user, user.userName))
-        .toList();
+    // userItems = userList
+    //     .map((user) => MultiSelectItem<User>(user, user.userName))
+    //     .toList();
   }
 
   Future<void> _initializeData() async {
@@ -171,8 +189,18 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     fetchContractorList();
     fetchUserList();
 
+    final fetchedUsers = await fetchUserList();
+    setState(() {
+      userList = fetchedUsers;
+      userItems = userList
+          .map((user) => MultiSelectItem<User>(user, user.userName))
+          .toList();
+    });
+
     _dateController.text =
         DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()); // Local time
+    // futureObservations = widget._siteObservationService
+    // _loadObservationFromServer(widget.de);
   }
 
   String formatDateForApi(DateTime date) {
@@ -240,8 +268,13 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         ScreenTypes.Quality,
         selectedIssueTypeId ?? 0,
       );
+
       setState(() {
         observationsList = fetchedObservations;
+        // for (var obs in observationsList) {
+        //   print(
+        //       'Observation: ${obs.id}, ${obs.observationDescription}, ${obs.issueTypeID}');
+        // }
         selectedObservation = null;
         if (observationsList.isNotEmpty) {
           selectedIssueTypeId = observationsList[0].issueTypeID;
@@ -396,15 +429,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     }
   }
 
-  // Fetch User List from the service
-  Future<void> fetchUserList() async {
-    setState(() {
-      isLoading = true;
-    });
-
+  Future<List<User>> fetchUserList() async {
     try {
-      int? currentUserId =
-          await SharedPrefsHelper.getUserId(); // ✅ get from SharedPreferences
+      int? currentUserId = await SharedPrefsHelper.getUserId();
 
       List<User> fetchedUsers =
           await widget._siteObservationService.fetchUserList();
@@ -413,32 +440,26 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       Set<String> userNames = {};
 
       for (var user in fetchedUsers) {
-        // Assuming `user.id` or `user.userId` is the field that matches your saved ID
         if (!userNames.contains(user.userName) && user.id != currentUserId) {
-          // ✅ filter out current user
           uniqueUsers.add(user);
           userNames.add(user.userName);
         }
       }
 
-      setState(() {
-        userList = uniqueUsers;
-      });
+      return uniqueUsers; // ✅ return the list instead of setting state
     } catch (e) {
       print('Error fetching User: $e');
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
+      return [];
     }
   }
 
-  void _submitForm() async {
-    if (_formKey.currentState?.validate() ?? false) {
+  void _submitForm({bool isDraft = false}) async {
+    if (_formKey.currentState?.validate() ?? false || isDraft) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Submitting...')),
+        SnackBar(
+            content: Text(isDraft ? 'Saving as Draft...' : 'Submitting...')),
       );
-      await submitForm(); // 👈 Your actual async method
+      await submitForm(isDraft: isDraft); // 👈 Forward flag
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please correct the errors')),
@@ -495,7 +516,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
 // Fetch Observations
   Future<void> fetchSiteObservationsQuality(int projectId) async {
-    print("Fetching site observations for project ID: $projectId");
+    // print("Fetching site observations for project ID: $projectId");
     setState(() => isLoading = true);
     try {
       final fetched =
@@ -678,170 +699,605 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     }
   }
 
-  void onFileUploadSuccess(String uploadedFileName) async {
+  void onFileUploadSuccess(
+    String uploadedFileName, {
+    required bool isDraft,
+    String? fileName,
+    String? fileContentType,
+    String? filePath,
+  }) async {
+    if (uploadedFileName.trim().isEmpty) return;
+
     int? userID = await SharedPrefsHelper.getUserId();
-    int statusIdToSend = (selectedObservationTypeId == 1)
-        ? SiteObservationStatus.Closed
-        : SiteObservationStatus.Open;
-    activityList.add(
-      SiteObservationActivity(
-        id: 0,
-        siteObservationID: null,
-        actionID: SiteObservationActions.DocUploaded,
-        comments: '',
-        documentName: uploadedFileName,
-        fromStatusID: SiteObservationStatus.Open,
-        toStatusID: statusIdToSend,
-        assignedUserID: userID!,
-        createdBy: userID,
-        createdDate: formatDateForApi(DateTime.now()),
-      ),
+    if (userID == null || userID == 0) return;
+
+    int statusIdToSend = isDraft
+        ? SiteObservationStatus.Draft
+        : (selectedObservationTypeId == 1
+            ? SiteObservationStatus.Closed
+            : SiteObservationStatus.Open);
+
+    final observationIdToSend = selectedObservationId;
+
+    final fileAlreadyExists =
+        activityList.any((a) => a.documentName == uploadedFileName) ||
+            activityDTOList.any((dto) => dto.documentName == uploadedFileName);
+
+    if (fileAlreadyExists) {
+      print('File already exists, not adding again.');
+      return;
+    }
+    // 🔵 Add to UI list
+    final newActivity = SiteObservationActivity(
+      id: 0,
+      siteObservationID: observationIdToSend == 0 ? null : observationIdToSend,
+      actionID: SiteObservationActions.DocUploaded,
+      comments: '',
+      documentName: uploadedFileName,
+      fileName: fileName,
+      fileContentType: fileContentType,
+      filePath: filePath,
+      fromStatusID: statusIdToSend,
+      toStatusID: statusIdToSend,
+      assignedUserID: userID,
+      createdBy: userID,
+      createdDate: formatDateForApi(DateTime.now()),
     );
+
+    // 🔵 Add to DTO list (important!)
+    // print("Adding file to activityDTOList: $uploadedFileName");
+    final dtoActivity = ActivityDTO(
+      id: 0,
+      siteObservationID: observationIdToSend,
+      actionID: SiteObservationActions.DocUploaded,
+      actionName: "Document Uploaded",
+      comments: '',
+      documentName: uploadedFileName,
+      fileName: fileName,
+      fileContentType: fileContentType,
+      filePath: filePath,
+      fromStatusID: statusIdToSend,
+      toStatusID: statusIdToSend,
+      assignedUserID: userID ?? 0,
+      assignedUserName: null,
+      createdBy: userID,
+      createdByName: userID.toString(),
+      createdDate: DateTime.now(),
+    );
+
+    setState(() {
+      activityList.add(newActivity); // For UI
+      // print("dtoActivity770: $activityList");
+      activityDTOList.add(dtoActivity); // For API
+      // print("dtoActivity772: $activityDTOList");
+      uploadedFiles.add(uploadedFileName);
+      selectedFileName = uploadedFileName;
+    });
+
+    // print('✅ Added file to activityDTOList: $uploadedFileName');
+
+    print(
+        "activityDTOList after upload: ${activityDTOList.map((e) => e.documentName).toList()}");
   }
 
-  // Function to submit the form data
-  Future<void> submitForm() async {
-    String observationDescription = observationDescriptionController.text;
-    // String userDescription = userDescriptionController.text;
-    String actionToBeTaken =
-        actionToBeTakenController.text; // Add this line to get the action text
-    int? projectID = await SharedPrefsHelper.getProjectID();
-    int? companyID = await SharedPrefsHelper.getCompanyId();
-    int? userID = await SharedPrefsHelper.getUserId();
-    final selectedObservedBy = ObservationConstants.observedBy.firstWhere(
-        (item) => item['id'] == observedById,
-        orElse: () => {"id": 0, "observedBy": ""})['id'] as int;
+  Future<void> submitForm({bool isDraft = false}) async {
+    try {
+      String observationDescription = observationDescriptionController.text;
+      String actionToBeTaken = actionToBeTakenController.text;
 
-    final String? dueDateValue;
+      int? projectID = await SharedPrefsHelper.getProjectID();
+      int? companyID = await SharedPrefsHelper.getCompanyId();
+      int? userID = await SharedPrefsHelper.getUserId();
 
-    int statusIdToSend = (selectedObservationTypeId == 1)
-        ? SiteObservationStatus.Closed
-        : SiteObservationStatus.Open;
-
-    if (isDueDateEnabled) {
-      if (_dateDueDateController.text.isEmpty) {
+      if (projectID == null || companyID == null || userID == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❗ Please select a due date')),
+          SnackBar(content: Text('❗ Missing user or project information')),
         );
         return;
       }
-      dueDateValue = _dateDueDateController.text;
-    } else {
-      dueDateValue = null;
-    }
-    // For Creator
-    activityList.add(
-      SiteObservationActivity(
-        id: 0,
-        siteObservationID: null,
-        actionID: SiteObservationActions.Created,
-        comments: '',
-        documentName: "",
-        fromStatusID: SiteObservationStatus.Open,
-        toStatusID: statusIdToSend,
-        assignedUserID: userID!, // creator ka ID
-        createdBy: userID,
-        createdDate: formatDateForApi(DateTime.now()),
-      ),
-    );
 
-// For Assigned Users
-    for (var username in selectedUsers) {
-      final user = userList.firstWhere((u) => u.userName == username);
-      activityList.add(
-        SiteObservationActivity(
+      final selectedObservedBy = ObservationConstants.observedBy.firstWhere(
+        (item) => item['id'] == observedById,
+        orElse: () => {"id": 0, "observedBy": ""},
+      )['id'] as int;
+
+      final String? dueDateValue;
+
+      if (isDueDateEnabled) {
+        if (_dateDueDateController.text.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❗ Please select a due date')),
+          );
+          return;
+        }
+        dueDateValue = _dateDueDateController.text;
+      } else {
+        dueDateValue = null;
+      }
+
+      final observationIdToSend = selectedObservationId;
+
+      // int statusIdToSend = isDraft
+      //     ? SiteObservationStatus.Draft
+      //     : (selectedObservationTypeId == 1
+      //         ? SiteObservationStatus.Closed
+      //         : SiteObservationStatus.Open);
+
+      int fromStatusID = isDraft
+          ? SiteObservationStatus.Draft
+          : (selectedObservationId != 0
+              ? SiteObservationStatus.Draft
+              : SiteObservationStatus.Open);
+
+      int toStatusID = isDraft
+          ? SiteObservationStatus.Draft
+          : (selectedObservationTypeId == 1
+              ? SiteObservationStatus.Closed
+              : SiteObservationStatus.Open);
+
+      List<SiteObservationActivity> finalActivityList = [];
+
+      // ✅ Step 1: Add OLD DocUploaded images
+      finalActivityList.addAll(activityList.where((a) =>
+          a.actionID == SiteObservationActions.DocUploaded && a.id != 0));
+
+      // ✅ Step 2: Add NEW DocUploaded images
+      finalActivityList.addAll(activityList.where((a) =>
+          a.actionID == SiteObservationActions.DocUploaded && a.id == 0));
+
+      bool alreadyCreated = finalActivityList.any(
+        (a) => a.actionID == SiteObservationActions.Created,
+      );
+
+      if (!alreadyCreated) {
+        finalActivityList.add(SiteObservationActivity(
           id: 0,
-          siteObservationID: null,
-          actionID: SiteObservationActions.Assigned,
+          siteObservationID: observationIdToSend,
+          actionID: SiteObservationActions.Created,
           comments: '',
           documentName: '',
-          fromStatusID: SiteObservationStatus.Open,
-          toStatusID: statusIdToSend,
-          assignedUserID: user.id,
-          createdBy: userID,
+          fromStatusID: fromStatusID,
+          toStatusID: toStatusID,
+          assignedUserID: userID ?? 0,
+          createdBy: userID ?? 0,
           createdDate: formatDateForApi(DateTime.now()),
-        ),
+        ));
+      }
+
+      for (var username in selectedUsers.toSet()) {
+        final user = userList.firstWhere((u) => u.userName == username);
+        bool alreadyAssigned = finalActivityList.any(
+          (a) =>
+              a.actionID == SiteObservationActions.Assigned &&
+              a.assignedUserID == user.id,
+        );
+
+        if (!alreadyAssigned) {
+          finalActivityList.add(SiteObservationActivity(
+            id: 0,
+            siteObservationID: observationIdToSend,
+            actionID: SiteObservationActions.Assigned,
+            comments: '',
+            documentName: '',
+            fromStatusID: fromStatusID,
+            toStatusID: toStatusID,
+            assignedUserID: user.id,
+            createdBy: userID ?? 0,
+            createdDate: formatDateForApi(DateTime.now()),
+          ));
+        }
+      }
+
+      // ✅ Step 3: Add Created action if not already submitted
+      if (!activityList.any(
+          (a) => a.id != 0 && a.actionID == SiteObservationActions.Created)) {
+        final created = activityList.firstWhere(
+          (a) => a.actionID == SiteObservationActions.Created,
+          orElse: () => SiteObservationActivity(
+            id: -1,
+            actionID: SiteObservationActions.Created,
+            comments: '',
+            documentName: '',
+            fromStatusID: fromStatusID,
+            toStatusID: toStatusID,
+            assignedUserID: userID ?? 0,
+            createdBy: userID ?? 0,
+            createdDate: formatDateForApi(DateTime.now()),
+          ),
+        );
+        if (created.id == 0 &&
+            created.actionID == SiteObservationActions.Created) {
+          finalActivityList.add(created);
+        }
+      }
+
+      // ✅ Step 4: Add Assigned action if not already submitted
+      if (!activityList.any(
+          (a) => a.id != 0 && a.actionID == SiteObservationActions.Assigned)) {
+        final assigned = activityList.firstWhere(
+          (a) => a.actionID == SiteObservationActions.Assigned,
+          orElse: () => SiteObservationActivity(
+            id: -1,
+            actionID: SiteObservationActions.Assigned,
+            comments: '',
+            documentName: '',
+            fromStatusID: fromStatusID,
+            toStatusID: toStatusID,
+            assignedUserID: userID ?? 0,
+            createdBy: userID ?? 0,
+            createdDate: formatDateForApi(DateTime.now()),
+          ),
+        );
+        if (assigned.id == 0 &&
+            assigned.actionID == SiteObservationActions.Assigned) {
+          finalActivityList.add(assigned);
+        }
+      }
+      // ✅ Step 5: Remove invalid entries
+      finalActivityList.removeWhere((a) =>
+          a.actionID == 0 ||
+          a.fromStatusID == null ||
+          a.toStatusID == null ||
+          a.createdBy == null);
+
+      // ✅ Step 6: Log for debugging
+      debugPrint(
+          "📦 Final activityList to send (Draft/Submit): ${finalActivityList.length}");
+
+      activityDTOList = finalActivityList.map((activity) {
+        return ActivityDTO(
+          id: activity.id,
+          siteObservationID: activity.siteObservationID,
+          actionID: activity.actionID,
+          actionName: getActionNameFromID(activity.actionID),
+          comments: activity.comments,
+          documentName: activity.documentName,
+          fileName: activity.fileName,
+          fileContentType: activity.fileContentType,
+          filePath: activity.filePath,
+          fromStatusID:
+              (activity.fromStatusID != 0 && activity.fromStatusID != null)
+                  ? activity.fromStatusID
+                  : fromStatusID,
+          toStatusID: (activity.toStatusID != 0 && activity.toStatusID != null)
+              ? activity.toStatusID
+              : toStatusID,
+          assignedUserID: activity.assignedUserID != 0
+              ? activity.assignedUserID
+              : userID ?? 0,
+          assignedUserName: activity.assignedUserName,
+          createdBy: activity.createdBy != 0 ? activity.createdBy : userID ?? 0,
+          createdByName: activity.createdByName,
+          createdDate: DateTime.parse(activity.createdDate),
+        );
+      }).toList();
+      for (var dto in activityDTOList) {
+        print(
+            "📝 Draft Activity -> actionID: ${dto.actionID}, id: ${dto.id}, doc: ${dto.documentName}");
+      }
+
+      SiteObservationModel commonFields = SiteObservationModel(
+        uniqueID: const Uuid().v4(),
+        id: selectedObservationId,
+        siteObservationCode: "",
+        trancationDate: formatDateForApi(DateTime.now().toUtc()),
+        observationRaisedBy: userID,
+        observationID: observationsList
+            .firstWhere((o) => o.observationDescription == selectedObservation)
+            .id,
+        observationTypeID: observationTypeList
+            .firstWhere(
+                (observation) => observation.name == selectedObservationType)
+            .id,
+        issueTypeID: issueTypes
+            .firstWhere((issueType) => issueType.name == selectedIssueType)
+            .id,
+        dueDate: (dueDateValue != null && dueDateValue.isNotEmpty)
+            ? dueDateValue
+            : formatDateForApi(DateTime.now().toUtc()),
+        observationDescription: observationDescription,
+        userDescription: '',
+        complianceRequired: isComplianceRequired,
+        escalationRequired: isEscalationRequired,
+        actionToBeTaken: actionToBeTaken,
+        companyID: companyID,
+        projectID: projectID,
+        functionID: ScreenTypes.Quality,
+        activityID: activitieList
+            .firstWhere((a) => a.activityName == selectedActivities)
+            .id,
+        observedBy: selectedObservedBy,
+        sectionID:
+            areaList.firstWhere((area) => area.sectionName == selectedArea).id,
+        floorID: floorList
+            .firstWhere((floor) => floor.floorName == selectedFloor)
+            .id,
+        partID: partList.firstWhere((part) => part.partName == selectedPart).id,
+        elementID: elementList
+            .firstWhere((element) => element.elementName == selectedElement)
+            .id,
+        contractorID:
+            ContractorList.firstWhere((c) => c.partyName == selectedContractor)
+                .id,
+        reworkCost: 0,
+        comments: 'string',
+        rootCauseID: 0,
+        corretiveActionToBeTaken: 'Corrective action here',
+        preventiveActionTaken: 'Preventive action here',
+        statusID: toStatusID,
+        isActive: true,
+        createdBy: userID,
+        createdDate: formatDateForApi(DateTime.now().toUtc()),
+        lastModifiedBy: userID,
+        lastModifiedDate: formatDateForApi(DateTime.now().toUtc()),
+        siteObservationActivity: finalActivityList,
       );
-    }
 
-    SiteObservationModel siteObservation = SiteObservationModel(
-      uniqueID: const Uuid().v4(),
-      id: 0,
-      siteObservationCode: "",
-      trancationDate: formatDateForApi(DateTime.now().toUtc()),
-      observationRaisedBy: userID!,
-      observationTypeID: observationTypeList
-          .firstWhere(
-              (observation) => observation.name == selectedObservationType)
-          .id,
-      issueTypeID: issueTypes
-          .firstWhere((issueType) => issueType.name == selectedIssueType)
-          .id,
-      dueDate: (dueDateValue != null && dueDateValue.isNotEmpty)
-          ? dueDateValue
-          : formatDateForApi(DateTime.now().toUtc()),
-      observationDescription: observationDescription,
-      userDescription: '', // You can add more fields
-      complianceRequired: isComplianceRequired,
-      escalationRequired: isEscalationRequired,
-      actionToBeTaken: actionToBeTaken,
-      companyID: companyID!,
-      projectID: projectID!,
-      functionID: ScreenTypes.Quality,
-      activityID: activitieList
-          .firstWhere(
-              (activities) => activities.activityName == selectedActivities)
-          .id,
-      observedBy: selectedObservedBy,
-      sectionID:
-          areaList.firstWhere((area) => area.sectionName == selectedArea).id,
-      floorID:
-          floorList.firstWhere((floor) => floor.floorName == selectedFloor).id,
-      partID: partList.firstWhere((part) => part.partName == selectedPart).id,
-      elementID: elementList
-          .firstWhere((element) => element.elementName == selectedElement)
-          .id,
-      contractorID: ContractorList.firstWhere(
-          (contractor) => contractor.partyName == selectedContractor).id,
-      reworkCost: 0,
-      comments: 'string',
-      rootCauseID: 0,
-      corretiveActionToBeTaken: 'Corrective action here',
-      preventiveActionTaken: 'Preventive action here',
-      statusID: statusIdToSend,
-      isActive: true,
-      createdBy: userID,
-      createdDate: formatDateForApi(DateTime.now().toUtc()),
-      lastModifiedBy: userID,
-      lastModifiedDate: formatDateForApi(DateTime.now().toUtc()),
-      siteObservationActivity: activityList,
-    );
+      bool success = false;
 
-    try {
-      bool success = await widget._siteObservationService
-          .submitSiteObservation(siteObservation);
+      if (selectedObservationId == 0) {
+        debugPrint("commonFields: ${commonFields.toJson()}");
+        debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
+        // return; // Debugging line, remove when ready
+        success = await widget._siteObservationService
+            .submitSiteObservation(commonFields);
+      } else {
+        SiteObservationUpdateDraftModel updateModel =
+            SiteObservationUpdateDraftModel(
+          id: commonFields.id,
+          dueDate: commonFields.dueDate,
+          observationDescription: commonFields.observationDescription,
+          complianceRequired: commonFields.complianceRequired,
+          escalationRequired: commonFields.escalationRequired,
+          actionToBeTaken: commonFields.actionToBeTaken,
+          activityID: commonFields.activityID,
+          sectionID: commonFields.sectionID,
+          floorID: commonFields.floorID,
+          partID: commonFields.partID,
+          elementID: commonFields.elementID,
+          contractorID: commonFields.contractorID,
+          observedBy: commonFields.observedBy,
+          statusID: commonFields.statusID,
+          lastModifiedBy: commonFields.lastModifiedBy,
+          lastModifiedDate: commonFields.lastModifiedDate,
+          activityDTO: activityDTOList,
+        );
+        // debugPrint("🟡 From Status ID: $fromStatusID");
+        // debugPrint("🟢 To Status ID: $toStatusID");
+        Map<int, String> actionNames = {
+          1: "Created",
+          2: "Assigned",
+          3: "DocUploaded",
+        };
+
+        for (var dto in activityDTOList) {
+          final name = actionNames[dto.actionID] ?? 'Unknown';
+          debugPrint("📝 $name => "
+              "id: ${dto.id}, "
+              "doc: ${dto.documentName}, "
+              "assignedUserID: ${dto.assignedUserID}, "
+              "fromStatusID: ${dto.fromStatusID}, "
+              "toStatusID: ${dto.toStatusID}, "
+              "createdBy: ${dto.createdBy}, "
+              "createdDate: ${dto.createdDate}");
+        }
+        // print(
+        //     "updateModel: ${updateModel.toJson().toString().replaceAll('"', '')}");
+        // debugPrint("updateModel: ${updateModel.toJson()}");
+        debugPrint("updateModel: $updateModel.toJson()");
+        debugPrint(const JsonEncoder.withIndent('  ').convert(updateModel));
+        // return;
+        success = await widget._siteObservationService
+            .updateSiteObservationDraft(updateModel);
+      }
 
       if (success) {
-        _resetForm(); // ⬅️ Reset form here
+        _resetForm();
         setState(() {
-          showObservations = true; // 👈 Form hide
+          showObservations = true;
         });
         await fetchSiteObservationsQuality(projectID);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('✅ Operation Successful')),
         );
       } else {
-        // Optional: for boolean false without exception
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('❌ Submission failed without specific error')),
         );
       }
     } catch (e) {
-      // 👇 This will now show backend error like "Please Map RootCause with Activity"
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Error: ${e.toString().replaceAll('"', '')}')),
       );
     }
+  }
+
+// Helper function for actionName
+  String getActionNameFromID(int actionID) {
+    switch (actionID) {
+      case SiteObservationActions.Created:
+        return 'Created';
+      case SiteObservationActions.Assigned:
+        return 'Assigned';
+      case SiteObservationActions.DocUploaded:
+        return 'DocUploaded';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  Future<void> _loadObservationFromServer(int observationId) async {
+    try {
+      final observationList = await widget._siteObservationService
+          .fetchGetSiteObservationMasterById(observationId);
+      // print("observationList: $observationList");
+      if (observationList.isNotEmpty) {
+        final observation = observationList.first;
+
+        setState(() {
+          showObservations = false;
+        });
+
+        _loadDataAndObservation(observation); // ✅ Now pass a single object
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Observation not found')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Failed to load observation: $e')),
+      );
+    }
+  }
+
+  Future<void> _loadDataAndObservation(
+      GetSiteObservationMasterById observation) async {
+    // print("observation1126:$observation");
+
+    // Step 1: Set observationType and observationTypeId
+    selectedObservationType = observation.observationType;
+    selectedObservationTypeId = observation.observationTypeID;
+
+    selectedIssueType = observation.issueType ?? '';
+
+    await fetchIssueTypes();
+
+    final foundIssue = issueTypes.firstWhere(
+      (e) => e.name == selectedIssueType,
+      orElse: () => IssueType(id: 0, name: '', observationTypeID: 0),
+    );
+
+    selectedIssueTypeId = foundIssue.id;
+    selectedIssueType = foundIssue.name;
+
+    setState(() {});
+
+    if (selectedIssueTypeId != 0) {
+      await fetchObservations();
+    } else {
+      observationsList = [];
+      selectedObservation = null;
+      setState(() {});
+      return;
+    }
+
+    final foundObs = observationsList.firstWhere(
+      (o) => o.observationDescription == observation.description,
+      orElse: () => Observation(
+        id: 0,
+        observationTypeID: 0,
+        issueTypeID: 0,
+        observationDescription: '',
+        complianceRequired: false,
+        escalationRequired: false,
+        dueTimeInHrs: 0,
+        actionToBeTaken: '',
+        lastModifiedBy: '',
+        lastModifiedDate: DateTime.now().toIso8601String(),
+      ),
+    );
+
+    if (foundObs.id != 0) {
+      selectedObservation = foundObs.observationDescription;
+
+      observationDescriptionController.text = foundObs.observationDescription;
+      isComplianceRequired = foundObs.complianceRequired;
+      isEscalationRequired = foundObs.escalationRequired;
+      actionToBeTakenController.text = foundObs.actionToBeTaken ?? '';
+
+      if (_dateController.text.isNotEmpty &&
+          foundObs.dueTimeInHrs != null &&
+          foundObs.dueTimeInHrs != 0) {
+        try {
+          DateTime startDate =
+              DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+          DateTime dueDate =
+              startDate.add(Duration(hours: foundObs.dueTimeInHrs.floor()));
+
+          String formattedDueDate =
+              DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+          _dateDueDateController.text = formattedDueDate;
+        } catch (e) {
+          print("Date calculation error: $e");
+          _dateDueDateController.text = '';
+        }
+      } else {
+        _dateDueDateController.text = '';
+      }
+    } else {
+      selectedObservation = null;
+    }
+    selectedActivities = observation.activityName;
+    final observedName = observation.observedByName ?? '';
+
+    final matchedObservedBy = ObservationConstants.observedBy.firstWhere(
+      (item) =>
+          (item['observedBy'] as String).toLowerCase() ==
+          observedName.toLowerCase(),
+      orElse: () => const {"id": 0, "observedBy": ""},
+    );
+
+    observedById =
+        matchedObservedBy['id'] is int ? matchedObservedBy['id'] as int : 0;
+
+    selectedArea = observation.sectionName;
+    selectedFloor = observation.floorName;
+    selectedPart = observation.partName;
+    selectedElement = observation.elementName;
+    selectedContractor = observation.contractorName;
+    // 🔸 Extract all assigned usernames from the assignment DTO
+    final fetchedUsers = await fetchUserList(); // ✅ returns list
+    userList = fetchedUsers;
+
+    final assignedUsernames = observation.assignmentStatusDTO
+        .map((e) => e.assignedUserName?.trim().toLowerCase())
+        .where((name) => name != null && name.isNotEmpty)
+        .toSet();
+
+    selectedUserObjects = userList.where((user) {
+      final userName = user.userName.trim().toLowerCase();
+      return assignedUsernames.contains(userName);
+    }).toList();
+    selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
+
+    uploadedFiles = observation.activityDTO
+        .where((a) => a.documentName != null && a.documentName!.isNotEmpty)
+        .map((a) => a.documentName!)
+        .toList();
+    if (uploadedFiles.isNotEmpty) {
+      selectedFileName = uploadedFiles.first;
+    }
+    activityDTOList = observation.activityDTO;
+    // // debugPrint("Current Observation: $activityDTOList");
+    debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
+    // populateActivityListFromDTO(observation);
+    populateActivityListFromDTO(activityDTOList);
+    setState(() {
+      selectedObservationId = observation.id;
+    });
+  }
+
+  void populateActivityListFromDTO(List<ActivityDTO> dtoList) {
+    activityList = dtoList.map((dto) {
+      return SiteObservationActivity(
+        id: dto.id ?? 0,
+        siteObservationID: dto.siteObservationID,
+        actionID: dto.actionID ?? 0,
+        comments: dto.comments,
+        documentName: dto.documentName ?? '',
+        fileName: dto.fileName,
+        fileContentType: dto.fileContentType,
+        filePath: dto.filePath,
+        fromStatusID: dto.fromStatusID ?? 0,
+        toStatusID: dto.toStatusID ?? 0,
+        assignedUserID: dto.assignedUserID ?? 0,
+        assignedUserName: dto.assignedUserName,
+        createdBy: dto.createdBy ?? 0,
+        createdByName: dto.createdByName,
+        createdDate: dto.createdDate.toIso8601String(),
+      );
+    }).toList();
   }
 
   void _resetForm() {
@@ -849,6 +1305,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
     setState(() {
       // _dateController.clear();
+      selectedObservationId = 0;
       selectedObservation = null; // Or null based on your logic
       selectedObservationType = null;
       selectedIssueType = null;
@@ -870,10 +1327,60 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       observedById = null;
       observationsList = [];
       issueTypes = [];
-      selectedUsers = [];
+      selectedUsers.clear();
+      selectedUserObjects.clear();
       activityList = [];
+      // isEditMode = false;
     });
   }
+
+  // void populateActivityListFromDTO(
+  //     GetSiteObservationMasterById observation) async {
+  //   int statusIdToSend = isDraft
+  //       ? SiteObservationStatus.Draft
+  //       : (selectedObservationTypeId == 1
+  //           ? SiteObservationStatus.Closed
+  //           : SiteObservationStatus.Open);
+  //   int? userID = await SharedPrefsHelper.getUserId();
+  //   if (userID == null || userID == 0) return;
+  //   final fileActivities = observation.activityDTO
+  //       .where((a) => a.documentName != null && a.documentName!.isNotEmpty)
+  //       .map((a) => SiteObservationActivity(
+  //             id: a.id ?? 0,
+  //             siteObservationID: a.siteObservationID,
+  //             actionID: a.actionID ?? 0,
+  //             comments: a.comments ?? '',
+  //             documentName: a.documentName ?? '',
+  //             fileName: a.fileName,
+  //             fileContentType: a.fileContentType,
+  //             filePath: a.filePath,
+  //             fromStatusID: statusIdToSend,
+  //             toStatusID: statusIdToSend,
+  //             assignedUserID: userID,
+  //             createdBy: int.tryParse(a.createdBy ?? '0') ?? 0,
+  //             createdDate: a.createdDate is DateTime
+  //                 ? formatDateForApi(a.createdDate as DateTime)
+  //                 : (a.createdDate != null ? a.createdDate.toString() : ''),
+  //           ))
+  //       .toList();
+  //   print("File Activities: ${observation.activityDTO}");
+  //   setState(() {
+  //     // ⛔️ Don’t clear, just merge without duplicating
+  //     for (var activity in fileActivities) {
+  //       if (!activityList.any((a) =>
+  //           a.id == activity.id && a.documentName == activity.documentName)) {
+  //         activityList.add(activity);
+  //       }
+  //     }
+  //     uploadedFiles = activityList
+  //         .where((e) => e.documentName.isNotEmpty)
+  //         .map((e) => e.documentName)
+  //         .toList();
+  //     if (uploadedFiles.isNotEmpty) {
+  //       selectedFileName = uploadedFiles.first;
+  //     }
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -882,10 +1389,18 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         if (!showObservations) {
           // 👇 Reset form values
           _resetForm();
-
+          isEditMode = false;
           // 👇 Switch back to observations list
           setState(() {
             showObservations = true;
+          });
+          return false;
+        }
+        if (selectedObservationForView != null) {
+          // 🔴 Non-draft view se back
+          setState(() {
+            selectedObservationForView = null;
+            showObservations = false;
           });
           return false;
         }
@@ -925,9 +1440,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                       await fetchFloorList(newProject.id);
                       await fetchPartList(newProject.id);
                       await fetchElementList(newProject.id);
-                      print(
-                        "Selected Project: ${newProject.name} (ID: ${newProject.id})",
-                      );
+                      // print(
+                      //   "Selected Project: ${newProject.name} (ID: ${newProject.id})",
+                      // );
                     }
                     setState(() {
                       isFormReady = true;
@@ -957,90 +1472,186 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                         itemBuilder: (context, index) {
                                           SiteObservation observation =
                                               observations[index];
-                                          // print(
-                                          //     "observation:${observation.issueType}");
                                           bool isDark =
                                               Theme.of(context).brightness ==
                                                   Brightness.dark;
 
-                                          return Card(
-                                            color: isDark
-                                                ? Colors.grey[900]
-                                                : Colors.white,
-                                            elevation: 0,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              side: BorderSide.none,
-                                            ),
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.all(12.0),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    observation
-                                                        .siteObservationCode,
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 16,
-                                                      color: isDark
-                                                          ? Colors.white
-                                                          : Colors.black,
+                                          return InkWell(
+                                            onTap: () {
+                                              if (observation.observationStatus
+                                                      .toLowerCase() ==
+                                                  'draft') {
+                                                // 🟢 Open editable form
+                                                setState(() {
+                                                  showObservations = false;
+                                                  _loadObservationFromServer(
+                                                      observation.id);
+                                                  selectedObservationForView =
+                                                      null;
+                                                });
+                                              } else {
+                                                // 🔴 Show read-only data inside popup
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (context) =>
+                                                      AlertDialog(
+                                                    title: Text(
+                                                        'Observation Details (View Only)'),
+                                                    content:
+                                                        SingleChildScrollView(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          _popupRow(
+                                                              "Observation Code",
+                                                              observation
+                                                                  .siteObservationCode),
+                                                          _popupRow(
+                                                              "Observation Type",
+                                                              observation
+                                                                  .observationType),
+                                                          _popupRow(
+                                                              "Issue Type",
+                                                              observation
+                                                                  .issueType),
+                                                          _popupRow(
+                                                              "Status",
+                                                              observation
+                                                                  .observationStatus),
+                                                          _popupRow(
+                                                              "Project",
+                                                              observation
+                                                                  .projectName),
+                                                          _popupRow(
+                                                              "Date",
+                                                              observation
+                                                                  .transactionDate
+                                                                  .toString()
+                                                                  .split(
+                                                                      " ")[0]),
+                                                          _popupRow(
+                                                              "Due Date",
+                                                              observation
+                                                                  .dueDate
+                                                                  .toString()
+                                                                  .split(
+                                                                      " ")[0]),
+                                                          _popupRow(
+                                                              "Compliance Required",
+                                                              observation
+                                                                      .compliancerequired
+                                                                  ? 'Yes'
+                                                                  : 'No'),
+                                                          _popupRow(
+                                                              "Escalation Required",
+                                                              observation
+                                                                      .escalationrequired
+                                                                  ? 'Yes'
+                                                                  : 'No'),
+                                                          _popupRow(
+                                                              "Description",
+                                                              observation
+                                                                  .observationDescription),
+                                                          // Aur bhi fields chahiye to add kar lo
+                                                        ],
+                                                      ),
                                                     ),
-                                                  ),
-                                                  SizedBox(height: 8),
-                                                  Wrap(
-                                                    spacing: 16,
-                                                    runSpacing: 12,
-                                                    children: [
-                                                      _infoBox(
-                                                          "ObservationType",
-                                                          observation
-                                                              .observationType,
-                                                          isDark: isDark),
-                                                      _infoBox("IssueType",
-                                                          observation.issueType,
-                                                          isDark: isDark),
-                                                      _infoBox(
-                                                          "Status",
-                                                          observation
-                                                              .observationStatus,
-                                                          isDark: isDark),
-                                                      _infoBox(
-                                                          "Project",
-                                                          observation
-                                                              .projectName,
-                                                          isDark: isDark),
-                                                      _infoBox(
-                                                        "Date",
-                                                        observation
-                                                            .transactionDate
-                                                            .toLocal()
-                                                            .toString()
-                                                            .split(' ')[0],
-                                                        isDark: isDark,
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.of(
+                                                                    context)
+                                                                .pop(),
+                                                        child: Text('Close'),
                                                       ),
                                                     ],
                                                   ),
-                                                  SizedBox(height: 8),
-                                                  Text(
-                                                    observation
-                                                        .observationDescription,
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: isDark
-                                                          ? Colors.white70
-                                                          : Colors.black87,
+                                                );
+                                              }
+                                            },
+                                            child: Card(
+                                              color: isDark
+                                                  ? Colors.grey[900]
+                                                  : Colors.white,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                side: BorderSide.none,
+                                              ),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(12.0),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      observation
+                                                          .siteObservationCode,
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 16,
+                                                        color: isDark
+                                                            ? Colors.white
+                                                            : Colors.black,
+                                                      ),
                                                     ),
-                                                    softWrap: true,
-                                                    overflow:
-                                                        TextOverflow.visible,
-                                                  ),
-                                                ],
+                                                    SizedBox(height: 8),
+                                                    Wrap(
+                                                      spacing: 16,
+                                                      runSpacing: 12,
+                                                      children: [
+                                                        _infoBox(
+                                                            "ObservationType",
+                                                            observation
+                                                                .observationType,
+                                                            isDark: isDark),
+                                                        _infoBox(
+                                                            "IssueType",
+                                                            observation
+                                                                .issueType,
+                                                            isDark: isDark),
+                                                        _infoBox(
+                                                            "Status",
+                                                            observation
+                                                                .observationStatus,
+                                                            isDark: isDark),
+                                                        _infoBox(
+                                                            "Project",
+                                                            observation
+                                                                .projectName,
+                                                            isDark: isDark),
+                                                        _infoBox(
+                                                          "Date",
+                                                          observation
+                                                              .transactionDate
+                                                              .toLocal()
+                                                              .toString()
+                                                              .split(' ')[0],
+                                                          isDark: isDark,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    SizedBox(height: 8),
+                                                    Text(
+                                                      observation
+                                                          .observationDescription,
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: isDark
+                                                            ? Colors.white70
+                                                            : Colors.black87,
+                                                      ),
+                                                      softWrap: true,
+                                                      overflow:
+                                                          TextOverflow.visible,
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           );
@@ -1068,10 +1679,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                 suffixIcon: IconButton(
                                                   icon: Icon(
                                                       Icons.calendar_today),
-                                                  onPressed: () {
-                                                    _selectDate(context,
-                                                        _dateController); // Allow changing Start Date
-                                                  },
+                                                  onPressed: isEditMode
+                                                      ? () {
+                                                          _selectDate(context,
+                                                              _dateController); // Allow changing Start Date
+                                                        }
+                                                      : null,
                                                 ),
                                               ),
                                               readOnly: true,
@@ -1079,55 +1692,141 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
                                             SizedBox(height: 20),
                                             // Dropdown for Select observation
+                                            // DropdownButtonFormField<String>(
+                                            //   value: selectedObservationType,
+                                            //   onChanged: isEditMode
+                                            //       ? null
+                                            //       : (String? newValue) {
+                                            //           setState(() {
+                                            //             selectedObservationType =
+                                            //                 newValue;
+                                            //             final selected =
+                                            //                 observationTypeList
+                                            //                     .firstWhereOrNull(
+                                            //                         (e) =>
+                                            //                             e.name ==
+                                            //                             newValue);
+                                            //             if (selected != null) {
+                                            //               selectedObservationTypeId =
+                                            //                   selected.id;
+                                            //               if (selected.id ==
+                                            //                   1) {
+                                            //                 isUserSelectionEnabled =
+                                            //                     false;
+                                            //                 actionToBeTakenEnabled =
+                                            //                     false;
+                                            //                 selectedUsers
+                                            //                     .clear(); // Optionally clear users
+                                            //               } else {
+                                            //                 isUserSelectionEnabled =
+                                            //                     true;
+                                            //                 actionToBeTakenEnabled =
+                                            //                     true;
+                                            //               }
+                                            //               fetchIssueTypes();
+                                            //             } else {
+                                            //               selectedObservationTypeId =
+                                            //                   0;
+                                            //               issueTypes = [];
+                                            //             }
+                                            //             selectedIssueType =
+                                            //                 null;
+                                            //             selectedIssueTypeId = 0;
+                                            //             selectedObservation =
+                                            //                 null;
+                                            //             observationsList = [];
+                                            //             issueTypes = [];
+                                            //             observationDescriptionController
+                                            //                 .text = '';
+                                            //             _dateDueDateController
+                                            //                 .text = '';
+                                            //             isComplianceRequired =
+                                            //                 false;
+                                            //             isEscalationRequired =
+                                            //                 false;
+                                            //             actionToBeTakenController
+                                            //                 .text = '';
+                                            //           });
+                                            //         },
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Observation Type',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   validator:
+                                            //       _validateObservationType,
+                                            //   items: observationTypeList
+                                            //       .map((observationType) {
+                                            //     return DropdownMenuItem<String>(
+                                            //       value: observationType.name,
+                                            //       child: Text(
+                                            //           observationType.name),
+                                            //     );
+                                            //   }).toList(),
+                                            // ),
                                             DropdownButtonFormField<String>(
-                                              value: selectedObservationType,
-                                              onChanged: (String? newValue) {
-                                                setState(() {
-                                                  selectedObservationType =
-                                                      newValue;
-                                                  final selected =
-                                                      observationTypeList
-                                                          .firstWhereOrNull(
-                                                              (e) =>
-                                                                  e.name ==
-                                                                  newValue);
-                                                  if (selected != null) {
-                                                    selectedObservationTypeId =
-                                                        selected.id;
-                                                    if (selected.id == 1) {
-                                                      isUserSelectionEnabled =
-                                                          false;
-                                                      actionToBeTakenEnabled =
-                                                          false;
-                                                      selectedUsers
-                                                          .clear(); // Optionally clear users
-                                                    } else {
-                                                      isUserSelectionEnabled =
-                                                          true;
-                                                      actionToBeTakenEnabled =
-                                                          true;
+                                              value: observationTypeList.any(
+                                                      (e) =>
+                                                          e.name ==
+                                                          selectedObservationType)
+                                                  ? selectedObservationType
+                                                  : null,
+                                              onChanged: isEditMode
+                                                  ? (String? newValue) {
+                                                      setState(() {
+                                                        selectedObservationType =
+                                                            newValue;
+                                                        final selected =
+                                                            observationTypeList
+                                                                .firstWhereOrNull(
+                                                          (e) =>
+                                                              e.name ==
+                                                              newValue,
+                                                        );
+                                                        if (selected != null) {
+                                                          selectedObservationTypeId =
+                                                              selected.id;
+                                                          if (isEditMode) {
+                                                            if (selected.id ==
+                                                                1) {
+                                                              isUserSelectionEnabled =
+                                                                  false;
+                                                              actionToBeTakenEnabled =
+                                                                  false;
+                                                              selectedUsers
+                                                                  .clear();
+                                                            } else {
+                                                              isUserSelectionEnabled =
+                                                                  true;
+                                                              actionToBeTakenEnabled =
+                                                                  true;
+                                                            }
+                                                          }
+                                                          fetchIssueTypes();
+                                                        } else {
+                                                          selectedObservationTypeId =
+                                                              0;
+                                                          issueTypes = [];
+                                                        }
+                                                        selectedIssueType =
+                                                            null;
+                                                        selectedIssueTypeId = 0;
+                                                        selectedObservation =
+                                                            null;
+                                                        observationsList = [];
+                                                        issueTypes = [];
+                                                        observationDescriptionController
+                                                            .text = '';
+                                                        _dateDueDateController
+                                                            .text = '';
+                                                        isComplianceRequired =
+                                                            false;
+                                                        isEscalationRequired =
+                                                            false;
+                                                        actionToBeTakenController
+                                                            .text = '';
+                                                      });
                                                     }
-                                                    fetchIssueTypes();
-                                                  } else {
-                                                    selectedObservationTypeId =
-                                                        0;
-                                                    issueTypes = [];
-                                                  }
-                                                  selectedIssueType = null;
-                                                  selectedIssueTypeId = 0;
-                                                  selectedObservation = null;
-                                                  observationsList = [];
-                                                  issueTypes = [];
-                                                  observationDescriptionController
-                                                      .text = '';
-                                                  _dateDueDateController.text =
-                                                      '';
-                                                  isComplianceRequired = false;
-                                                  isEscalationRequired = false;
-                                                  actionToBeTakenController
-                                                      .text = '';
-                                                });
-                                              },
+                                                  : null,
                                               decoration: InputDecoration(
                                                 labelText: 'Observation Type',
                                                 border: OutlineInputBorder(),
@@ -1143,35 +1842,105 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                 );
                                               }).toList(),
                                             ),
+
                                             SizedBox(height: 20),
                                             // Dropdown for Select Issue Type
+                                            // DropdownButtonFormField<String>(
+                                            //   value: issueTypes.any((e) =>
+                                            //           e.name ==
+                                            //           selectedIssueType)
+                                            //       ? selectedIssueType
+                                            //       : null,
+                                            //   onChanged: (String? newValue) {
+                                            //     setState(() {
+                                            //       selectedIssueType = newValue;
+
+                                            //       try {
+                                            //         final selectedIssue =
+                                            //             issueTypes
+                                            //                 .firstWhere((e) =>
+                                            //                     e.name ==
+                                            //                     newValue);
+                                            //         selectedIssueTypeId =
+                                            //             selectedIssue.id;
+                                            //         fetchObservations();
+                                            //       } catch (e) {
+                                            //         selectedIssueTypeId = 0;
+                                            //         observationsList = [];
+                                            //         selectedObservation = null;
+                                            //       }
+                                            //     });
+                                            //   },
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Issue Type',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   items: issueTypes.isEmpty
+                                            //       ? [
+                                            //           const DropdownMenuItem(
+                                            //             value: null,
+                                            //             child: Text(
+                                            //                 "Loading...",
+                                            //                 style: TextStyle(
+                                            //                     color: Colors
+                                            //                         .grey)),
+                                            //           )
+                                            //         ]
+                                            //       : issueTypes.map((issueType) {
+                                            //           return DropdownMenuItem<
+                                            //               String>(
+                                            //             value: issueType.name,
+                                            //             child: Text(
+                                            //                 issueType.name),
+                                            //           );
+                                            //         }).toList(),
+                                            // ),
                                             DropdownButtonFormField<String>(
                                               value: issueTypes.any((e) =>
                                                       e.name ==
                                                       selectedIssueType)
                                                   ? selectedIssueType
                                                   : null,
-                                              onChanged: (String? newValue) {
-                                                setState(() {
-                                                  selectedIssueType = newValue;
+                                              onChanged: isEditMode
+                                                  ? (String? newValue) {
+                                                      setState(() {
+                                                        selectedIssueType =
+                                                            newValue;
 
-                                                  try {
-                                                    final selectedIssue =
-                                                        issueTypes.firstWhere(
-                                                      (element) =>
-                                                          element.name ==
-                                                          newValue,
-                                                    );
-                                                    selectedIssueTypeId =
-                                                        selectedIssue.id;
-                                                    fetchObservations();
-                                                  } catch (e) {
-                                                    selectedIssueTypeId = 0;
-                                                    observationsList = [];
-                                                    selectedObservation = null;
-                                                  }
-                                                });
-                                              },
+                                                        try {
+                                                          final selectedIssue =
+                                                              issueTypes
+                                                                  .firstWhere(
+                                                            (element) =>
+                                                                element.name ==
+                                                                newValue,
+                                                          );
+                                                          selectedIssueTypeId =
+                                                              selectedIssue.id;
+                                                          // bool isNCRSelected =
+                                                          //     selectedIssue
+                                                          //                 .id ==
+                                                          //             1 &&
+                                                          //         selectedIssue
+                                                          //                 .name ==
+                                                          //             'NCR';
+
+                                                          // // 🔁 Enable/Disable fields
+                                                          // isDueDateEnabled =
+                                                          //     !isNCRSelected;
+                                                          // isToggleEnabled =
+                                                          //     !isNCRSelected;
+                                                          fetchObservations();
+                                                        } catch (e) {
+                                                          selectedIssueTypeId =
+                                                              0;
+                                                          observationsList = [];
+                                                          selectedObservation =
+                                                              null;
+                                                        }
+                                                      });
+                                                    }
+                                                  : null,
                                               decoration: InputDecoration(
                                                 labelText: 'Issue Type',
                                                 border: OutlineInputBorder(),
@@ -1188,124 +1957,113 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                             SizedBox(height: 20),
                                             // Dropdown for Select Observation
                                             DropdownButtonFormField<String>(
-                                              value: (selectedObservation ?? '')
-                                                          .isEmpty ||
-                                                      !observationsList.any((obs) =>
+                                              value: (selectedObservation !=
+                                                          null &&
+                                                      selectedObservation!
+                                                          .isNotEmpty &&
+                                                      observationsList.any((obs) =>
                                                           obs.observationDescription ==
-                                                          selectedObservation)
-                                                  ? null
-                                                  : selectedObservation,
-                                              onChanged: (selectedIssueTypeId ==
-                                                          null ||
-                                                      selectedIssueTypeId == 0)
-                                                  ? null
-                                                  : (String? newValue) {
-                                                      setState(() {
-                                                        selectedObservation =
-                                                            newValue ?? '';
+                                                          selectedObservation))
+                                                  ? selectedObservation
+                                                  : null,
+                                              onChanged: isEditMode
+                                                  ? (selectedIssueTypeId ==
+                                                              null ||
+                                                          selectedIssueTypeId ==
+                                                              0)
+                                                      ? null
+                                                      : (String? newValue) {
+                                                          setState(() {
+                                                            selectedObservation =
+                                                                newValue ?? '';
 
-                                                        final selected =
-                                                            observationsList
-                                                                .firstWhere(
-                                                          (obs) =>
-                                                              obs.observationDescription ==
-                                                              selectedObservation,
-                                                          orElse: () =>
-                                                              Observation(
-                                                            id: 0,
-                                                            observationTypeID:
-                                                                0,
-                                                            issueTypeID: 0,
-                                                            observationDescription:
-                                                                '',
-                                                            complianceRequired:
-                                                                false,
-                                                            escalationRequired:
-                                                                false,
-                                                            dueTimeInHrs: 0,
-                                                            actionToBeTaken: '',
-                                                            lastModifiedBy: '',
-                                                            lastModifiedDate:
-                                                                DateTime.now()
-                                                                    .toIso8601String(),
-                                                          ),
-                                                        );
+                                                            final selected =
+                                                                observationsList
+                                                                    .firstWhere(
+                                                              (obs) =>
+                                                                  obs.observationDescription ==
+                                                                  selectedObservation,
+                                                              orElse: () =>
+                                                                  Observation(
+                                                                id: 0,
+                                                                observationTypeID:
+                                                                    0,
+                                                                issueTypeID: 0,
+                                                                observationDescription:
+                                                                    '',
+                                                                complianceRequired:
+                                                                    false,
+                                                                escalationRequired:
+                                                                    false,
+                                                                dueTimeInHrs: 0,
+                                                                actionToBeTaken:
+                                                                    '',
+                                                                lastModifiedBy:
+                                                                    '',
+                                                                lastModifiedDate:
+                                                                    DateTime.now()
+                                                                        .toIso8601String(),
+                                                              ),
+                                                            );
 
-                                                        observationDescriptionController
-                                                                .text =
-                                                            selected
-                                                                .observationDescription;
-                                                        isComplianceRequired =
-                                                            selected
-                                                                .complianceRequired;
-                                                        isEscalationRequired =
-                                                            selected
-                                                                .escalationRequired;
-                                                        actionToBeTakenController
-                                                                .text =
-                                                            selected
-                                                                .actionToBeTaken;
-                                                        // Calculate due date based on start date and dueTimeInHrs
-                                                        if (_dateController.text
-                                                                .isNotEmpty &&
-                                                            selected.dueTimeInHrs !=
-                                                                null &&
-                                                            selected.dueTimeInHrs !=
-                                                                0) {
-                                                          if (selectedIssueTypeId !=
-                                                              3) {
-                                                            try {
-                                                              // Parse startDate from input (assume it's in local time)
-                                                              DateTime
-                                                                  startDate =
-                                                                  DateFormat(
-                                                                          'yyyy-MM-dd HH:mm')
-                                                                      .parse(_dateController
-                                                                          .text);
+                                                            observationDescriptionController
+                                                                    .text =
+                                                                selected
+                                                                    .observationDescription;
+                                                            isComplianceRequired =
+                                                                selected
+                                                                    .complianceRequired;
+                                                            isEscalationRequired =
+                                                                selected
+                                                                    .escalationRequired;
+                                                            actionToBeTakenController
+                                                                .text = selected
+                                                                    .actionToBeTaken ??
+                                                                '';
 
-                                                              // Add due hours
-                                                              DateTime dueDate =
-                                                                  startDate.add(Duration(
-                                                                      hours: selected
-                                                                          .dueTimeInHrs
-                                                                          .floor()));
-
-                                                              // Convert to local datetime string like 'yyyy-MM-ddTHH:mm'
-                                                              // String
-                                                              //     formattedDueDate =
-                                                              //     DateFormat(
-                                                              //             "yyyy-MM-dd HH:mm")
-                                                              //         .format(dueDate
-                                                              //             .toUtc());
-                                                              String
-                                                                  formattedDueDate =
-                                                                  DateFormat(
-                                                                          "yyyy-MM-dd HH:mm")
-                                                                      .format(
-                                                                          dueDate);
-                                                              print(
-                                                                  "formattedDueDate1244:$formattedDueDate");
-                                                              // Set this string to the controller
-                                                              _dateDueDateController
-                                                                      .text =
-                                                                  formattedDueDate;
-                                                            } catch (e) {
-                                                              print(
-                                                                  "Date parse or calculation error: $e");
+                                                            // Due date calculation example
+                                                            if (_dateController
+                                                                    .text
+                                                                    .isNotEmpty &&
+                                                                selected.dueTimeInHrs !=
+                                                                    null &&
+                                                                selected.dueTimeInHrs !=
+                                                                    0) {
+                                                              try {
+                                                                DateTime
+                                                                    startDate =
+                                                                    DateFormat(
+                                                                            'yyyy-MM-dd HH:mm')
+                                                                        .parse(_dateController
+                                                                            .text);
+                                                                DateTime
+                                                                    dueDate =
+                                                                    startDate.add(Duration(
+                                                                        hours: selected
+                                                                            .dueTimeInHrs
+                                                                            .floor()));
+                                                                String
+                                                                    formattedDueDate =
+                                                                    DateFormat(
+                                                                            'yyyy-MM-dd HH:mm')
+                                                                        .format(
+                                                                            dueDate);
+                                                                _dateDueDateController
+                                                                        .text =
+                                                                    formattedDueDate;
+                                                              } catch (e) {
+                                                                print(
+                                                                    "Date calculation error: $e");
+                                                                _dateDueDateController
+                                                                    .text = '';
+                                                              }
+                                                            } else {
                                                               _dateDueDateController
                                                                   .text = '';
                                                             }
-                                                          } else {
-                                                            _dateDueDateController
-                                                                .text = '';
-                                                          }
-                                                        } else {
-                                                          // If no start date or no due time, clear due date
-                                                          _dateDueDateController
-                                                              .text = '';
+                                                          });
                                                         }
-                                                      });
-                                                    },
+                                                  : null,
                                               decoration: const InputDecoration(
                                                 labelText: 'Select Observation',
                                                 border: OutlineInputBorder(),
@@ -1330,10 +2088,11 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                           String>(
                                                         value: '',
                                                         child: Text(
-                                                            'Select Observation',
-                                                            style: TextStyle(
-                                                                color: Colors
-                                                                    .grey)),
+                                                          'Select Observation',
+                                                          style: TextStyle(
+                                                              color:
+                                                                  Colors.grey),
+                                                        ),
                                                       ),
                                                       ...observationsList
                                                           .map((observation) {
@@ -1352,7 +2111,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       }).toList(),
                                                     ],
                                             ),
-
                                             SizedBox(height: 20),
                                             TextFormField(
                                               controller:
@@ -1647,6 +2405,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                               user,
                                                               user.userName))
                                                       .toList(),
+                                                  initialValue:
+                                                      selectedUserObjects,
                                                   title: Text("Assigned To"),
                                                   selectedItemsTextStyle:
                                                       TextStyle(
@@ -1660,6 +2420,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                   onConfirm:
                                                       (List<User> selected) {
                                                     setState(() {
+                                                      selectedUserObjects =
+                                                          selected;
                                                       selectedUsers = selected
                                                           .map(
                                                               (u) => u.userName)
@@ -1668,10 +2430,15 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                   },
                                                   chipDisplay:
                                                       MultiSelectChipDisplay(
-                                                    onTap: (user) {
+                                                    onTap: (User user) {
                                                       setState(() {
-                                                        selectedUsers
+                                                        selectedUserObjects
                                                             .remove(user);
+                                                        selectedUsers =
+                                                            selectedUserObjects
+                                                                .map((u) =>
+                                                                    u.userName)
+                                                                .toList();
                                                       });
                                                     },
                                                   ),
@@ -1685,6 +2452,46 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                 ),
                                               ),
                                             ),
+                                            // MultiSelectDialogField<User>(
+                                            //   items: userList
+                                            //       .map((user) =>
+                                            //           MultiSelectItem<User>(
+                                            //               user, user.userName))
+                                            //       .toList(),
+
+                                            //   // ✅ prefill selection here
+                                            //   initialValue: selectedUserObjects,
+
+                                            //   title: Text("Assigned To"),
+                                            //   searchable: true,
+                                            //   buttonText: Text("Select Users"),
+                                            //   onConfirm: (List<User> selected) {
+                                            //     setState(() {
+                                            //       selectedUserObjects =
+                                            //           selected;
+                                            //       selectedUsers = selected
+                                            //           .map((u) => u.userName)
+                                            //           .toList();
+                                            //     });
+                                            //   },
+                                            //   chipDisplay:
+                                            //       MultiSelectChipDisplay(
+                                            //     onTap: (user) {
+                                            //       setState(() {
+                                            //         selectedUserObjects
+                                            //             .remove(user);
+                                            //         selectedUsers
+                                            //             .remove(user.userName);
+                                            //       });
+                                            //     },
+                                            //   ),
+                                            //   decoration: BoxDecoration(
+                                            //     border: Border.all(
+                                            //         color: Colors.grey),
+                                            //     borderRadius:
+                                            //         BorderRadius.circular(4),
+                                            //   ),
+                                            // ),
 
                                             SizedBox(height: 10),
                                             TextFormField(
@@ -1702,28 +2509,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                   actionToBeTakenEnabled, // 🔑 Use your flag here
                                             ),
 
-                                            // SizedBox(height: 10),
-                                            // TextFormField(
-                                            //   controller: reworkCostController,
-                                            //   keyboardType: TextInputType
-                                            //       .number, // Allow only number input
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'Rework Cost',
-                                            //     border: OutlineInputBorder(
-                                            //         borderRadius:
-                                            //             BorderRadius.circular(
-                                            //                 8)),
-                                            //   ),
-                                            //   validator: (value) {
-                                            //     if (value == null ||
-                                            //         value.isEmpty)
-                                            //       return 'Please enter rework cost';
-                                            //     if (double.tryParse(value) ==
-                                            //         null)
-                                            //       return 'Enter valid number';
-                                            //     return null;
-                                            //   },
-                                            // ),
                                             SizedBox(height: 20),
                                             // 🔽 File Upload Section just like TextFormField
                                             Column(
@@ -1760,11 +2545,13 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                         final file =
                                                             result.files.first;
 
-                                                        setState(() {
-                                                          selectedFileName =
-                                                              file.name;
-                                                          isUploading = true;
-                                                        });
+                                                        if (mounted) {
+                                                          setState(() {
+                                                            isUploading = true;
+                                                            selectedFileName = file
+                                                                .name; // Show filename immediately after picking file
+                                                          });
+                                                        }
 
                                                         final uploadedFileName =
                                                             await SiteObservationService()
@@ -1772,27 +2559,27 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                                     file.name,
                                                                     file.bytes!);
 
-                                                        setState(() {
-                                                          isUploading = false;
-                                                        });
+                                                        if (mounted) {
+                                                          setState(() {
+                                                            isUploading = false;
+                                                          });
+                                                        }
 
                                                         if (uploadedFileName !=
                                                             null) {
-                                                          setState(() {
-                                                            uploadedFiles.add(
-                                                                uploadedFileName);
-                                                          });
-
                                                           onFileUploadSuccess(
-                                                              uploadedFileName);
+                                                              uploadedFileName,
+                                                              isDraft: isDraft);
                                                         } else {
-                                                          ScaffoldMessenger.of(
-                                                                  context)
-                                                              .showSnackBar(
-                                                            const SnackBar(
-                                                                content: Text(
-                                                                    "❌ File upload failed")),
-                                                          );
+                                                          if (mounted) {
+                                                            ScaffoldMessenger
+                                                                    .of(context)
+                                                                .showSnackBar(
+                                                              const SnackBar(
+                                                                  content: Text(
+                                                                      "❌ File upload failed")),
+                                                            );
+                                                          }
                                                         }
                                                       }
                                                     },
@@ -1845,23 +2632,63 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               ],
                                             ),
 
-                                            ElevatedButton(
-                                              onPressed: () {
-                                                if (_formKey.currentState
-                                                        ?.validate() ??
-                                                    false) {
-                                                  _submitForm();
-                                                }
-                                              },
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.blue,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: ElevatedButton(
+                                                    onPressed: () {
+                                                      if (_formKey.currentState
+                                                              ?.validate() ??
+                                                          false) {
+                                                        _submitForm(
+                                                            isDraft: true);
+                                                      }
+                                                    },
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          Colors.grey,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                      ),
+                                                    ),
+                                                    child:
+                                                        Text('Save as Draft'),
+                                                  ),
                                                 ),
-                                              ),
-                                              child: Text('Submit'),
-                                            ),
+                                                SizedBox(width: 12),
+                                                Expanded(
+                                                  child: ElevatedButton(
+                                                    onPressed: () {
+                                                      if (_formKey.currentState
+                                                              ?.validate() ??
+                                                          false) {
+                                                        _submitForm(
+                                                            isDraft: false);
+                                                      }
+                                                    },
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          Colors.blue,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                      ),
+                                                    ),
+                                                    child: Text('Submit'),
+                                                  ),
+                                                ),
+                                              ],
+                                            )
                                           ],
                                         ),
                                       ),
@@ -1876,11 +2703,17 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                 child: FloatingActionButton(
                   onPressed: () {
                     setState(() {
+                      // print("isEditMode: $isEditMode");
                       if (!showObservations) {
                         // We're on form, going back to list → reset the form
                         _resetForm();
+                        isEditMode = false;
+                      } else {
+                        isEditMode = true;
                       }
                       showObservations = !showObservations;
+                      // print(
+                      //     "After toggle: isEditMode = $isEditMode, showObservations = $showObservations");
                     });
                   },
                   child: Icon(showObservations ? Icons.add : Icons.list),
@@ -1897,8 +2730,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   Widget _infoBox(String title, String value, {required bool isDark}) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      // No background color, so it stays transparent and matches card bg
-      // color: Colors.transparent, // optional, can keep or remove color property
       child: RichText(
         text: TextSpan(
           children: [
@@ -1920,4 +2751,17 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       ),
     );
   }
+}
+
+Widget _popupRow(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("$label: ", style: TextStyle(fontWeight: FontWeight.bold)),
+        Expanded(child: Text(value)),
+      ],
+    ),
+  );
 }

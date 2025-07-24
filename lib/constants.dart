@@ -12,8 +12,10 @@ class AppSettings {
 class SiteObservationActions {
   static const int Created = 1;
   static const int Assigned = 2;
-  static const int DocUploaded = 3;
+  static const int DocUploaded = 3; // ✅ Ye confirm hona chahiye
   static const int Commented = 4;
+  static const int Closed = 5;
+  static const int ReOpened = 6;
 }
 
 class SiteObservationStatus {
@@ -23,6 +25,7 @@ class SiteObservationStatus {
   static const int Closed = 4;
   static const int Reopen = 5;
   static const int WaitingFromThirdParty = 6;
+  static const int Draft = 7;
 
   static const Map<String, int> nameToId = {
     "Open": Open,
@@ -31,6 +34,7 @@ class SiteObservationStatus {
     "Closed": Closed,
     "Reopen": Reopen,
     "Waiting From Third Party": WaitingFromThirdParty,
+    "Draft": Draft,
   };
 
   static const Map<int, String> idToName = {
@@ -40,6 +44,7 @@ class SiteObservationStatus {
     Closed: "Closed",
     Reopen: "Reopen",
     WaitingFromThirdParty: "Waiting From Third Party",
+    Draft: "Draft",
   };
 }
 

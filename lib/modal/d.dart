@@ -1,1779 +1,1449 @@
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:flutter_mentions/flutter_mentions.dart';
-import 'package:himappnew/constants.dart';
-import 'package:himappnew/model/siteobservation_model.dart';
-import 'package:himappnew/service/site_observation_service.dart';
-import 'package:himappnew/shared_prefs_helper.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter_portal/flutter_portal.dart';
+class SiteObservation {
+  final int id;
+  final String siteObservationCode;
+  final String observationDescription;
+  final String observationType;
+  final String issueType;
+  final String functionType;
+  // final int observationStatusId;
+  final String observationStatus;
+  final String projectName;
+  final DateTime transactionDate;
+  final DateTime dueDate;
+  final bool compliancerequired;
+  final bool escalationrequired;
 
-class ObservationQCDetailDialog extends StatefulWidget {
-  final GetSiteObservationMasterById detail;
-  final SiteObservationService siteObservationService;
-  final int siteObservationId;
-  final String? createdBy;
-  final int? activityId;
-  final int projectID;
-
-  const ObservationQCDetailDialog({
-    super.key,
-    required this.detail,
-    required this.siteObservationService,
-    required this.siteObservationId,
-    required this.createdBy,
-    required this.activityId,
-    required this.projectID,
+  SiteObservation({
+    required this.id,
+    required this.siteObservationCode,
+    required this.observationDescription,
+    required this.observationType,
+    required this.issueType,
+    required this.functionType,
+    // required this.observationStatusId,
+    required this.observationStatus,
+    required this.projectName,
+    required this.transactionDate,
+    required this.dueDate,
+    required this.compliancerequired,
+    required this.escalationrequired,
   });
 
-  @override
-  _ObservationQCDetailDialogState createState() =>
-      _ObservationQCDetailDialogState();
+  factory SiteObservation.fromJson(Map<String, dynamic> json) {
+    // print("observation:$json");
+
+    return SiteObservation(
+      id: (json['ID'] ?? 0) as int,
+      siteObservationCode: json['SiteObservationCode'] ?? 'N/A',
+      observationDescription: json['ObservationDescription'] ?? 'N/A',
+      observationType: json['observationtype'] ?? 'N/A',
+      issueType: json['issuetype'] ?? 'N/A',
+      functionType: json['functiontype'] ?? 'N/A',
+      // observationStatusId: (json['observationStatusId'] as num).toInt(),
+      observationStatus: json['ObservationStatus'] ?? 'N/A',
+      projectName: json['ProjectName'] ?? 'N/A',
+      transactionDate: _parseDate(json['TrancationDate']),
+      dueDate: _parseDate(json['DueDate']),
+      compliancerequired: json['ComplianceRequired'] ?? false,
+      escalationrequired: json['EscalationRequired'] ?? false,
+    );
+  }
+
+  static DateTime _parseDate(dynamic dateStr) {
+    if (dateStr == null || (dateStr is String && dateStr.trim().isEmpty)) {
+      return DateTime(2000); // default fallback date
+    }
+
+    try {
+      return DateTime.parse(dateStr);
+    } catch (e) {
+      return DateTime(2000); // fallback on parse error
+    }
+  }
 }
 
-class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
-  bool isLoading = false;
-  String? selectedStatus;
-  List<Map<String, String>> observationStatus = [];
+class IssueType {
+  final int id;
+  final String name;
+  final int observationTypeID; // optional if you want to keep it
 
-  List<RootCause> rootCauses = [];
-  RootCause? selectedRootCause;
-  bool isStatusEnabled = false;
-  bool isEditingRootCause = false;
-  bool isButtonDisabled = false;
+  IssueType({
+    required this.id,
+    required this.name,
+    required this.observationTypeID,
+  });
 
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController rootCauseController = TextEditingController();
-  final TextEditingController reworkCostController = TextEditingController();
-  final TextEditingController preventiveActionController =
-      TextEditingController();
-  final TextEditingController correctiveActionController =
-      TextEditingController();
-  final TextEditingController _activityCommentController =
-      TextEditingController();
-  final GlobalKey<FlutterMentionsState> mentionsKey =
-      GlobalKey<FlutterMentionsState>();
-
-  String? selectedFileName;
-  List<String> uploadedFiles = [];
-  bool showSaveAttachmentButton = false;
-  String url = AppSettings.url;
-
-  int? userId;
-  String? currentUserName;
-  late GetSiteObservationMasterById currentDetail;
-  List<User> allUsers = [];
-  late int editingUserId;
-  List<Map<String, String>> userList = [];
-  List<User> selectedUsers = [];
-  List<ActivityDTO> activities = [];
-
-  @override
-  void initState() {
-    super.initState();
-    print("widget.detail ${widget.detail}");
-    currentDetail = widget.detail;
-    _setupPage();
+  factory IssueType.fromJson(Map<String, dynamic> json) {
+    return IssueType(
+      id: json['id'],
+      name: json['name'],
+      observationTypeID: json['observationTypeID'],
+    );
   }
+}
 
-  Future<void> _setupPage() async {
-    final statusId = widget.detail.statusID;
-    print('🔁 rawStatus: $statusId');
+// class Activities {
+//   final int id;
+//   final String activityName;
 
-    if (statusId != 0) {
-      selectedStatus = statusId.toString(); // <-- Yeh add karo
-      await setObservationStatusDropdown(
-        statusId,
-        widget.detail.createdBy,
-        widget.detail,
-      );
-    } else {
-      print("⚠️ Invalid status name: ${widget.detail.statusName}");
-    }
-    await _loadRootCauses(); // wait for root causes to load before proceeding
+//   Activities({required this.id, required this.activityName});
 
-    _initializeFormFields(); // now safe to initialize form fields with loaded data
+//   // From JSON constructor to convert the response data to Activities object
+//   factory Activities.fromJson(Map<String, dynamic> json) {
+//     return Activities(
+//       id: json['id'],
+//       activityName: json['activityName'],
+//     );
+//   }
+// }
 
-    editingUserId = widget.siteObservationId;
-    await initData(); // optionally await this if it’s async
+class Activities {
+  final int id;
+  final String activityName;
+
+  Activities({required this.id, required this.activityName});
+
+  // From JSON constructor to convert the response data to Activities object
+  factory Activities.fromJson(Map<String, dynamic> json) {
+    return Activities(
+      id: json['id'] ?? 0, // Default to 0 if id is missing or null
+      activityName: json['activityName'] ??
+          'Unknown', // Default to 'Unknown' if activityName is null
+    );
   }
+}
 
-  Future<void> initData() async {
-    int projectID = widget.projectID;
-    await fetchUsers();
-    userId = await SharedPrefsHelper.getUserId();
-    currentUserName = await SharedPrefsHelper.getUserName();
+class Observation {
+  final int id;
+  final int observationTypeID;
+  final int issueTypeID;
+  final String observationDescription;
+  final bool complianceRequired;
+  final bool escalationRequired;
+  final int dueTimeInHrs;
+  final String actionToBeTaken;
+  final String lastModifiedBy;
+  final String lastModifiedDate;
+
+  Observation({
+    required this.id,
+    required this.observationTypeID,
+    required this.issueTypeID,
+    required this.observationDescription,
+    required this.complianceRequired,
+    required this.escalationRequired,
+    required this.dueTimeInHrs,
+    required this.actionToBeTaken,
+    required this.lastModifiedBy,
+    required this.lastModifiedDate,
+  });
+
+  factory Observation.fromJson(Map<String, dynamic> json) {
+    return Observation(
+      id: (json['id'] as num).toInt(),
+      observationTypeID: (json['observationTypeID'] as num).toInt(),
+      issueTypeID: (json['issueTypeID'] as num).toInt(),
+      observationDescription: json['observationDescription'] ?? '',
+      complianceRequired: json['complianceRequired'] ?? false,
+      escalationRequired: json['escalationRequired'] ?? false,
+      dueTimeInHrs: (json['dueTimeInHrs'] as num).toInt(),
+      actionToBeTaken: json['actionToBeTaken'] ?? '',
+      lastModifiedBy: json['lastModifiedBy'].toString(),
+      lastModifiedDate: DateTime.parse(json['lastModifiedDate']).toString(),
+    );
   }
+}
 
-  void _initializeFormFields() {
-    if (selectedStatus == SiteObservationStatus.Open.toString()) {
-      try {
-        if (widget.detail.rootCauseID != null &&
-            widget.detail.rootCauseID != 0) {
-          selectedRootCause = rootCauses.firstWhere(
-            (rc) => rc.id == widget.detail.rootCauseID,
-          );
-        } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-          selectedRootCause = rootCauses.first;
-        } else {
-          selectedRootCause = null;
-        }
-      } catch (e) {
-        selectedRootCause = null;
-      }
+class ObservationType {
+  final String uniqueID;
+  final int id;
+  final String name;
+  final int statusID;
+  final bool isActive;
 
-      reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
-      preventiveActionController.text =
-          widget.detail.preventiveActionTaken ?? '';
-      correctiveActionController.text =
-          widget.detail.corretiveActionToBeTaken ?? '';
-    }
-    if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-        selectedStatus == SiteObservationStatus.Closed.toString()) {
-      try {
-        if (widget.detail.rootCauseID != null &&
-            widget.detail.rootCauseID != 0) {
-          selectedRootCause = rootCauses.firstWhere(
-            (rc) => rc.id == widget.detail.rootCauseID,
-          );
-        } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-          selectedRootCause = rootCauses.first;
-        } else {
-          selectedRootCause = null;
-        }
-      } catch (e) {
-        selectedRootCause = null;
-      }
+  ObservationType({
+    required this.uniqueID,
+    required this.id,
+    required this.name,
+    required this.statusID,
+    required this.isActive,
+  });
 
-      reworkCostController.text = widget.detail.reworkCost != null
-          ? widget.detail.reworkCost!.toStringAsFixed(2)
-          : '';
-      preventiveActionController.text =
-          widget.detail.preventiveActionTaken ?? '';
-      correctiveActionController.text =
-          widget.detail.corretiveActionToBeTaken ?? '';
-    }
+  factory ObservationType.fromJson(Map<String, dynamic> json) {
+    return ObservationType(
+      uniqueID: json['uniqueID'],
+      id: json['id'],
+      name: json['name'],
+      statusID: json['statusID'],
+      isActive: json['isActive'],
+    );
   }
+}
 
-  Future<void> _loadRootCauses() async {
-    setState(() => isLoading = true);
-    try {
-      int? companyId = await SharedPrefsHelper.getCompanyId();
-      if (companyId == null) {
-        print('Error: Company ID is null');
-        return;
-      }
-      rootCauses =
-          await SiteObservationService().fatchRootCausesByActivityID(companyId);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load root causes: $e')),
-      );
-    } finally {
-      setState(() => isLoading = false);
-    }
+class Area {
+  final int id;
+  final String sectionName;
+  final String labelName;
+  final bool selected;
+
+  Area(
+      {required this.id,
+      required this.sectionName,
+      required this.labelName,
+      required this.selected});
+
+  // Factory constructor to convert JSON to Area object
+  factory Area.fromJson(Map<String, dynamic> json) {
+    return Area(
+      id: json['id'],
+      sectionName: json['sectionName'],
+      labelName: json['labelName'],
+      selected: json['selected'],
+    );
   }
+}
 
-  Future<UpdateSiteObservation> getUpdatedDataFromForm(
-      List<String> uploadedFiles) async {
-    int id = widget.detail.id;
-    int rootCauseID = selectedRootCause?.id ?? 0;
+// Factory constructor to convert JSON to Floor object
+class Floor {
+  final int id;
+  final String floorName;
+  final String labelName;
+  final bool selected;
 
-    List<ActivityDTO> activities = [];
-    int selectedStatusId =
-        int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
-    if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
-      activities.add(
-        ActivityDTO(
-          id: 0,
-          siteObservationID: id,
-          actionID: SiteObservationActions.Assigned,
-          actionName: 'Assigned',
-          comments: '',
-          documentName: '',
-          fromStatusID: SiteObservationStatus.Open,
-          toStatusID: SiteObservationStatus.ReadyToInspect,
-          assignedUserID: widget.detail.createdBy,
-          assignedUserName: null,
-          createdBy: userId!.toString(),
-          createdDate: DateTime.now(),
-        ),
-      );
-      print("🔁 selectedStatusId 510: $selectedStatusId");
-    } else if (selectedStatusId == SiteObservationStatus.Reopen) {
-      final assignedUsers =
-          await SiteObservationService().fetchGetassignedusersforReopen(id);
-      print("🔁 Assigned Users: $assignedUsers");
-      String currentUserId = userId!.toString();
-      // Add an activity for each assigned user
-      for (var user in assignedUsers) {
-        activities.add(
-          ActivityDTO(
-            id: 0,
-            siteObservationID: id,
-            actionID: SiteObservationActions.Assigned,
-            actionName: 'Assigned',
-            comments: '',
-            documentName: '',
-            fromStatusID: SiteObservationStatus.Open,
-            toStatusID: SiteObservationStatus.Reopen,
-            assignedUserID: user.assignedUserID,
-            createdBy: currentUserId,
-            createdDate: DateTime.now(),
-          ),
-        );
-      }
-    }
+  Floor(
+      {required this.id,
+      required this.floorName,
+      required this.labelName,
+      required this.selected});
 
-    // Add file uploads if available
-    for (String fileName in uploadedFiles) {
-      activities.add(
-        ActivityDTO(
-          id: 0,
-          siteObservationID: id,
-          actionID: SiteObservationActions.DocUploaded,
-          actionName: 'DocUploaded',
-          comments: '',
-          documentName: fileName,
-          fromStatusID: 0,
-          toStatusID: 0,
-          assignedUserID: userId!,
-          assignedUserName: null,
-          createdBy: userId!.toString(),
-          createdDate: DateTime.now(),
-        ),
-      );
-    }
+  // Factory constructor to convert JSON to Floor object
+  factory Floor.fromJson(Map<String, dynamic> json) {
+    return Floor(
+      id: json['id'],
+      floorName: json['floorName'],
+      labelName: json['labelName'],
+      selected: json['selected'],
+    );
+  }
+}
 
-    return UpdateSiteObservation(
-      id: id,
-      rootCauseID: rootCauseID,
-      corretiveActionToBeTaken: correctiveActionController.text,
-      preventiveActionTaken: preventiveActionController.text,
-      reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
-      statusID: selectedStatusId,
-      lastModifiedBy: userId!,
-      lastModifiedDate: DateTime.now(),
-      activityDTO: activities,
+// Factory constructor to convert JSON to Floor object
+class Part {
+  final int id;
+  final String partName;
+  final String labelName;
+  final bool selected;
+
+  Part(
+      {required this.id,
+      required this.partName,
+      required this.labelName,
+      required this.selected});
+
+  // Factory constructor to convert JSON to Part object
+  factory Part.fromJson(Map<String, dynamic> json) {
+    return Part(
+      id: json['id'],
+      partName: json['partName'],
+      labelName: json['labelName'],
+      selected: json['selected'],
+    );
+  }
+}
+
+// Factory constructor to convert JSON to Element object
+class Elements {
+  final int id;
+  final String elementName;
+  final String labelName;
+  final bool selected;
+
+  Elements(
+      {required this.id,
+      required this.elementName,
+      required this.labelName,
+      required this.selected});
+
+  // Factory constructor to convert JSON to Part object
+  factory Elements.fromJson(Map<String, dynamic> json) {
+    return Elements(
+      id: json['id'],
+      elementName: json['elementName'],
+      labelName: json['labelName'],
+      selected: json['selected'],
+    );
+  }
+}
+
+// Factory constructor to convert JSON to Party object
+class Party {
+  String uniqueID;
+  int id;
+  String partyName;
+  int partyTypeID;
+  int createdBy;
+  DateTime createdDate;
+  int lastModifiedBy;
+  DateTime lastModifiedDate;
+
+  // Constructor
+  Party({
+    required this.uniqueID,
+    required this.id,
+    required this.partyName,
+    required this.partyTypeID,
+    required this.createdBy,
+    required this.createdDate,
+    required this.lastModifiedBy,
+    required this.lastModifiedDate,
+  });
+
+  // Convert a JSON object to a Party object
+  factory Party.fromJson(Map<String, dynamic> json) {
+    return Party(
+      uniqueID: json['uniqueID'],
+      id: json['id'],
+      partyName: json['partyName'],
+      partyTypeID: json['partyTypeID'],
+      createdBy: json['createdBy'],
+      createdDate: DateTime.parse(json['createdDate']),
+      lastModifiedBy: json['lastModifiedBy'],
+      lastModifiedDate: DateTime.parse(json['lastModifiedDate']),
     );
   }
 
-  String getStatusNameFromId(String id) {
-    final status = observationStatus.firstWhere(
-      (e) => e['id'].toString() == id,
-      orElse: () => {'name': 'Unknown'},
+  // // Convert a Party object to a JSON object
+  // Map<String, dynamic> toJson() {
+  //   return {
+  //     'uniqueID': uniqueID,
+  //     'id': id,
+  //     'partyName': partyName,
+  //     'partyTypeID': partyTypeID,
+  //     'createdBy': createdBy,
+  //     'createdDate': createdDate.toIso8601String(),
+  //     'lastModifiedBy': lastModifiedBy,
+  //     'lastModifiedDate': lastModifiedDate.toIso8601String(),
+  //   };
+  // }
+}
+
+class User {
+  final int id;
+  final String userName;
+
+  User({required this.id, required this.userName});
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'] ?? 0,
+      userName: json['userName'] ?? '',
     );
-    return status['name'] ?? 'Unknown';
-  }
-
-  Future<void> setObservationStatusDropdown(
-      int statusId, int? createdBy, GetSiteObservationMasterById detail) async {
-    int? userID = await SharedPrefsHelper.getUserId();
-    var isAssign = detail.activityDTO
-        .where((activity) => activity.assignedUserID == userID)
-        .toList();
-
-    List<Map<String, String>> newStatusList = [];
-    String? newSelectedStatus;
-    bool newStatusEnabled = true;
-
-    switch (statusId) {
-      case SiteObservationStatus.Closed:
-        newStatusList = [
-          {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"}
-        ];
-        newSelectedStatus = SiteObservationStatus.Closed.toString();
-        newStatusEnabled = false;
-        break;
-
-      case SiteObservationStatus.ReadyToInspect:
-        if (createdBy == userID) {
-          newStatusList = [
-            {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"},
-            {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"},
-            {
-              "id": SiteObservationStatus.ReadyToInspect.toString(),
-              "name": "Ready To Inspect"
-            }
-          ];
-        } else if (isAssign.isEmpty && createdBy != userID) {
-          newStatusList = [
-            {
-              "id": SiteObservationStatus.ReadyToInspect.toString(),
-              "name": "Ready To Inspect"
-            }
-          ];
-          newStatusEnabled = false;
-        }
-        newSelectedStatus = SiteObservationStatus.ReadyToInspect.toString();
-        break;
-
-      case SiteObservationStatus.Open:
-        newStatusList = [
-          {"id": SiteObservationStatus.Open.toString(), "name": "Open"},
-          {
-            "id": SiteObservationStatus.InProgress.toString(),
-            "name": "In Progress"
-          },
-          {
-            "id": SiteObservationStatus.ReadyToInspect.toString(),
-            "name": "Ready To Inspect"
-          },
-        ];
-        newSelectedStatus = SiteObservationStatus.Open.toString();
-        break;
-
-      default:
-        newStatusList = [
-          {
-            "id": SiteObservationStatus.InProgress.toString(),
-            "name": "In Progress"
-          },
-          {
-            "id": SiteObservationStatus.ReadyToInspect.toString(),
-            "name": "Ready To Inspect"
-          },
-        ];
-        newSelectedStatus = statusId.toString();
-        break;
-    }
-    if (!newStatusList.any((s) => s['id'] == statusId.toString())) {
-      newStatusList.add({
-        "id": statusId.toString(),
-        "name": SiteObservationStatus.idToName[statusId] ?? "Reopen"
-      });
-    }
-    setState(() {
-      observationStatus = newStatusList;
-      final statusExists =
-          newStatusList.any((item) => item['id'] == newSelectedStatus);
-      selectedStatus = statusExists ? newSelectedStatus : null;
-      isStatusEnabled = newStatusEnabled;
-      if (!statusExists) {
-        print(
-            '⚠️ selectedStatus "$newSelectedStatus" not found in dropdown list');
-      }
-    });
-  }
-
-  Future<void> _sendActivityComment() async {
-    try {
-      final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
-      final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
-      final Iterable<RegExpMatch> matches = mentionRegex.allMatches(markupText);
-      print("🔁 Matches found: $markupText");
-      List<User> selectedUsers = matches.map((match) {
-        String rawIdStr = match.group(1)!;
-        String rawUserName = match.group(2)!;
-
-        String cleanedIdStr = rawIdStr.replaceAll('_', '');
-        String cleanedUserName = rawUserName.replaceAll('_', '');
-
-        int userId = int.tryParse(cleanedIdStr) ?? 0;
-
-        final matchedUser = allUsers.firstWhere(
-          (user) => user.id == userId,
-          orElse: () => User(id: 0, userName: ''),
-        );
-
-        String finalUserName = matchedUser.userName.isNotEmpty
-            ? matchedUser.userName
-            : cleanedUserName;
-
-        return User(id: userId, userName: finalUserName);
-      }).toList();
-
-      int? createdBy = await SharedPrefsHelper.getUserId();
-
-      List<ActivityDTO> activities = [];
-
-      final commentText =
-          mentionsKey.currentState?.controller?.text.trim() ?? "";
-
-      // Remove mentions to get only the actual comment text
-      final plainComment =
-          commentText.replaceAll(RegExp(r'\@\[(.*?)\]\((.*?)\)'), '').trim();
-
-      bool hasMentions = selectedUsers.isNotEmpty;
-      bool hasComment = plainComment.isNotEmpty;
-
-      // 1) Agar sirf mention hai (comment empty) → assigned activity banega
-      if (hasMentions && !hasComment) {
-        for (var user in selectedUsers) {
-          activities.add(ActivityDTO(
-            id: 0,
-            siteObservationID: editingUserId,
-            actionID: SiteObservationActions.Assigned,
-            actionName: "Assigned",
-            comments: "",
-            documentName: "",
-            fromStatusID: 0,
-            toStatusID: 0,
-            assignedUserID: user.id,
-            assignedUserName: user.userName,
-            createdBy: createdBy.toString(),
-            createdDate: DateTime.now(),
-          ));
-        }
-      }
-
-      // 2) Agar sirf comment hai (mention nahi) → comment activity banega
-      else if (!hasMentions && hasComment) {
-        activities.add(ActivityDTO(
-          id: 0,
-          siteObservationID: editingUserId,
-          actionID: SiteObservationActions.Commented,
-          actionName: "Commented",
-          comments: plainComment,
-          documentName: "",
-          fromStatusID: 0,
-          toStatusID: 0,
-          assignedUserID: 0,
-          createdBy: createdBy.toString(),
-          createdDate: DateTime.now(),
-        ));
-      }
-
-      // 3) Agar dono mention + comment hain → dono activities banenge
-      else if (hasMentions && hasComment) {
-        for (var user in selectedUsers) {
-          activities.add(ActivityDTO(
-            id: 0,
-            siteObservationID: editingUserId,
-            actionID: SiteObservationActions.Assigned,
-            actionName: "Assigned",
-            comments: "",
-            documentName: "",
-            fromStatusID: 0,
-            toStatusID: 0,
-            assignedUserID: user.id,
-            assignedUserName: user.userName,
-            createdBy: createdBy.toString(),
-            createdDate: DateTime.now(),
-          ));
-        }
-
-        activities.add(ActivityDTO(
-          id: 0,
-          siteObservationID: editingUserId,
-          actionID: SiteObservationActions.Commented,
-          actionName: "Commented",
-          comments: plainComment,
-          documentName: "",
-          fromStatusID: 0,
-          toStatusID: 0,
-          assignedUserID: 0,
-          createdBy: createdBy.toString(),
-          createdDate: DateTime.now(),
-        ));
-      }
-      // Agar dono mention aur comment nahi hain, activities empty hain, kuch nahi karna
-      if (activities.isEmpty) {
-        print("No valid activity to send.");
-        return;
-      }
-
-      bool success = await SiteObservationService().sendSiteObservationActivity(
-        activities: activities,
-        siteObservationID: editingUserId,
-      );
-
-      if (success) {
-        print("✅ Successfully posted activity!");
-        mentionsKey.currentState?.controller?.clear();
-        _activityCommentController.clear();
-
-        setState(() {
-          widget.detail.activityDTO.insertAll(0, activities);
-        });
-      } else {
-        print("❌ Failed to post activity!");
-      }
-    } catch (e, st) {
-      print("Error in _sendActivityComment: $e");
-      print(st);
-    }
-  }
-
-  fetchUsers() async {
-    setState(() {
-      isLoading = true;
-    });
-
-    try {
-      int projectID = widget.projectID;
-      final response = await SiteObservationService().fetchUsersForList(
-        projectId: projectID,
-      );
-
-      setState(() {
-        userList = response
-            .map((u) => {
-                  'id': u.id.toString(),
-                  'display': u.userName,
-                  'full_name': '${u.firstName} ${u.lastName}',
-                })
-            .toList();
-      });
-    } catch (e) {
-      print('Error fetching users: $e');
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              widget.detail.observationCode ?? 'No Code',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            // Add this line
-            child: DropdownButtonFormField<String>(
-              value: selectedStatus, // must be String
-              hint: const Text("-- Status --"),
-              isExpanded: true,
-              items: observationStatus.map((status) {
-                final idStr = status['id'].toString(); // also String
-                final id = int.tryParse(idStr);
-                final name = SiteObservationStatus.idToName[id] ??
-                    status['name'] ??
-                    'Unknown';
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is User && runtimeType == other.runtimeType && id == other.id;
 
-                return DropdownMenuItem<String>(
-                  value: idStr,
-                  child: Text(name),
-                );
-              }).toList(),
-              onChanged: isStatusEnabled
-                  ? (newValue) {
-                      setState(() {
-                        selectedStatus = newValue!;
-                      });
-                    }
-                  : null,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please select a status';
-                }
-                return null;
-              },
-            ),
-          ),
-        ],
-      ),
-      content: Portal(
-        child: SizedBox(
-          width: double.maxFinite,
-          child: DefaultTabController(
-            length: 3,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const TabBar(
-                  labelColor: Colors.black,
-                  tabs: [
-                    Tab(text: "Detail"),
-                    Tab(text: "Attachment"),
-                    Tab(text: "Activity"),
-                  ],
-                ),
-                SizedBox(
-                  height: 422,
-                  width: 700,
-                  child: TabBarView(
-                    children: [
-                      _buildDetailTab(),
-                      _buildAttachmentTab(),
-                      _buildActivityTab(), // contains FlutterMentions
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          child: const Text("Close"),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ],
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() => userName; // Optional: for logging
+}
+
+class Activity {
+  final int id;
+  final String activityName;
+
+  Activity({
+    required this.id,
+    required this.activityName,
+  });
+
+  factory Activity.fromJson(Map<String, dynamic> json) {
+    return Activity(
+      id: json['id'],
+      activityName: json['activityName'],
+    );
+  }
+}
+
+class RootCause {
+  final int id;
+  final String rootCauseName;
+  final bool selected;
+
+  RootCause({
+    required this.id,
+    required this.rootCauseName,
+    this.selected = false,
+  });
+
+  factory RootCause.fromJson(Map<String, dynamic> json) {
+    return RootCause(
+      id: json['id'],
+      rootCauseName: json['rootCauseName'],
+      selected: json['selected'] ?? false, // ✅ default value
     );
   }
 
-  Widget _buildDetailTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.detail.description ?? 'N/A',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Table(
-            columnWidths: const {
-              0: FlexColumnWidth(1),
-              1: FlexColumnWidth(1),
-            },
-            children: [
-              _buildAlignedRow(
-                  "Observation Date : ",
-                  _formatDate(widget.detail.trancationDate),
-                  "Created Date : ",
-                  _formatDate(widget.detail.createdDate)),
-              _buildAlignedRow(
-                "Observation Type : ",
-                widget.detail.observationType ?? 'N/A',
-                "Issue Type : ",
-                widget.detail.issueType ?? 'N/A',
-              ),
-              _buildAlignedRow(
-                  "Created By : ",
-                  widget.detail.createdByName ?? 'N/A',
-                  "Due Date : ",
-                  _formatDate(widget.detail.dueDate)),
-              _buildAlignedRow(
-                  "Activity : ",
-                  widget.detail.activityName ?? 'N/A',
-                  "Section : ",
-                  widget.detail.sectionName ?? 'N/A'),
-              _buildAlignedRow("Floor : ", widget.detail.floorName ?? 'N/A',
-                  "Part : ", widget.detail.partName ?? 'N/A'),
-              _buildAlignedRow("Element : ", widget.detail.elementName ?? 'N/A',
-                  "Contractor : ", widget.detail.contractorName ?? 'N/A'),
-              _buildAlignedRow(
-                  "Compliance Required : ",
-                  widget.detail.complianceRequired ? 'True' : 'False',
-                  "Escalation Required : ",
-                  widget.detail.escalationRequired ? 'True' : 'False'),
-            ],
-          ),
-          const SizedBox(height: 24), // spacing between detail and form
-          // Root Cause Form below details
-          _buildRootCauseForm(),
-        ],
-      ),
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RootCause && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() {
+    return 'RootCause(id: $id, rootCauseName: $rootCauseName, selected: $selected)';
+  }
+}
+
+// site_observation_model.dart
+class SiteObservationModel {
+  final String uniqueID;
+  final int id;
+  final String siteObservationCode;
+  final String trancationDate;
+  final int observationRaisedBy;
+  final int observationID;
+  final int observationTypeID;
+  final int issueTypeID;
+  final String? dueDate;
+  final String observationDescription;
+  final String? userDescription;
+  final bool complianceRequired;
+  final bool escalationRequired;
+  final String actionToBeTaken;
+  final int companyID;
+  final int projectID;
+  final int functionID;
+  final int activityID;
+  final int observedBy;
+  final int sectionID;
+  final int floorID;
+  final int partID;
+  final int elementID;
+  final int contractorID;
+  final double reworkCost;
+  final String comments;
+  final int rootCauseID;
+  final String corretiveActionToBeTaken;
+  final String preventiveActionTaken;
+  final int statusID;
+  final bool isActive;
+  final int createdBy;
+  final String createdDate;
+  final int lastModifiedBy;
+  final String lastModifiedDate;
+  final List<SiteObservationActivity> siteObservationActivity;
+
+  SiteObservationModel({
+    required this.uniqueID,
+    required this.id,
+    required this.siteObservationCode,
+    required this.trancationDate,
+    required this.observationRaisedBy,
+    required this.observationID,
+    required this.observationTypeID,
+    required this.issueTypeID,
+    required this.dueDate,
+    required this.observationDescription,
+    this.userDescription,
+    required this.complianceRequired,
+    required this.escalationRequired,
+    required this.actionToBeTaken,
+    required this.companyID,
+    required this.projectID,
+    required this.functionID,
+    required this.activityID,
+    required this.observedBy,
+    required this.sectionID,
+    required this.floorID,
+    required this.partID,
+    required this.elementID,
+    required this.contractorID,
+    required this.reworkCost,
+    required this.comments,
+    required this.rootCauseID,
+    required this.corretiveActionToBeTaken,
+    required this.preventiveActionTaken,
+    required this.statusID,
+    required this.isActive,
+    required this.createdBy,
+    required this.createdDate,
+    required this.lastModifiedBy,
+    required this.lastModifiedDate,
+    required this.siteObservationActivity,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'uniqueID': uniqueID,
+      'id': id,
+      'siteObservationCode': siteObservationCode,
+      'trancationDate': trancationDate,
+      'observationRaisedBy': observationRaisedBy,
+      "observationID": observationID,
+      'observationTypeID': observationTypeID,
+      'issueTypeID': issueTypeID,
+      'dueDate': dueDate,
+      'observationDescription': observationDescription,
+      'userDescription': userDescription,
+      'complianceRequired': complianceRequired,
+      'escalationRequired': escalationRequired,
+      'actionToBeTaken': actionToBeTaken,
+      'companyID': companyID,
+      'projectID': projectID,
+      'functionID': functionID,
+      'activityID': activityID,
+      'observedBy': observedBy,
+      'sectionID': sectionID,
+      'floorID': floorID,
+      'partID': partID,
+      'elementID': elementID,
+      'contractorID': contractorID,
+      'reworkCost': reworkCost,
+      'comments': comments,
+      'rootCauseID': rootCauseID,
+      'corretiveActionToBeTaken': corretiveActionToBeTaken,
+      'preventiveActionTaken': preventiveActionTaken,
+      'statusID': statusID,
+      'isActive': isActive,
+      'createdBy': createdBy,
+      'createdDate': createdDate,
+      'lastModifiedBy': lastModifiedBy,
+      'lastModifiedDate': lastModifiedDate,
+      'siteObservationActivity':
+          siteObservationActivity.map((e) => e.toJson()).toList(),
+      // 'activityDTO': siteObservationActivity.map((e) => e.toJson()).toList(),
+    };
+  }
+}
+
+// Update & Draft
+// class SiteObservationUpdateDraftModel {
+//   final int id;
+//   final String? dueDate;
+//   final String observationDescription;
+//   final bool complianceRequired;
+//   final bool escalationRequired;
+//   final String actionToBeTaken;
+//   final int activityID;
+//   final int sectionID;
+//   final int floorID;
+//   final int partID;
+//   final int elementID;
+//   final int contractorID;
+//   final int observedBy;
+//   final int statusID;
+//   final int lastModifiedBy;
+//   final String lastModifiedDate;
+//   final List<ActivityDTO> activityDTO;
+
+//   SiteObservationUpdateDraftModel({
+//     required this.id,
+//     this.dueDate,
+//     required this.observationDescription,
+//     required this.complianceRequired,
+//     required this.escalationRequired,
+//     required this.actionToBeTaken,
+//     required this.activityID,
+//     required this.sectionID,
+//     required this.floorID,
+//     required this.partID,
+//     required this.elementID,
+//     required this.contractorID,
+//     required this.observedBy,
+//     required this.statusID,
+//     required this.lastModifiedBy,
+//     required this.lastModifiedDate,
+//     required this.activityDTO,
+//   });
+
+//   Map<String, dynamic> toJson() {
+//     return {
+//       'id': id,
+//       'dueDate': dueDate,
+//       'observationDescription': observationDescription,
+//       'complianceRequired': complianceRequired,
+//       'escalationRequired': escalationRequired,
+//       'actionToBeTaken': actionToBeTaken,
+//       'activityID': activityID,
+//       'sectionID': sectionID,
+//       'floorID': floorID,
+//       'partID': partID,
+//       'elementID': elementID,
+//       'contractorID': contractorID,
+//       "observedBy": observedBy,
+//       'statusID': statusID,
+//       'lastModifiedBy': lastModifiedBy,
+//       'lastModifiedDate': lastModifiedDate,
+//       'activityDTO': activityDTO.map((e) => e.toJson()).toList(),
+//     };
+//   }
+// }
+
+class SiteObservationUpdateDraftModel {
+  final int id;
+  final String? dueDate;
+  final String observationDescription;
+  final bool complianceRequired;
+  final bool escalationRequired;
+  final String actionToBeTaken;
+  final int activityID;
+  final int sectionID;
+  final int floorID;
+  final int partID;
+  final int elementID;
+  final int contractorID;
+  final int observedBy;
+  final int statusID;
+  final int lastModifiedBy;
+  final String lastModifiedDate;
+  final List<ActivityDTO> activityDTO;
+
+  SiteObservationUpdateDraftModel({
+    required this.id,
+    this.dueDate,
+    required this.observationDescription,
+    required this.complianceRequired,
+    required this.escalationRequired,
+    required this.actionToBeTaken,
+    required this.activityID,
+    required this.sectionID,
+    required this.floorID,
+    required this.partID,
+    required this.elementID,
+    required this.contractorID,
+    required this.observedBy,
+    required this.statusID,
+    required this.lastModifiedBy,
+    required this.lastModifiedDate,
+    required this.activityDTO,
+  });
+
+  factory SiteObservationUpdateDraftModel.fromJson(Map<String, dynamic> json) {
+    print("SiteObservationUpdateDraftModel fromJson: $json");
+    return SiteObservationUpdateDraftModel(
+      id: json['id'],
+      dueDate: json['dueDate'],
+      observationDescription: json['observationDescription'],
+      complianceRequired: json['complianceRequired'],
+      escalationRequired: json['escalationRequired'],
+      actionToBeTaken: json['actionToBeTaken'],
+      activityID: json['activityID'],
+      sectionID: json['sectionID'],
+      floorID: json['floorID'],
+      partID: json['partID'],
+      elementID: json['elementID'],
+      contractorID: json['contractorID'],
+      observedBy: json['observedBy'],
+      statusID: json['statusID'],
+      lastModifiedBy: json['lastModifiedBy'],
+      lastModifiedDate: json['lastModifiedDate'],
+      activityDTO: (json['activityDTO'] as List)
+          .map((e) => ActivityDTO.fromJson(e))
+          .toList(),
     );
   }
 
-  TableRow _buildAlignedRow(
-      String label1, String value1, String label2, String value2) {
-    return TableRow(
-      children: [
-        _buildLabelValue(label1, value1),
-        _buildLabelValue(label2, value2),
-      ],
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'dueDate': dueDate,
+        'observationDescription': observationDescription,
+        'complianceRequired': complianceRequired,
+        'escalationRequired': escalationRequired,
+        'actionToBeTaken': actionToBeTaken,
+        'activityID': activityID,
+        'sectionID': sectionID,
+        'floorID': floorID,
+        'partID': partID,
+        'elementID': elementID,
+        'contractorID': contractorID,
+        'observedBy': observedBy,
+        'statusID': statusID,
+        'lastModifiedBy': lastModifiedBy,
+        'lastModifiedDate': lastModifiedDate,
+        'activityDTO': activityDTO.map((e) => e.toJson()).toList(),
+      };
+}
+
+// class ActivityDTO {
+//   final int siteObservationID;
+//   final int actionID;
+//   final String comments;
+//   final String documentName;
+//   final String fileName;
+//   final String fileContentType;
+//   final String filePath;
+//   final int fromStatusID;
+//   final int toStatusID;
+//   final int assignedUserID;
+//   final int createdBy;
+//   final String createdDate;
+
+//   ActivityDTO({
+//     required this.siteObservationID,
+//     required this.actionID,
+//     required this.comments,
+//     required this.documentName,
+//     required this.fileName,
+//     required this.fileContentType,
+//     required this.filePath,
+//     required this.fromStatusID,
+//     required this.toStatusID,
+//     required this.assignedUserID,
+//     required this.createdBy,
+//     required this.createdDate,
+//   });
+
+//   factory ActivityDTO.fromJson(Map<String, dynamic> json) {
+//     return ActivityDTO(
+//       siteObservationID: json['siteObservationID'],
+//       actionID: json['actionID'],
+//       comments: json['comments'],
+//       documentName: json['documentName'],
+//       fileName: json['fileName'],
+//       fileContentType: json['fileContentType'],
+//       filePath: json['filePath'],
+//       fromStatusID: json['fromStatusID'],
+//       toStatusID: json['toStatusID'],
+//       assignedUserID: json['assignedUserID'],
+//       createdBy: json['createdBy'],
+//       createdDate: json['createdDate'],
+//     );
+//   }
+
+//   Map<String, dynamic> toJson() => {
+//         'siteObservationID': siteObservationID,
+//         'actionID': actionID,
+//         'comments': comments,
+//         'documentName': documentName,
+//         'fileName': fileName,
+//         'fileContentType': fileContentType,
+//         'filePath': filePath,
+//         'fromStatusID': fromStatusID,
+//         'toStatusID': toStatusID,
+//         'assignedUserID': assignedUserID,
+//         'createdBy': createdBy,
+//         'createdDate': createdDate,
+//       };
+// }
+
+class SiteObservationActivity {
+  final int id;
+  final int? siteObservationID;
+  final int actionID;
+  final String comments;
+  final String documentName;
+  final String? fileName;
+  final String? fileContentType;
+  final String? filePath;
+  final int fromStatusID;
+  final int toStatusID;
+  final int assignedUserID;
+  final int createdBy;
+  final String createdDate;
+
+  SiteObservationActivity({
+    required this.id,
+    this.siteObservationID,
+    required this.actionID,
+    required this.comments,
+    required this.documentName,
+    this.fileName,
+    this.fileContentType,
+    this.filePath,
+    required this.fromStatusID,
+    required this.toStatusID,
+    required this.assignedUserID,
+    required this.createdBy,
+    required this.createdDate,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      if (siteObservationID != null) 'siteObservationID': siteObservationID,
+      'actionID': actionID,
+      'comments': comments,
+      'documentName': documentName,
+      'fileName': fileName,
+      'fileContentType': fileContentType,
+      'filePath': filePath,
+      'fromStatusID': fromStatusID,
+      'toStatusID': toStatusID,
+      'assignedUserID': assignedUserID,
+      'createdBy': createdBy,
+      'createdDate': createdDate,
+    };
+  }
+
+  factory SiteObservationActivity.fromJson(Map<String, dynamic> json) {
+    return SiteObservationActivity(
+      id: json['id'],
+      siteObservationID: json['siteObservationID'],
+      actionID: json['actionID'],
+      comments: json['comments'],
+      documentName: json['documentName'],
+      fileName: json['fileName'],
+      fileContentType: json['fileContentType'],
+      filePath: json['filePath'],
+      fromStatusID: json['fromStatusID'],
+      toStatusID: json['toStatusID'],
+      assignedUserID: json['assignedUserID'],
+      createdBy: json['createdBy'],
+      createdDate: json['createdDate'],
     );
   }
+}
+// class SiteObservationActivity {
+//   final int id;
+//   final int? siteObservationID;
+//   final int actionID;
+//   final String comments;
+//   final String documentName;
+//   final String? fileName;
+//   final String? fileContentType;
+//   final String? filePath;
+//   final int fromStatusID;
+//   final int toStatusID;
+//   final int assignedUserID;
+//   final int createdBy;
+//   final String createdDate;
 
-  Widget _buildLabelValue(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              value,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+//   SiteObservationActivity({
+//     required this.id,
+//     this.siteObservationID,
+//     required this.actionID,
+//     required this.comments,
+//     required this.documentName,
+//     this.fileName,
+//     this.fileContentType,
+//     this.filePath,
+//     required this.fromStatusID,
+//     required this.toStatusID,
+//     required this.assignedUserID,
+//     required this.createdBy,
+//     required this.createdDate,
+//   });
 
-  String _formatDate(DateTime? date) {
-    return date != null
-        ? DateFormat('dd/MM/yyyy').format(date.toLocal())
-        : 'N/A';
-  }
+//   // From JSON factory constructor
+//   factory SiteObservationActivity.fromJson(Map<String, dynamic> json) {
+//     print("SiteObservationActivity fromJson: $json");
+//     return SiteObservationActivity(
+//       id: json['id'] as int,
+//       siteObservationID: json['siteObservationID'] as int?,
+//       actionID: json['actionID'] as int,
+//       comments: json['comments'] as String,
+//       documentName: json['documentName'] as String,
+//       fileName: json['fileName'] as String?,
+//       fileContentType: json['fileContentType'] as String?,
+//       filePath: json['filePath'] as String?,
+//       fromStatusID: json['fromStatusID'] as int,
+//       toStatusID: json['toStatusID'] as int,
+//       assignedUserID: json['assignedUserID'] as int,
+//       createdBy: json['createdBy'] as int,
+//       createdDate: json['createdDate'] as String,
+//     );
+//   }
 
-//   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-// bool isButtonDisabled = false;
-  // void updateUserList(List<Map<String, dynamic>> newUsers) {
-  //   setState(() {
-  //     userList = newUsers;
-  //   });
+//   // To JSON
+//   Map<String, dynamic> toJson() {
+//     return {
+//       'id': id,
+//       'siteObservationID': siteObservationID,
+//       'actionID': actionID,
+//       'comments': comments,
+//       'documentName': documentName,
+//       'fileName': fileName,
+//       'fileContentType': fileContentType,
+//       'filePath': filePath,
+//       'fromStatusID': fromStatusID,
+//       'toStatusID': toStatusID,
+//       'assignedUserID': assignedUserID,
+//       'createdBy': createdBy,
+//       'createdDate': createdDate,
+//     };
+//   }
+
+//   // Override toString for debugging and printing
+//   @override
+//   String toString() {
+//     return 'SiteObservationActivity('
+//         'id: $id, '
+//         'siteObservationID: $siteObservationID, '
+//         'actionID: $actionID, '
+//         'comments: $comments, '
+//         'documentName: $documentName, '
+//         'fileName: $fileName, '
+//         'fileContentType: $fileContentType, '
+//         'filePath: $filePath, '
+//         'fromStatusID: $fromStatusID, '
+//         'toStatusID: $toStatusID, '
+//         'assignedUserID: $assignedUserID, '
+//         'createdBy: $createdBy, '
+//         'createdDate: $createdDate'
+//         ')';
+//   }
+// }
+
+class NCRObservation {
+  final String uniqueID;
+  final int id;
+  final DateTime trancationDate;
+  final String siteObservationCode;
+  final String? observationRaisedBy;
+  final String observationType;
+  final String? issueType;
+  final DateTime dueDate;
+  final String observationDescription;
+  final bool complianceRequired;
+  final bool escalationRequired;
+  final String? actionToBeTaken;
+  final String? contractorName;
+  final String statusName;
+  final String? assignedUserName;
+
+  NCRObservation({
+    required this.uniqueID,
+    required this.id,
+    required this.trancationDate,
+    required this.siteObservationCode,
+    required this.observationRaisedBy,
+    required this.observationType,
+    required this.issueType,
+    required this.dueDate,
+    required this.observationDescription,
+    required this.complianceRequired,
+    required this.escalationRequired,
+    required this.actionToBeTaken,
+    required this.contractorName,
+    required this.statusName,
+    required this.assignedUserName,
+    // required this.createdDate,
+  });
+
+  // factory NCRObservation.fromJson(Map<String, dynamic> json) {
+  //   return NCRObservation(
+  //     uniqueID: json['uniqueID'] ?? '',
+  //     id: json['id'] ?? 0,
+  //     trancationDate: DateTime.parse(json['trancationDate']),
+  //     siteObservationCode: json['siteObservationCode'] ?? '',
+  //     observationRaisedBy: json['observationRaisedBy'] ?? '',
+  //     observationType: json['observationType'] ?? '',
+  //     issueType: json['issueType'] ?? '',
+  //     dueDate: DateTime.parse(json['dueDate']),
+  //     observationDescription: json['observationDescription'],
+  //     complianceRequired: json['complianceRequired'] ?? false,
+  //     escalationRequired: json['escalationRequired'] ?? false,
+  //     actionToBeTaken: json['actionToBeTaken'] ?? '',
+  //     contractorName: json['contractorName'] ?? '',
+  //     statusName: json['statusName'] ?? '',
+  //     assignedUserName: json['assignedUserName'] ?? '',
+  //     // createdDate: DateTime.parse(
+  //     //     json['createdDate'] ?? DateTime.now().toIso8601String()),
+  //   );
   // }
 
-  Widget _buildRootCauseForm() {
-    return Form(
-      key: _formKey, // <-- Form key yahan lagao
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Existing form fields (Dropdown, TextFormFields)
-            if (selectedStatus ==
-                    SiteObservationStatus.ReadyToInspect.toString() ||
-                selectedStatus == SiteObservationStatus.Closed.toString()) ...[
-              DropdownButtonFormField<RootCause>(
-                value: selectedRootCause,
-                decoration: const InputDecoration(
-                  labelText: 'Select Root Cause',
-                  border: OutlineInputBorder(),
-                ),
-                items: rootCauses.map((cause) {
-                  return DropdownMenuItem<RootCause>(
-                    value: cause,
-                    child: Text(cause.rootCauseName),
-                  );
-                }).toList(),
-                onChanged: (newValue) {
-                  setState(() {
-                    selectedRootCause = newValue;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) return 'Root Cause is required';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: reworkCostController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Rework Cost',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Rework Cost is required';
-                  }
-                  final numValue = num.tryParse(value);
-                  if (numValue == null) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: preventiveActionController,
-                decoration: const InputDecoration(
-                  labelText: 'Preventive Action To Be Taken',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Preventive Action To Be Taken is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: correctiveActionController,
-                decoration: const InputDecoration(
-                  labelText: 'Corrective Action To Be Taken',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Corrective Action To Be Taken is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-            ],
+  factory NCRObservation.fromJson(Map<String, dynamic> json) {
+    print("NCRObservation681:$json");
+    return NCRObservation(
+      uniqueID: json['uniqueID'] ?? '',
+      id: json['id'] ?? 0,
+      trancationDate:
+          DateTime.tryParse(json['trancationDate'] ?? '') ?? DateTime.now(),
+      siteObservationCode: json['siteObservationCode'] ?? '',
+      observationRaisedBy: json['observationRaisedBy']?.toString(),
+      observationType: json['observationType'] ?? '',
+      issueType: json['issueType'], // ✅ nullable
+      dueDate: DateTime.tryParse(json['dueDate'] ?? '') ?? DateTime.now(),
+      observationDescription: json['observationDescription'] ?? '',
+      complianceRequired: json['complianceRequired'] ?? false,
+      escalationRequired: json['escalationRequired'] ?? false,
+      actionToBeTaken: json['actionToBeTaken'], // ✅ nullable
+      contractorName: json['contractorName'], // ✅ nullable
+      statusName: json['statusName'] ?? '',
+      assignedUserName: json['assignedUserName'] ?? '', // ✅ nullable
+    );
+  }
+}
 
-            // File upload section
-            if (selectedStatus ==
-                    SiteObservationStatus.ReadyToInspect.toString() ||
-                selectedStatus == SiteObservationStatus.Closed.toString() ||
-                selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
-              const Text(
-                "Upload File",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  FilePickerResult? result =
-                      await FilePicker.platform.pickFiles(
-                    allowMultiple: false,
-                    withData: true,
-                  );
+class GetSiteObservationMasterById {
+  final int id;
+  final String observationCode;
+  final String description;
+  final String? observationRaisedBy;
+  final String observationType;
+  final int? observationTypeID;
+  final String? issueType;
+  final String? contractorName;
+  final String? actionToBeTaken;
+  final double reworkCost;
+  final int? rootCauseID;
+  final String? corretiveActionToBeTaken;
+  final String? preventiveActionTaken;
+  final String statusName;
+  final int statusID;
+  final int? assignedUserID;
+  final DateTime trancationDate;
+  final DateTime createdDate;
+  final DateTime dueDate;
+  final String activityName;
+  final String sectionName;
+  final String floorName;
+  final String partName;
+  final bool complianceRequired;
+  final bool escalationRequired;
+  final String elementName;
+  final int? createdBy; // Assuming elementID is a String
+  final String? createdByName; // Assuming createdByName is a String
+  final int? activityID; // Assuming activityId is an int
+  final int projectID; // Assuming projectId is a String
+  final String? observedByName;
 
-                  if (result != null && result.files.isNotEmpty) {
-                    final file = result.files.first;
+  final List<ActivityDTO> activityDTO;
+  final List<AssignmentStatusDTO> assignmentStatusDTO;
 
-                    setState(() {
-                      selectedFileName = file.name;
-                    });
+  GetSiteObservationMasterById({
+    required this.id,
+    required this.observationCode,
+    required this.description,
+    this.observationRaisedBy,
+    required this.observationType,
+    this.observationTypeID,
+    this.issueType,
+    this.contractorName,
+    this.actionToBeTaken,
+    required this.reworkCost,
+    this.rootCauseID,
+    this.corretiveActionToBeTaken,
+    this.preventiveActionTaken,
+    required this.statusName,
+    required this.statusID,
+    this.assignedUserID,
+    required this.trancationDate,
+    required this.createdDate,
+    required this.dueDate,
+    required this.activityName,
+    required this.sectionName,
+    required this.floorName,
+    required this.partName,
+    required this.elementName,
+    this.complianceRequired = false,
+    this.escalationRequired = false,
+    required this.createdBy,
+    required this.createdByName,
+    required this.activityID,
+    required this.projectID,
+    this.observedByName,
+    required this.activityDTO,
+    required this.assignmentStatusDTO,
+  });
 
-                    final uploadedFileName = await SiteObservationService()
-                        .uploadFileAndGetFileName(file.name, file.bytes!);
-
-                    if (uploadedFileName != null) {
-                      setState(() {
-                        uploadedFiles.add(uploadedFileName);
-                      });
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("File upload failed")),
-                      );
-                    }
-                  } else {
-                    print("No file selected");
-                  }
-                },
-                child: const Text("Choose File"),
-              ),
-              if (selectedFileName != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  "Selected file: $selectedFileName",
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-              const SizedBox(height: 16),
-            ],
-
-            // Message if form is hidden (adjust condition as per your logic)
-            if (selectedStatus !=
-                    SiteObservationStatus.ReadyToInspect.toString() &&
-                selectedStatus != SiteObservationStatus.InProgress.toString() &&
-                selectedStatus == SiteObservationStatus.Closed.toString() &&
-                selectedStatus == SiteObservationStatus.Reopen.toString())
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  "Root Cause Details are hidden for the current status.",
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-
-            // Update Button with validation
-            if (selectedStatus != SiteObservationStatus.Open.toString())
-              ElevatedButton(
-                onPressed: isButtonDisabled
-                    ? null
-                    : () async {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          setState(() {
-                            isButtonDisabled = true;
-                            isEditingRootCause = false;
-                          });
-
-                          UpdateSiteObservation updatedData =
-                              await getUpdatedDataFromForm(uploadedFiles);
-                          print("🔁 Updated Data: $updatedData");
-
-                          bool success = await SiteObservationService()
-                              .updateSiteObservationByID(updatedData);
-
-                          if (success) {
-                            for (var fileName in uploadedFiles) {
-                              widget.detail.activityDTO.add(
-                                ActivityDTO(
-                                  id: 0,
-                                  siteObservationID: widget.detail.id,
-                                  actionID: SiteObservationActions.DocUploaded,
-                                  actionName: "DocUploaded",
-                                  comments: '',
-                                  documentName: fileName,
-                                  fromStatusID: 0,
-                                  toStatusID: 0,
-                                  assignedUserID: 0,
-                                  assignedUserName: null,
-                                  createdBy: userId.toString(),
-                                  createdDate: DateTime.now(),
-                                ),
-                              );
-                            }
-
-                            setState(() {
-                              uploadedFiles.clear();
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Update successful!')),
-                            );
-
-                            Navigator.of(context).pop(true);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content:
-                                      Text('Update failed! Please try again.')),
-                            );
-                            setState(() {
-                              isButtonDisabled = false;
-                            });
-                          }
-                        } else {
-                          print("Validation failed.");
-                        }
-                      },
-                child: const Text('Update'),
-              ),
-          ],
-        ),
-      ),
+  factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
+    print('GetSiteObservationMasterById.fromJson: $json');
+    return GetSiteObservationMasterById(
+      id: json['id'] ?? 0,
+      observationCode: json['siteObservationCode'] ?? '',
+      description: json['observationDescription'] ?? '',
+      observationRaisedBy: json['observationRaisedBy']?.toString(),
+      observationType: json['observationType'] ?? '',
+      observationTypeID: json['observationTypeID'] ?? 0,
+      issueType: json['issueType'],
+      contractorName: json['contractorName'],
+      actionToBeTaken: json['actionToBeTaken'],
+      reworkCost: (json['reworkCost'] ?? 0).toDouble(),
+      rootCauseID: json['rootCauseID'] as int?,
+      corretiveActionToBeTaken: json['corretiveActionToBeTaken'],
+      preventiveActionTaken: json['preventiveActionTaken'],
+      statusID: json['statusID'] ?? 0,
+      statusName: json['statusName'] ?? '',
+      assignedUserID: json['assignedUserID'],
+      trancationDate: DateTime.parse(json['trancationDate']),
+      createdDate: DateTime.parse(json['createdDate']),
+      createdByName: json['createdByName']?.toString(),
+      dueDate: DateTime.tryParse(json['dueDate'] ?? '') ?? DateTime.now(),
+      activityName: json['activityName'] ?? '',
+      sectionName: json['sectionName'] ?? '',
+      floorName: json['floorName'] ?? '',
+      partName: json['partName'] ?? '',
+      elementName: json['elementName'] ?? '',
+      complianceRequired: json['complianceRequired'] ?? false,
+      escalationRequired: json['escalationRequired'] ?? false,
+      createdBy: json['createdBy'] is int
+          ? json['createdBy']
+          : int.tryParse(json['createdBy']?.toString() ?? '0'),
+      activityID: json['activityID'] as int?,
+      // projectID: json['projectID'] as int,
+      projectID: json['projectID'] != null ? json['projectID'] as int : 0,
+      observedByName: json["observedByName"]?.toString(),
+      activityDTO: (json['activityDTO'] as List<dynamic>?)
+              ?.map((item) => ActivityDTO.fromJson(item))
+              .toList() ??
+          [],
+      assignmentStatusDTO: (json['assignmentStatusDTO'] as List<dynamic>?)
+              ?.map((e) => AssignmentStatusDTO.fromJson(e))
+              .toList() ??
+          [],
     );
   }
 
-  Future<Uint8List?> compressImage(File file) async {
-    final result = await FlutterImageCompress.compressWithFile(
-      file.absolute.path,
-      minWidth: 1024,
-      minHeight: 1024,
-      quality: 70, // 0-100
-    );
-    return result;
+  @override
+  String toString() {
+    return '''
+GetSiteObservationMasterById(
+  id: $id,
+  observationCode: $observationCode,
+  description: $description,
+  observationRaisedBy: $observationRaisedBy,
+  observationType: $observationType,
+  observationTypeID: $observationTypeID,
+  issueType: $issueType,
+  contractorName: $contractorName,
+  actionToBeTaken: $actionToBeTaken,
+  reworkCost: $reworkCost,
+  rootCauseID: $rootCauseID,
+  corretiveActionToBeTaken: $corretiveActionToBeTaken,
+  preventiveActionTaken: $preventiveActionTaken,
+  statusName: $statusName,
+  assignedUserID: $assignedUserID,
+  trancationDate: $trancationDate,
+  createdDate: $createdDate,
+  dueDate: $dueDate,
+  activityName: $activityName,
+  sectionName: $sectionName,
+  floorName: $floorName,
+  partName: $partName,
+  complianceRequired: $complianceRequired,
+  escalationRequired: $escalationRequired,
+  elementName: $elementName,
+  createdBy: $createdBy,
+  activityID: $activityID,
+  projectID: $projectID,
+  activityDTO: $activityDTO
+)
+''';
   }
+}
 
-  String resolveUserName(dynamic value) {
-    if (value == null) return 'Unknown';
+class ActivityDTO {
+  final int? id;
+  final int? siteObservationID;
+  final int? actionID;
+  final String actionName;
+  final String comments;
+  final String documentName;
+  final String? fileName;
+  final String? fileContentType;
+  final String? filePath;
+  final int? fromStatusID;
+  final String? fromStatusName;
+  final int? toStatusID;
+  final String? toStatusName;
+  final int? assignedUserID;
+  final String? assignedUserName;
+  final String
+      createdBy; // changed from int to String because JSON sends string (like "Hardik")
+  final String? createdByName;
+  final DateTime createdDate;
 
-    // Convert to string for consistency
-    final val = value.toString();
+  ActivityDTO({
+    this.id,
+    this.siteObservationID,
+    this.actionID,
+    required this.actionName,
+    required this.comments,
+    required this.documentName,
+    this.fileName,
+    this.fileContentType,
+    this.filePath,
+    this.fromStatusID,
+    this.fromStatusName,
+    this.toStatusID,
+    this.toStatusName,
+    this.assignedUserID,
+    this.assignedUserName,
+    required this.createdBy,
+    this.createdByName,
+    required this.createdDate,
+  });
 
-    // Try to match ID
-    final isId = int.tryParse(val) != null;
-    if (isId) {
-      final user = userList.firstWhere(
-        (u) => u['id'].toString() == val,
-        orElse: () => {'display': 'Unknown'},
-      );
-      return user['display'] ?? 'Unknown';
-    } else {
-      // Match by name (case-insensitive)
-      final user = userList.firstWhere(
-        (u) => (u['display'] as String).toLowerCase() == val.toLowerCase(),
-        orElse: () => {'display': val}, // fallback to value itself
-      );
-      return user['display'] ?? val;
-    }
-  }
-
-  Widget _buildAttachmentTab() {
-    // return Portal(
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            /// Upload Image Button
-            ElevatedButton.icon(
-              onPressed: () async {
-                final ImagePicker picker = ImagePicker();
-                final XFile? pickedFile =
-                    await picker.pickImage(source: ImageSource.gallery);
-
-                if (pickedFile != null) {
-                  File imageFile = File(pickedFile.path);
-                  final fileName = imageFile.path.split('/').last;
-                  final fileBytes = await compressImage(imageFile);
-
-                  if (fileBytes == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Compression failed")),
-                    );
-                    return;
-                  }
-
-                  final uploadedFileName =
-                      await SiteObservationService().uploadFileAndGetFileName(
-                    fileName,
-                    fileBytes,
-                  );
-
-                  if (uploadedFileName != null) {
-                    uploadedFiles.add(uploadedFileName);
-                    setState(() {
-                      showSaveAttachmentButton = true;
-                      widget.detail.activityDTO.add(
-                        ActivityDTO(
-                          id: 0,
-                          siteObservationID: widget.detail.id,
-                          actionID: SiteObservationActions.DocUploaded,
-                          actionName: "DocUploaded",
-                          comments: '',
-                          documentName: uploadedFileName,
-                          fromStatusID: 0,
-                          toStatusID: 0,
-                          assignedUserID: userId!,
-                          assignedUserName: currentUserName,
-                          createdBy: currentUserName!,
-                          createdDate: DateTime.now(),
-                        ),
-                      );
-                    });
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Upload failed.")),
-                    );
-                  }
-                }
-              },
-              icon: const Icon(Icons.upload_file),
-              label: const Text("Upload Image"),
-            ),
-
-            const SizedBox(height: 12),
-
-            /// Save Button
-            if (showSaveAttachmentButton)
-              ElevatedButton(
-                onPressed: () async {
-                  setState(() {
-                    showSaveAttachmentButton = false;
-                  });
-                  UpdateSiteObservation updatedData =
-                      await getUpdatedDataFromForm(uploadedFiles);
-                  bool success = await SiteObservationService()
-                      .updateSiteObservationByID(updatedData);
-                  if (success) {
-                    final newDetail = (await widget.siteObservationService
-                            .fetchGetSiteObservationMasterById(
-                                widget.detail.id))
-                        .first;
-                    setState(() {
-                      currentDetail = newDetail;
-                      uploadedFiles.clear();
-                    });
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Row(
-                          children: const [
-                            Icon(Icons.error, color: Colors.red),
-                            SizedBox(width: 10),
-                            Text("Failed to save attachment."),
-                          ],
-                        ),
-                        backgroundColor: Colors.black87,
-                        duration: Duration(seconds: 3),
-                      ),
-                    );
-                    setState(() {
-                      showSaveAttachmentButton = true;
-                    });
-                  }
-                },
-                child: const Text("Save Attachment"),
-              ),
-
-            const SizedBox(height: 16),
-
-            /// Show Uploaded Images
-            widget.detail.activityDTO.isNotEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: widget.detail.activityDTO
-                        .where((activity) => activity.documentName.isNotEmpty)
-                        .map((activity) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(activity.actionName,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 6),
-                            GestureDetector(
-                              onTap: () {
-                                openImageModal(activity.documentName);
-                              },
-                              child: Container(
-                                height: 150,
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.network(
-                                    isImage(activity.documentName)
-                                        ? "$url/${activity.documentName}"
-                                        : "assets/default-image.png",
-                                    fit: BoxFit.cover,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            const Icon(Icons.broken_image,
-                                                size: 50),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  )
-                : const Text("No attachments available."),
-          ],
-        ),
-      ),
-    );
-    // );
-  }
-
-  Widget _buildActivityTab() {
-    final activities = widget.detail.activityDTO;
-    final statusName = getStatusNameFromId(selectedStatus!);
-    final LayerLink _layerLink = LayerLink();
-    if (activities.isEmpty) {
-      return const Center(child: Text("No activity recorded."));
-    }
-    // Mention related state (inside StatefulBuilder)
-    final TextEditingController _controller = TextEditingController();
-    final FocusNode _focusNode = FocusNode();
-
-    List<Map<String, String>> filteredUsers = [];
-    bool showDropdown = false;
-
-    void onChanged(String val, void Function(void Function()) setState) {
-      final cursorPos = _controller.selection.baseOffset;
-      if (cursorPos > 0 && val[cursorPos - 1] == '@') {
-        filteredUsers = userList;
-        showDropdown = true;
-      } else {
-        showDropdown = false;
-      }
-      setState(() {});
-    }
-
-    void onUserSelected(
-        String userDisplay, void Function(void Function()) setState) {
-      final text = _controller.text;
-      final cursorPos = _controller.selection.baseOffset;
-      final prefix = text.substring(0, cursorPos - 1); // before '@'
-      final suffix = text.substring(cursorPos); // after cursor
-
-      final newText = '$prefix@$userDisplay $suffix';
-
-      _controller.text = newText;
-      _controller.selection = TextSelection.collapsed(
-          offset: prefix.length + userDisplay.length + 2);
-      showDropdown = false;
-      setState(() {});
-    }
-
-    if (activities.isEmpty) {
-      return const Center(child: Text("No activity recorded."));
-    }
-
-    Map<String, List<ActivityDTO>> groupedActivities = {};
-    for (var activity in activities) {
-      String dateKey = activity.createdDate.toLocal().toString().split(' ')[0];
-      String userName = activity.createdBy ?? 'Unknown';
-      String groupKey = "$userName|$dateKey";
-      groupedActivities.putIfAbsent(groupKey, () => []);
-      groupedActivities[groupKey]!.add(activity);
-    }
-
-    List<String> actionOrder = [
-      "Created",
-      "DocUploaded",
-      "Assigned",
-      "Commented"
-    ];
-
-    groupedActivities.forEach((key, acts) {
-      acts.sort((a, b) {
-        int indexA = actionOrder.indexOf(a.actionName);
-        int indexB = actionOrder.indexOf(b.actionName);
-        return (indexA == -1 ? 999 : indexA)
-            .compareTo(indexB == -1 ? 999 : indexB);
-      });
-    });
-
-    return StatefulBuilder(builder: (context, setState) {
-      return Portal(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  children: groupedActivities.entries.map((entry) {
-                    final activities = entry.value;
-                    final userName = activities.first.createdBy ?? 'Unknown';
-                    final date = activities.first.createdDate
-                        .toLocal()
-                        .toString()
-                        .split(' ')[0];
-                    List<ActivityDTO> docUploads = activities
-                        .where((a) => a.actionName == "DocUploaded")
-                        .toList();
-                    List<ActivityDTO> otherActivities = activities
-                        .where((a) => a.actionName != "DocUploaded")
-                        .toList();
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      elevation: 3,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                    child: Text(userName[0].toUpperCase())),
-                                SizedBox(width: 10),
-                                Expanded(
-                                    child: Text(userName,
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                Text(date,
-                                    style: TextStyle(color: Colors.grey)),
-                              ],
-                            ),
-                            const Divider(height: 20),
-                            if (statusName != 'Unknown')
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12.0),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.flag,
-                                        size: 16, color: Colors.orange),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Status: $statusName',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.blueGrey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            Column(
-                              children: List.generate(otherActivities.length,
-                                  (index) {
-                                final activity = otherActivities[index];
-                                final isLast =
-                                    index == otherActivities.length - 1;
-                                List<ActivityDTO> inlineCreatedDocs = [];
-                                if (activity.actionName == "Created") {
-                                  inlineCreatedDocs = docUploads.where((doc) {
-                                    return doc.createdBy ==
-                                            activity.createdBy &&
-                                        doc.createdDate
-                                                .difference(
-                                                    activity.createdDate)
-                                                .inSeconds
-                                                .abs() <
-                                            5;
-                                  }).toList();
-                                }
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (inlineCreatedDocs.isNotEmpty)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 12),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Column(
-                                              children: [
-                                                Container(
-                                                  width: 10,
-                                                  height: 10,
-                                                  decoration:
-                                                      const BoxDecoration(
-                                                    color: Colors.blue,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                ),
-                                                Container(
-                                                  width: 2,
-                                                  height: 100,
-                                                  color: Colors.grey.shade300,
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 120,
-                                                child: ListView.builder(
-                                                  scrollDirection:
-                                                      Axis.horizontal,
-                                                  physics:
-                                                      const BouncingScrollPhysics(),
-                                                  itemCount:
-                                                      inlineCreatedDocs.length,
-                                                  itemBuilder: (context, i) {
-                                                    final doc =
-                                                        inlineCreatedDocs[i];
-                                                    final docName =
-                                                        doc.documentName ?? '';
-                                                    return Container(
-                                                      margin: const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 4),
-                                                      child: Column(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .center,
-                                                        children: [
-                                                          // Label Tag
-                                                          Container(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .symmetric(
-                                                                    horizontal:
-                                                                        6,
-                                                                    vertical:
-                                                                        2),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: Colors
-                                                                  .orange
-                                                                  .shade600,
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          6),
-                                                            ),
-                                                            child: const Text(
-                                                              'DocUploaded',
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 10,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          const SizedBox(
-                                                              height: 6),
-
-                                                          // Document Preview Box
-                                                          Container(
-                                                            width: 70,
-                                                            height: 70,
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          12),
-                                                              border: Border.all(
-                                                                  color: Colors
-                                                                      .grey
-                                                                      .shade300),
-                                                              color: Colors
-                                                                  .grey.shade50,
-                                                            ),
-                                                            child: docName
-                                                                    .toLowerCase()
-                                                                    .endsWith(
-                                                                        '.pdf')
-                                                                ? const Icon(
-                                                                    Icons
-                                                                        .picture_as_pdf,
-                                                                    size: 40,
-                                                                    color: Colors
-                                                                        .red,
-                                                                  )
-                                                                : ClipRRect(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            12),
-                                                                    child: Image
-                                                                        .network(
-                                                                      "$url/$docName",
-                                                                      fit: BoxFit
-                                                                          .cover,
-                                                                      errorBuilder: (context,
-                                                                              _,
-                                                                              __) =>
-                                                                          const Icon(
-                                                                        Icons
-                                                                            .broken_image,
-                                                                        size:
-                                                                            40,
-                                                                        color: Colors
-                                                                            .grey,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                          ),
-                                                          const SizedBox(
-                                                              height: 6),
-
-                                                          // Creator Name
-                                                          Text(
-                                                            resolveUserName(
-                                                                activity
-                                                                    .createdBy),
-                                                            style:
-                                                                const TextStyle(
-                                                              fontSize: 10,
-                                                              color:
-                                                                  Colors.grey,
-                                                            ),
-                                                            textAlign: TextAlign
-                                                                .center,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            maxLines: 1,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Column(
-                                          children: [
-                                            Container(
-                                              width: 10,
-                                              height: 10,
-                                              decoration: const BoxDecoration(
-                                                color: Colors.blue,
-                                                shape: BoxShape.circle,
-                                              ),
-                                            ),
-                                            if (!isLast)
-                                              Container(
-                                                width: 2,
-                                                height: 40,
-                                                color: Colors.grey.shade300,
-                                              ),
-                                          ],
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                                bottom: 16),
-                                            child: _buildActivityStep(
-                                              activity.actionName,
-                                              activity.comments ?? "",
-                                              null,
-                                              activity.assignedUserName,
-                                              activity.createdDate,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                );
-                              }),
-                            ),
-                            ...docUploads.where((doc) {
-                              // Created ke sath already dikha diya ho to skip
-                              bool alreadyShown = otherActivities.any((act) =>
-                                  act.actionName == "Created" &&
-                                  act.createdBy == doc.createdBy &&
-                                  (act.createdDate
-                                              .difference(doc.createdDate)
-                                              .inSeconds)
-                                          .abs() <
-                                      5);
-                              return !alreadyShown;
-                            }).map((doc) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Column(
-                                        children: [
-                                          Container(
-                                            width: 10,
-                                            height: 10,
-                                            decoration: const BoxDecoration(
-                                              color: Colors.orange,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              'DocUploaded',
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Container(
-                                              height: 150,
-                                              width: 150,
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                    color:
-                                                        Colors.grey.shade300),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                                child: Image.network(
-                                                  "$url/${doc.documentName}",
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                          stackTrace) =>
-                                                      const Icon(
-                                                          Icons.broken_image,
-                                                          size: 50),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ))
-                            // Add other activity details as needed
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // Expanded Input Field
-                  Expanded(
-                    child: Container(
-                      constraints: BoxConstraints(maxHeight: 250),
-                      child: FlutterMentions(
-                        key: mentionsKey,
-                        maxLines: 5,
-                        minLines: 2,
-                        suggestionPosition: SuggestionPosition.Top,
-                        suggestionListHeight: 150,
-                        suggestionListDecoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black26, blurRadius: 4)
-                          ],
-                        ),
-                        decoration: InputDecoration(
-                          hintText: "Add comment and assign user...",
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        mentions: [
-                          Mention(
-                            trigger: '@',
-                            style: const TextStyle(color: Colors.blue),
-                            data: userList,
-                            matchAll: true,
-                            suggestionBuilder: (data) {
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  child: Text(data['display'][0].toUpperCase()),
-                                ),
-                                title: Text(data['display']),
-                                subtitle: Text(data['full_name']),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8), // Spacing between input and button
-                  ElevatedButton(
-                    onPressed: _sendActivityComment,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(70, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text("Send"),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    });
-  }
-
-  Widget _buildActivityStep(String action, String comment, String? image,
-      String? assignedTo, DateTime date) {
-    Color badgeColor;
-    switch (action) {
-      case "Created":
-        badgeColor = Colors.blue;
-        break;
-      case "DocUploaded":
-        badgeColor = Colors.green;
-        break;
-      case "Assigned":
-        badgeColor = Colors.orange;
-        break;
-      case "Commented":
-        badgeColor = Colors.pink;
-        break;
-      default:
-        badgeColor = Colors.grey;
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                assignedTo ?? "",
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            Text(
-              date.toLocal().toString().split('.')[0],
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: badgeColor,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            action,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-        ),
-        if (image != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Image.network(
-              "your_url/$image",
-              width: 150,
-              height: 150,
-              fit: BoxFit.cover,
-            ),
-          ),
-        if (comment.isNotEmpty) Text(comment),
-      ],
+  factory ActivityDTO.fromJson(Map<String, dynamic> json) {
+    return ActivityDTO(
+      id: json['id'] as int?,
+      siteObservationID: json['siteObservationID'] as int?,
+      actionID: json['actionID'] as int?,
+      actionName: json['actionName'] ?? '',
+      comments: json['comments'] ?? '',
+      documentName: json['documentName'] ?? '',
+      fileName: json['fileName'] as String?,
+      fileContentType: json['fileContentType'] as String?,
+      filePath: json['filePath'] as String?,
+      fromStatusID: json['fromStatusID'] as int?,
+      fromStatusName: json['fromStatusName'] as String?,
+      toStatusID: json['toStatusID'] as int?,
+      toStatusName: json['toStatusName'] as String?,
+      assignedUserID: json['assignedUserID'] as int?,
+      assignedUserName: json['assignedUserName'] as String?,
+      createdBy:
+          json['createdBy'].toString(), // convert any type to String safely
+      createdByName: json['createdByName'] as String?,
+      createdDate: DateTime.parse(json['createdDate']),
     );
   }
 
-  void openImageModal(String documentName) {
-    final imageUrl = "$url/$documentName";
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'siteObservationID': siteObservationID,
+      'actionID': actionID,
+      'actionName': actionName,
+      'comments': comments,
+      'documentName': documentName,
+      'fileName': fileName,
+      'fileContentType': fileContentType,
+      'filePath': filePath,
+      'fromStatusID': fromStatusID,
+      'fromStatusName': fromStatusName,
+      'toStatusID': toStatusID,
+      'toStatusName': toStatusName,
+      'assignedUserID': assignedUserID,
+      'assignedUserName': assignedUserName,
+      'createdBy': createdBy,
+      'createdByName': createdByName,
+      'createdDate': createdDate.toIso8601String(),
+    };
+  }
 
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: InteractiveViewer(
-            panEnabled: true,
-            minScale: 1,
-            maxScale: 4,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const Icon(
-                    Icons.broken_image,
-                    size: 100,
-                    color: Colors.grey),
-              ),
-            ),
-          ),
-        ),
-      ),
+  @override
+  String toString() {
+    return 'ActivityDTO(id: $id, actionName: $actionName, comments: $comments, documentName: $documentName, createdBy: $createdBy, createdDate: $createdDate)';
+  }
+}
+
+class AssignmentStatusDTO {
+  final int siteObservationID;
+  final int assignedUserID;
+  final String assignedUserName;
+  final String statusName;
+  final int statusID;
+
+  AssignmentStatusDTO({
+    required this.siteObservationID,
+    required this.assignedUserID,
+    required this.assignedUserName,
+    required this.statusName,
+    required this.statusID,
+  });
+
+  factory AssignmentStatusDTO.fromJson(Map<String, dynamic> json) {
+    print("json974:$json");
+    return AssignmentStatusDTO(
+      siteObservationID: json['siteObservationID'] ?? 0,
+      assignedUserID: json['assignedUserID'] ?? 0,
+      assignedUserName: json['assignedUserName'] ?? '',
+      statusName: json['statusName'] ?? '',
+      statusID: json['statusID'] ?? 0,
     );
   }
 
-  bool isImage(String fileName) {
-    final lower = fileName.toLowerCase();
-    return lower.endsWith('.jpg') ||
-        lower.endsWith('.jpeg') ||
-        lower.endsWith('.png') ||
-        lower.endsWith('.gif') ||
-        lower.endsWith('.bmp') ||
-        lower.endsWith('.webp');
+  Map<String, dynamic> toJson() {
+    return {
+      'siteObservationID': siteObservationID,
+      'assignedUserID': assignedUserID,
+      'assignedUserName': assignedUserName,
+      'statusName': statusName,
+      'statusID': statusID,
+    };
+  }
+}
+
+class UpdateSiteObservation {
+  int id;
+  int? rootCauseID; // ✅ Made nullable
+  String? corretiveActionToBeTaken; // ✅ Nullable if API allows
+  String? preventiveActionTaken; // ✅ Nullable if API allows
+  double reworkCost;
+  int statusID;
+  int lastModifiedBy;
+  DateTime lastModifiedDate;
+  List<ActivityDTO> activityDTO;
+
+  UpdateSiteObservation({
+    required this.id,
+    this.rootCauseID,
+    this.corretiveActionToBeTaken,
+    this.preventiveActionTaken,
+    required this.reworkCost,
+    required this.statusID,
+    required this.lastModifiedBy,
+    required this.lastModifiedDate,
+    required this.activityDTO,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'rootCauseID': rootCauseID,
+      'corretiveActionToBeTaken': corretiveActionToBeTaken,
+      'preventiveActionTaken': preventiveActionTaken,
+      'reworkCost': reworkCost,
+      'statusID': statusID,
+      'lastModifiedBy': lastModifiedBy,
+      'lastModifiedDate': lastModifiedDate.toIso8601String(),
+      'activityDTO': activityDTO.map((a) => a.toJson()).toList(),
+    };
+  }
+}
+
+// class ActivityDTO {
+//   int siteObservationID;
+//   int actionID;
+//   String comments;
+//   String documentName;
+//   int fromStatusID;
+//   int toStatusID;
+//   int assignedUserID;
+//   int createdBy;
+//   DateTime createdDate;
+
+//   ActivityDTO({
+//     required this.siteObservationID,
+//     required this.actionID,
+//     required this.comments,
+//     required this.documentName,
+//     required this.fromStatusID,
+//     required this.toStatusID,
+//     required this.assignedUserID,
+//     required this.createdBy,
+//     required this.createdDate,
+//   });
+
+//   Map<String, dynamic> toJson() {
+//     return {
+//       'siteObservationID': siteObservationID,
+//       'actionID': actionID,
+//       'comments': comments,
+//       'documentName': documentName,
+//       'fromStatusID': fromStatusID,
+//       'toStatusID': toStatusID,
+//       'assignedUserID': assignedUserID,
+//       'createdBy': createdBy,
+//       'createdDate': createdDate.toIso8601String(),
+//     };
+//   }
+// }
+
+class UserList {
+  final int id;
+  final String userName;
+  final String firstName;
+  final String lastName;
+  final String? email;
+  final String? mobileNumber;
+
+  UserList({
+    required this.id,
+    required this.userName,
+    required this.firstName,
+    required this.lastName,
+    this.email,
+    this.mobileNumber,
+  });
+
+  factory UserList.fromJson(Map<String, dynamic> json) {
+    return UserList(
+      id: json['ID'],
+      userName: json['UserName'] ?? '',
+      firstName: json['FirstName'] ?? '',
+      lastName: json['LastName'] ?? '',
+      email: json['EmailID'],
+      mobileNumber: json['MobileNumber'],
+    );
+  }
+
+  /// Optional: for FlutterMentions
+  Map<String, dynamic> toMentionMap() {
+    return {
+      'id': id.toString(),
+      'display': userName,
+      'full_name': "$firstName $lastName".trim(),
+    };
+  }
+}
+
+class AssignedUser {
+  final int siteObservationID;
+  final int assignedUserID;
+  final String? assignedUserName;
+  final String? statusName;
+  final int? statusID;
+
+  AssignedUser({
+    required this.siteObservationID,
+    required this.assignedUserID,
+    this.assignedUserName,
+    this.statusName,
+    this.statusID,
+  });
+
+  factory AssignedUser.fromJson(Map<String, dynamic> json) {
+    return AssignedUser(
+      siteObservationID: json['siteObservationID'] ?? 0,
+      assignedUserID: json['assignedUserID'] ?? 0,
+      assignedUserName: json['assignedUserName']?.toString(),
+      statusName: json['statusName']?.toString(),
+      statusID: json['statusID'],
+    );
+  }
+
+  @override
+  String toString() {
+    return 'AssignedUser(siteObservationID: $siteObservationID, assignedUserID: $assignedUserID, assignedUserName: $assignedUserName, statusName: $statusName, statusID: $statusID)';
+  }
+}
+
+// labelname show
+class SectionModel {
+  final String labelName;
+
+  SectionModel({required this.labelName});
+
+  factory SectionModel.fromJson(Map<String, dynamic> json) {
+    // print(json);
+    return SectionModel(
+      labelName: json['labelName'] ?? '',
+    );
+  }
+}
+
+class FloorModel {
+  final String floorName;
+
+  FloorModel({required this.floorName});
+
+  factory FloorModel.fromJson(Map<String, dynamic> json) {
+    // print('Parsing Floor JSON: $json');
+    return FloorModel(
+      floorName: json['floorName'] ?? '',
+    );
+  }
+}
+
+class ElementModel {
+  final String labelName;
+
+  ElementModel({required this.labelName});
+
+  factory ElementModel.fromJson(Map<String, dynamic> json) {
+    // print('Parsing Element JSON: $json');
+    return ElementModel(
+      labelName: json['labelName'] ?? '',
+    );
   }
 }

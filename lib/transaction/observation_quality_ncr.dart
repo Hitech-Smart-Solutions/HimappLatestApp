@@ -29,7 +29,7 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
     super.initState();
     futureObservations = widget.siteObservationService
         .fetchNCRQualityObservations(widget.userId);
-    print("Future Observations: $futureObservations");
+    // print("Future Observations: ${futureObservations.toString()}");
   }
 
   @override
@@ -51,6 +51,7 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
           }
 
           final observations = snapshot.data!;
+          print("Observations: ${snapshot.data!}");
           return ListView.builder(
             itemCount: observations.length,
             itemBuilder: (context, index) {
@@ -186,6 +187,8 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
               );
             } else {
               final detail = snapshot.data!.first;
+              print("🔍 Raw Detail: $detail");
+
               return ObservationQCDetailDialog(
                 detail: detail,
                 siteObservationService: SiteObservationService(),

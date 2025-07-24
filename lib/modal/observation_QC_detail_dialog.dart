@@ -84,6 +84,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     super.initState();
     // print("widget.detail ${widget.detail}");
     currentDetail = widget.detail;
+    print("currentDetail: $currentDetail");
     _setupPage();
     loadSection();
     loadFloor();
@@ -123,14 +124,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     await fetchUsers();
     userId = await SharedPrefsHelper.getUserId();
     currentUserName = await SharedPrefsHelper.getUserName();
+    print("🔁 userId: $userId, currentUserName: $currentUserName");
   }
-
-  // void onStatusChanged(int newStatusId) {
-  //   setState(() {
-  //     fromStatus = toStatus; // Old "toStatus" now becomes "fromStatus"
-  //     toStatus = newStatusId; // New selected status
-  //   });
-  // }
 
   void _initializeFormFields() {
     if (selectedStatus == SiteObservationStatus.Open.toString()) {
@@ -222,7 +217,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           toStatusID: toStatus,
           assignedUserID: widget.detail.createdBy,
           assignedUserName: null,
-          createdBy: userId!.toString(),
+          createdBy: userId,
           createdDate: DateTime.now(),
         ),
       );
@@ -231,7 +226,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       final assignedUsers =
           await SiteObservationService().fetchGetassignedusersforReopen(id);
       print("🔁 Assigned Users210: $assignedUsers");
-      String currentUserId = userId!.toString();
+      // String currentUserId = userId!.toString();
       // Add an activity for each assigned user
       for (var user in assignedUsers) {
         activities.add(
@@ -245,7 +240,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
             fromStatusID: fromStatus,
             toStatusID: toStatus,
             assignedUserID: user.assignedUserID,
-            createdBy: currentUserId,
+            createdBy: userId,
             createdDate: DateTime.now(),
           ),
         );
@@ -266,7 +261,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           toStatusID: toStatus,
           assignedUserID: userId!,
           assignedUserName: null,
-          createdBy: userId!.toString(),
+          createdBy: userId,
           createdDate: DateTime.now(),
         ),
       );
@@ -450,7 +445,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 "Unknown", // ✅ Add this
             assignedUserID: user.id,
             assignedUserName: user.userName,
-            createdBy: createdById.toString(), // ✅ send as integer
+            createdBy: createdById, // ✅ send as integer
             createdByName: createdByName,
             createdDate: DateTime.now(),
           ));
@@ -473,7 +468,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           assignedUserID: 0,
           // assignedUserName: '',
           // createdBy: createdBy, // ✅ integer
-          createdBy: createdById.toString(),
+          createdBy: createdById,
           createdByName: createdByName,
           assignedUserName: createdByName,
           createdDate: DateTime.now(),
@@ -496,7 +491,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 "Unknown", // ✅ Add this
             assignedUserID: user.id,
             assignedUserName: user.userName,
-            createdBy: createdById.toString(), // ✅ integer
+            createdBy: createdById, // ✅ integer
             createdByName: createdByName,
             createdDate: DateTime.now(),
           ));
@@ -516,7 +511,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               "Unknown", // ✅ Add this
           assignedUserID: 0,
           assignedUserName: '',
-          createdBy: createdById.toString(), // ✅ integer
+          createdBy: createdById, // ✅ integer
           createdByName: createdByName,
           createdDate: DateTime.now(),
         ));
@@ -839,7 +834,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   String _formatDate(DateTime? date) {
     return date != null
-        ? DateFormat('dd/MM/yyyy').format(date.toLocal())
+        ? DateFormat('dd/MM/yyyy hh:mm').format(date.toLocal())
         : 'N/A';
   }
 
@@ -1029,7 +1024,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                   toStatusID: toStatus,
                                   assignedUserID: 0,
                                   assignedUserName: null,
-                                  createdBy: userId.toString(),
+                                  createdBy: userId,
                                   createdDate: DateTime.now(),
                                 ),
                               );
@@ -1150,7 +1145,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                           toStatusID: toStatus,
                           assignedUserID: userId!,
                           assignedUserName: currentUserName,
-                          createdBy: currentUserName!,
+                          createdByName: currentUserName,
                           createdDate: DateTime.now(),
                         ),
                       );
@@ -1272,7 +1267,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Widget _buildActivityTab() {
     final activities = widget.detail.activityDTO;
-    // print("activities :$activities");
+    print("activities:${widget.detail.activityDTO}");
     if (activities.isEmpty) {
       return const Center(child: Text("No activity recorded."));
     }
@@ -1319,9 +1314,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                     final acts = entry.value;
                     final first = acts.first;
                     final statusName = first.toStatusName ?? "Unknown";
-                    print("🟡 toStatusID: ${first.toStatusID}");
-                    print("statusName: $statusName");
-                    // print("userList sample: ${userList.take(3).toList()}");
                     String userName = first.createdByName ??
                         (() {
                           if (first.createdBy != null && userList.isNotEmpty) {
@@ -1354,6 +1346,12 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                           }
                           return "Unknown";
                         })();
+
+                    print("✅ Resolved userName: $userName");
+                    print("createdBy: ${first.createdBy}");
+                    print(
+                        "userList IDs: ${userList.map((u) => u['id']).toList()}");
+
                     final date =
                         first.createdDate.toLocal().toString().split(' ')[0];
                     String nameToShow =

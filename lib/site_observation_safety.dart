@@ -793,6 +793,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       siteObservationCode: "",
       trancationDate: formatDateForApi(DateTime.now().toUtc()),
       observationRaisedBy: userID!,
+      observationID: observations
+          .firstWhere((o) => o.observationDescription == selectedObservation)
+          .id,
       observationTypeID: observationTypeList
           .firstWhere(
               (observation) => observation.name == selectedObservationType)

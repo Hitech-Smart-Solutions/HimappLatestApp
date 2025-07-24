@@ -59,7 +59,7 @@ class SharedPrefsHelper {
   static Future<int?> getProjectID() async {
     final prefs = await SharedPreferences.getInstance();
     int? projectId = prefs.getInt('ProjectID');
-    print("📤 Retrieved ProjectID: $projectId");
+    // print("📤 Retrieved ProjectID: $projectId");
     return projectId;
   }
 
@@ -67,7 +67,7 @@ class SharedPrefsHelper {
   static Future<void> saveProjectID(int projectId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('ProjectID', projectId);
-    print("✅ ProjectID saved: $projectId");
+    // print("✅ ProjectID saved: $projectId");
   }
 
   static Future<void> clear() async {
