@@ -82,9 +82,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   @override
   void initState() {
     super.initState();
-    // print("widget.detail ${widget.detail}");
     currentDetail = widget.detail;
-    print("currentDetail: $currentDetail");
     _setupPage();
     loadSection();
     loadFloor();
@@ -93,7 +91,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Future<void> _setupPage() async {
     final statusId = widget.detail.statusID;
-    // print('🔁 rawStatus: $statusId');
 
     if (statusId != 0) {
       selectedStatus = statusId.toString(); // Dropdown ke liye string chahiye
@@ -105,8 +102,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         widget.detail,
       );
     } else {
-      print("⚠️ Invalid status name: ${widget.detail.statusName}");
-      print("⚠️ Invalid status ID");
       selectedStatus = null;
       fromStatus = 0; // Ya default koi bhi status id rakh lo
       toStatus = 0;
@@ -124,7 +119,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     await fetchUsers();
     userId = await SharedPrefsHelper.getUserId();
     currentUserName = await SharedPrefsHelper.getUserName();
-    print("🔁 userId: $userId, currentUserName: $currentUserName");
   }
 
   void _initializeFormFields() {
@@ -182,7 +176,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     try {
       int? companyId = await SharedPrefsHelper.getCompanyId();
       if (companyId == null) {
-        print('Error: Company ID is null');
         return;
       }
       rootCauses =
@@ -204,7 +197,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     List<ActivityDTO> activities = [];
     int selectedStatusId =
         int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
-    if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
+    if (selectedStatusId == SiteObservationStatus.ReadyToInspect ||
+        selectedStatusId == SiteObservationStatus.InProgress ||
+        selectedStatusId == SiteObservationStatus.Closed) {
       activities.add(
         ActivityDTO(
           id: 0,
@@ -221,11 +216,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           createdDate: DateTime.now(),
         ),
       );
-      print("🔁 selectedStatusId 510: $selectedStatusId");
     } else if (selectedStatusId == SiteObservationStatus.Reopen) {
       final assignedUsers =
           await SiteObservationService().fetchGetassignedusersforReopen(id);
-      print("🔁 Assigned Users210: $assignedUsers");
       // String currentUserId = userId!.toString();
       // Add an activity for each assigned user
       for (var user in assignedUsers) {
@@ -367,6 +360,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
     setState(() {
       observationStatus = newStatusList;
+      // print("Observation Status: $observationStatus");
       final statusExists =
           newStatusList.any((item) => item['id'] == newSelectedStatus);
       selectedStatus = statusExists ? newSelectedStatus : null;
@@ -428,7 +422,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
       bool hasMentions = selectedUsers.isNotEmpty;
       bool hasComment = plainComment.isNotEmpty;
-      // print("activities413:$activities");
       // CASE 1 — Only mention(s)
       if (hasMentions && !hasComment) {
         for (var user in selectedUsers) {
@@ -495,7 +488,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
             createdByName: createdByName,
             createdDate: DateTime.now(),
           ));
-          // print("activities466:$activities");
         }
 
         activities.add(ActivityDTO(
@@ -516,9 +508,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           createdDate: DateTime.now(),
         ));
       }
-      // print("activity483: $activities");
+
       if (activities.isEmpty) {
-        print("No valid activity to send.");
         return;
       }
 
@@ -528,7 +519,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       );
 
       if (success) {
-        print("✅ Successfully posted activity!");
         mentionsKey.currentState?.controller?.clear();
         _activityCommentController.clear();
 
@@ -539,7 +529,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         print("❌ Failed to post activity!");
       }
     } catch (e, st) {
-      print("Error in _sendActivityComment: $e");
       print(st);
     }
   }
@@ -583,16 +572,12 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     // SharedPreferences prefs = await SharedPreferences.getInstance();
     // int? projectID = prefs.getInt('projectID');
     int projectID = widget.projectID;
-    print(projectID);
-    // print("widget:${widget.detail}");
     if (projectID != null) {
       try {
         List<SectionModel> sections = await getSectionsByProjectID(projectID);
-        // print("sections:$sections");
         if (sections.isNotEmpty) {
           setState(() {
             areaLabel = sections[0].labelName;
-            // print("areaLabel:$areaLabel");
           });
         }
       } catch (e) {
@@ -603,7 +588,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Future<void> loadFloor() async {
     int projectID = widget.projectID;
-    // print(projectID);
     if (projectID != null) {
       try {
         List<FloorModel> floors = await getFloorByProjectID(projectID);
@@ -627,7 +611,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         if (elements.isNotEmpty) {
           setState(() {
             elementLabel = elements[0].labelName;
-            print("elementLabel :$elementLabel");
           });
         }
       } catch (e) {
@@ -1005,7 +988,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
                           UpdateSiteObservation updatedData =
                               await getUpdatedDataFromForm(uploadedFiles);
-                          // print("🔁 Updated Data: $updatedData");
 
                           bool success = await SiteObservationService()
                               .updateSiteObservationByID(updatedData);
@@ -1267,7 +1249,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Widget _buildActivityTab() {
     final activities = widget.detail.activityDTO;
-    print("activities:${widget.detail.activityDTO}");
+    print("Activities: ${activities.length}");
     if (activities.isEmpty) {
       return const Center(child: Text("No activity recorded."));
     }
@@ -1313,7 +1295,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   children: groupedActivities.entries.map((entry) {
                     final acts = entry.value;
                     final first = acts.first;
+                    // print(acts.first.toString());
                     final statusName = first.toStatusName ?? "Unknown";
+                    print("Status Name: $statusName");
                     String userName = first.createdByName ??
                         (() {
                           if (first.createdBy != null && userList.isNotEmpty) {
@@ -1346,17 +1330,10 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                           }
                           return "Unknown";
                         })();
-
-                    print("✅ Resolved userName: $userName");
-                    print("createdBy: ${first.createdBy}");
-                    print(
-                        "userList IDs: ${userList.map((u) => u['id']).toList()}");
-
                     final date =
                         first.createdDate.toLocal().toString().split(' ')[0];
                     String nameToShow =
                         userName.isNotEmpty ? userName[0].toUpperCase() : '?';
-                    // print('nameToShow: ${nameToShow[0].toUpperCase()}');
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -1610,6 +1587,12 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         break;
       case "Commented":
         badgeColor = Colors.pink;
+        break;
+      case "In Progress":
+        badgeColor = const Color.fromARGB(255, 207, 179, 84);
+        break;
+      case "Closed":
+        badgeColor = const Color.fromARGB(255, 3, 172, 59);
         break;
       default:
         badgeColor = Colors.grey;

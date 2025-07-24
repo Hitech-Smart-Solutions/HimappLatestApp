@@ -229,7 +229,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   Future<void> fetchActivities() async {
     int? companyId = await SharedPrefsHelper.getCompanyId();
     if (companyId == null) {
-      print('Error: Company ID is null');
       return;
     }
     setState(() {
@@ -255,7 +254,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   Future<void> fetchObservations() async {
     int? companyId = await SharedPrefsHelper.getCompanyId();
     if (companyId == null) {
-      print('Error: Company ID is null');
       return; // Exit the method if companyId is null
     }
     setState(() {
@@ -271,10 +269,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
       setState(() {
         observationsList = fetchedObservations;
-        // for (var obs in observationsList) {
-        //   print(
-        //       'Observation: ${obs.id}, ${obs.observationDescription}, ${obs.issueTypeID}');
-        // }
         selectedObservation = null;
         if (observationsList.isNotEmpty) {
           selectedIssueTypeId = observationsList[0].issueTypeID;
@@ -304,7 +298,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         observationTypeList = fetchedObservationType;
         observationTypeList.forEach(
             (e) => print('observationTypeList268: ${e.id} - ${e.name}'));
-        print("observationTypeList268:$observationTypeList");
       });
     } catch (e) {
       print('Error fetching ObservationType: $e');
@@ -448,7 +441,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
       return uniqueUsers; // ✅ return the list instead of setting state
     } catch (e) {
-      print('Error fetching User: $e');
       return [];
     }
   }
@@ -516,7 +508,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
 // Fetch Observations
   Future<void> fetchSiteObservationsQuality(int projectId) async {
-    // print("Fetching site observations for project ID: $projectId");
     setState(() => isLoading = true);
     try {
       final fetched =
@@ -724,7 +715,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
             activityDTOList.any((dto) => dto.documentName == uploadedFileName);
 
     if (fileAlreadyExists) {
-      print('File already exists, not adding again.');
       return;
     }
     // 🔵 Add to UI list
@@ -745,7 +735,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     );
 
     // 🔵 Add to DTO list (important!)
-    // print("Adding file to activityDTOList: $uploadedFileName");
     final dtoActivity = ActivityDTO(
       id: 0,
       siteObservationID: observationIdToSend,
@@ -767,17 +756,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
     setState(() {
       activityList.add(newActivity); // For UI
-      // print("dtoActivity770: $activityList");
       activityDTOList.add(dtoActivity); // For API
-      // print("dtoActivity772: $activityDTOList");
       uploadedFiles.add(uploadedFileName);
       selectedFileName = uploadedFileName;
     });
-
-    // print('✅ Added file to activityDTOList: $uploadedFileName');
-
-    print(
-        "activityDTOList after upload: ${activityDTOList.map((e) => e.documentName).toList()}");
   }
 
   Future<void> submitForm({bool isDraft = false}) async {
@@ -1081,9 +1063,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
               "createdBy: ${dto.createdBy}, "
               "createdDate: ${dto.createdDate}");
         }
-        // print(
-        //     "updateModel: ${updateModel.toJson().toString().replaceAll('"', '')}");
-        // debugPrint("updateModel: ${updateModel.toJson()}");
         debugPrint("updateModel: $updateModel.toJson()");
         debugPrint(const JsonEncoder.withIndent('  ').convert(updateModel));
         // return;
@@ -1153,8 +1132,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   Future<void> _loadDataAndObservation(
       GetSiteObservationMasterById observation) async {
-    // print("observation1126:$observation");
-
     // Step 1: Set observationType and observationTypeId
     selectedObservationType = observation.observationType;
     selectedObservationTypeId = observation.observationTypeID;
@@ -1440,9 +1417,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                       await fetchFloorList(newProject.id);
                       await fetchPartList(newProject.id);
                       await fetchElementList(newProject.id);
-                      // print(
-                      //   "Selected Project: ${newProject.name} (ID: ${newProject.id})",
-                      // );
                     }
                     setState(() {
                       isFormReady = true;
@@ -2052,8 +2026,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                                         .text =
                                                                     formattedDueDate;
                                                               } catch (e) {
-                                                                print(
-                                                                    "Date calculation error: $e");
                                                                 _dateDueDateController
                                                                     .text = '';
                                                               }
@@ -2703,7 +2675,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                 child: FloatingActionButton(
                   onPressed: () {
                     setState(() {
-                      // print("isEditMode: $isEditMode");
                       if (!showObservations) {
                         // We're on form, going back to list → reset the form
                         _resetForm();
@@ -2712,8 +2683,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                         isEditMode = true;
                       }
                       showObservations = !showObservations;
-                      // print(
-                      //     "After toggle: isEditMode = $isEditMode, showObservations = $showObservations");
                     });
                   },
                   child: Icon(showObservations ? Icons.add : Icons.list),

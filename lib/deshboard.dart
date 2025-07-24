@@ -53,31 +53,24 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _loadStats() async {
-    print("Loading stats started");
     try {
       final userId = await SharedPrefsHelper.getUserId();
-      print("User ID fetched: $userId");
       if (userId != null) {
         final safety = await widget.siteObservationService
             .fatchSiteObservationSafetyByUserID(userId);
-        print("Safety observations fetched: ${safety.length}");
         final quality = await widget.siteObservationService
             .fatchSiteObservationQualityByUserID(userId);
-        print("Quality observations fetched: ${quality.length}");
         setState(() {
           safetyObservationsCount = safety.length;
           qualityObservationsCount = quality.length;
           isLoading = false;
         });
-        print("State updated with new counts");
       } else {
-        print("User ID is null");
         setState(() {
           isLoading = false;
         });
       }
     } catch (e) {
-      print("Error loading stats: $e");
       setState(() {
         isLoading = false;
       });
