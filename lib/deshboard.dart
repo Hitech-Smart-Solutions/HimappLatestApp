@@ -1,18 +1,21 @@
 import 'dart:ui';
-
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:animated_widgets/widgets/scale_animated.dart';
 import 'package:himappnew/labour_registration_page.dart';
+import 'package:himappnew/observation_ncr.dart';
 import 'package:himappnew/service/labour_registration_service.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:himappnew/site_observation_quality.dart';
+import 'package:himappnew/transaction/observation_quality_ncr.dart';
 import 'login_page.dart';
 import 'site_observation_safety.dart';
+import 'package:himappnew/service/firebase_messaging_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   final String companyName;
   final String userName;
   final ProjectService projectService;
@@ -20,7 +23,7 @@ class DashboardPage extends StatelessWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
 
-  const DashboardPage({
+  DashboardPage({
     super.key,
     required this.companyName,
     required this.userName,
@@ -31,15 +34,59 @@ class DashboardPage extends StatelessWidget {
   });
 
   @override
+  _DashboardPageState createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  final firebaseService = FirebaseMessagingService();
+  int ongoingProjectsCount = 0;
+  int safetyObservationsCount = 0;
+  int qualityObservationsCount = 0;
+  int pendingCount = 0;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    isLoading = true;
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final userId = await SharedPrefsHelper.getUserId();
+      if (userId != null) {
+        final safety = await widget.siteObservationService
+            .fatchSiteObservationSafetyByUserID(userId);
+        final quality = await widget.siteObservationService
+            .fatchSiteObservationQualityByUserID(userId);
+        setState(() {
+          safetyObservationsCount = safety.length;
+          qualityObservationsCount = quality.length;
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: _buildDrawer(context),
       appBar: AppBar(
-        title: Text("Dashboard - $companyName"),
+        title: Text("Dashboard - ${widget.companyName}"),
         actions: [
           IconButton(
-            icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            onPressed: onToggleTheme,
+            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: widget.onToggleTheme,
           ),
         ],
       ),
@@ -48,54 +95,42 @@ class DashboardPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildParallaxHeader(), // ⬅️ Add this here
-            SizedBox(height: 16),
-            _buildGreetingCard(userName),
+            _buildGreetingCard(widget.userName),
             const SizedBox(height: 20),
             _buildStatsCards(context),
             const SizedBox(height: 30),
-            Text("Insights",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            _buildBarChart(),
-            const SizedBox(height: 30),
-            Text("Recent Observations",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            _buildRecentObservations(),
-            const SizedBox(height: 20),
-            Text("Reminders",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            _buildRemindersList(),
+            Center(
+                // child: ElevatedButton.icon(
+                //   onPressed: () async {
+                //     await FirebaseMessaging.instance.requestPermission();
+                //     final token = await FirebaseMessaging.instance.getToken();
+                //     final userId = await SharedPrefsHelper.getUserId();
+                //     if (token != null && userId != null) {
+                //       await firebaseService.updateUserMobileAppTokenPut(
+                //         userId: userId,
+                //         webTokenID: "from_web_or_blank",
+                //         mobileAppTokenID: token,
+                //       );
+                //       ScaffoldMessenger.of(context).showSnackBar(
+                //         SnackBar(content: Text('✅ Token updated on server')),
+                //       );
+                //     } else {
+                //       ScaffoldMessenger.of(context).showSnackBar(
+                //         SnackBar(
+                //             content: Text('⚠️ Failed to get token or user ID')),
+                //       );
+                //     }
+                //   },
+                //   icon: Icon(Icons.notifications_active),
+                //   label: Text("Save Notification Token"),
+                // ),
+                ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildParallaxHeader() {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Image.asset("images/parallax_bg.jpg", fit: BoxFit.cover),
-        ),
-        Container(
-          height: 150,
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.4),
-          ),
-          child: const Text(
-            "✨ Welcome to your Smart Dashboard",
-            style: TextStyle(
-                color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Greeting Card
   Widget _buildGreetingCard(String userName) {
     return Row(
       children: [
@@ -108,7 +143,7 @@ class DashboardPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Hello, $userName", style: const TextStyle(fontSize: 18)),
-            Text("Welcome back to $companyName",
+            Text("Welcome back to ${widget.companyName}",
                 style: const TextStyle(fontSize: 14, color: Colors.grey)),
           ],
         ),
@@ -116,34 +151,81 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // Stats Cards
   Widget _buildStatsCards(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double cardWidth = (screenWidth - 48) / 2;
+    double cardSpacing = 16;
 
-    return Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: [
-        _buildNeonGlassCard(
-            icon: Icons.work,
-            title: "Ongoing Projects",
-            value: "12",
-            color: Colors.cyanAccent,
-            width: cardWidth),
-        _buildNeonGlassCard(
-            icon: Icons.visibility,
-            title: "Observations",
-            value: "5",
-            color: Colors.orangeAccent,
-            width: cardWidth),
-        _buildNeonGlassCard(
-            icon: Icons.pending_actions,
-            title: "Pending",
-            value: "3",
-            color: Colors.pinkAccent,
-            width: cardWidth),
-      ],
+    final cards = [
+      _buildNeonGlassCard(
+        icon: Icons.work,
+        title: "Ongoing Projects",
+        value: "12",
+        color: Color(0xFF3A86FF),
+      ),
+      GestureDetector(
+        onTap: () async {
+          final userId = await SharedPrefsHelper.getUserId();
+          if (userId != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ObservationNCRPage(
+                  userId: userId,
+                  siteObservationService: SiteObservationService(),
+                  siteObservationId: 0,
+                ),
+              ),
+            );
+          }
+        },
+        child: _buildNeonGlassCard(
+          icon: Icons.visibility,
+          title: "SiteObservations Safety",
+          value: "$safetyObservationsCount",
+          color: Color(0xFFFFB703),
+        ),
+      ),
+      _buildNeonGlassCard(
+        icon: Icons.pending_actions,
+        title: "Pending",
+        value: "3",
+        color: Color(0xFFFB5607),
+      ),
+      GestureDetector(
+        onTap: () async {
+          final userId = await SharedPrefsHelper.getUserId();
+          if (userId != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ObservationQCNCRPage(
+                  userId: userId,
+                  siteObservationService: SiteObservationService(),
+                  siteObservationId: 0,
+                ),
+              ),
+            );
+          }
+        },
+        child: _buildNeonGlassCard(
+          icon: Icons.science,
+          title: "SiteObservation Quality",
+          value: "$qualityObservationsCount",
+          color: Color.fromARGB(255, 221, 57, 194),
+        ),
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: cardSpacing,
+        crossAxisSpacing: cardSpacing,
+        childAspectRatio: 2.5,
+      ),
+      itemCount: cards.length,
+      itemBuilder: (context, index) => cards[index],
     );
   }
 
@@ -152,181 +234,90 @@ class DashboardPage extends StatelessWidget {
     required String title,
     required String value,
     required Color color,
-    double? width,
   }) {
-    return ScaleAnimatedWidget.tween(
-      enabled: true,
-      duration: const Duration(milliseconds: 150),
-      scaleEnabled: 0.97,
-      scaleDisabled: 1,
-      child: Container(
-        width: width ?? double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            colors: [
-              color.withOpacity(0.25),
-              color.withOpacity(0.15),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.8),
-              blurRadius: 20,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color.withOpacity(0.4), width: 1),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double screenWidth = MediaQuery.of(context).size.width;
+        bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+        double iconSize = screenWidth < 400 ? 26 : 32;
+        double titleFontSize = screenWidth < 400 ? 13 : 14;
+        double valueFontSize = screenWidth < 400 ? 20 : 22;
+
+        return ScaleAnimatedWidget.tween(
+          enabled: true,
+          duration: const Duration(milliseconds: 150),
+          scaleEnabled: 0.97,
+          scaleDisabled: 1,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: [color.withOpacity(0.12), color.withOpacity(0.05)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              child: Row(
-                children: [
-                  Icon(icon, color: Colors.white, size: 30),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border:
+                        Border.all(color: color.withOpacity(0.3), width: 1.2),
+                  ),
+                  child: Row(
                     children: [
-                      Text(title,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14)),
-                      Text(value,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 22)),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: color.withOpacity(0.6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withOpacity(0.3),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Icon(icon,
+                            color: isDark ? Colors.white : Colors.black,
+                            size: iconSize),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(title,
+                                style: GoogleFonts.poppins(
+                                  color: isDark ? Colors.white : Colors.black,
+                                  fontSize: titleFontSize,
+                                  fontWeight: FontWeight.w500,
+                                )),
+                            const SizedBox(height: 4),
+                            Text(value,
+                                style: GoogleFonts.poppins(
+                                  color: isDark ? Colors.white : Colors.black,
+                                  fontSize: valueFontSize,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color color, double width) {
-    return ScaleAnimatedWidget.tween(
-      enabled: true,
-      duration: const Duration(milliseconds: 150),
-      scaleDisabled: 1.0,
-      scaleEnabled: 0.95,
-      child: GestureDetector(
-        onTap: () {},
-        child: SizedBox(
-          width: width,
-          child: Card(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            elevation: 10,
-            shadowColor: color.withOpacity(0.6),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color.withOpacity(0.8), color],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.6),
-                    blurRadius: 20,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 5),
-                  )
-                ],
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(seconds: 1),
-                    curve: Curves.easeInOut,
-                    child: Icon(icon, size: 30, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 14)),
-                      const SizedBox(height: 4),
-                      Text(value,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  // Chart
-  Widget _buildBarChart() {
-    return SizedBox(
-      height: 250,
-      child: BarChart(
-        BarChartData(
-          barGroups: [
-            BarChartGroupData(
-                x: 0,
-                barRods: [BarChartRodData(toY: 12, color: Colors.blueAccent)]),
-            BarChartGroupData(
-                x: 1,
-                barRods: [BarChartRodData(toY: 8, color: Colors.orangeAccent)]),
-            BarChartGroupData(
-                x: 2,
-                barRods: [BarChartRodData(toY: 5, color: Colors.redAccent)]),
-          ],
-          titlesData: FlTitlesData(show: true),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(show: true),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentObservations() {
-    return Column(
-      children: List.generate(3, (index) {
-        return ListTile(
-          leading: const Icon(Icons.warning, color: Colors.orange),
-          title: Text("Observation #${index + 1}"),
-          subtitle: const Text("Site: ABC, Status: Pending"),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         );
-      }),
-    );
-  }
-
-  Widget _buildRemindersList() {
-    return Column(
-      children: List.generate(3, (index) {
-        return ListTile(
-          leading: const Icon(Icons.calendar_today, color: Colors.blue),
-          title: const Text("Inspection at Site XYZ"),
-          subtitle: const Text("Due: Tomorrow"),
-        );
-      }),
+      },
     );
   }
 
@@ -345,7 +336,7 @@ class DashboardPage extends StatelessWidget {
 
           return ListView(
             padding: EdgeInsets.zero,
-            children: <Widget>[
+            children: [
               DrawerHeader(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -365,7 +356,7 @@ class DashboardPage extends StatelessWidget {
                     Text(userName,
                         style:
                             const TextStyle(color: Colors.white, fontSize: 16)),
-                    Text(companyName,
+                    Text(widget.companyName,
                         style: const TextStyle(
                             color: Colors.white70, fontSize: 14)),
                   ],
@@ -374,9 +365,7 @@ class DashboardPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.dashboard, color: Colors.blue),
                 title: const Text('Dashboard'),
-                onTap: () {
-                  Navigator.pop(context);
-                },
+                onTap: () => Navigator.pop(context),
               ),
               ListTile(
                 leading: const Icon(Icons.assignment, color: Colors.orange),
@@ -387,9 +376,9 @@ class DashboardPage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => SiteObservationSafety(
-                        companyName: companyName,
-                        projectService: projectService,
-                        siteObservationService: siteObservationService,
+                        companyName: widget.companyName,
+                        projectService: widget.projectService,
+                        siteObservationService: widget.siteObservationService,
                       ),
                     ),
                   );
@@ -404,25 +393,25 @@ class DashboardPage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => SiteObservationQuality(
-                        siteObservationService: SiteObservationService(),
-                        projectService: projectService,
+                        companyName: widget.companyName,
+                        projectService: widget.projectService,
+                        siteObservationService: widget.siteObservationService,
                       ),
                     ),
                   );
                 },
               ),
-              // Add the Labour Registration option here
               ListTile(
                 leading: const Icon(Icons.person_add, color: Colors.green),
                 title: const Text('Labour Registration'),
                 onTap: () {
-                  Navigator.pop(context); // Close the drawer
+                  Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => LabourRegistrationPage(
-                        companyName: companyName,
-                        projectService: projectService,
+                        companyName: widget.companyName,
+                        projectService: widget.projectService,
                         labourRegistrationService: LabourRegistrationService(),
                       ),
                     ),
@@ -438,10 +427,11 @@ class DashboardPage extends StatelessWidget {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => MyCustomForm(
-                              isDarkMode: isDarkMode,
-                              onToggleTheme: onToggleTheme,
-                            )),
+                      builder: (_) => MyCustomForm(
+                        isDarkMode: widget.isDarkMode,
+                        onToggleTheme: widget.onToggleTheme,
+                      ),
+                    ),
                     (route) => false,
                   );
                 },

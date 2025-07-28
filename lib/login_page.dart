@@ -56,6 +56,10 @@ class _MyCustomFormState extends State<MyCustomForm> {
         await SharedPrefsHelper.clear();
         await SharedPrefsHelper.saveUserId(userId);
         await SharedPrefsHelper.saveToken(token);
+        await SharedPrefsHelper.saveUserName(userName);
+        // await SharedPrefsHelper.saveCompanyName(companyName);
+        print("✅ Saved UserName: $userName");
+        // print("✅ Saved CompanyName: $companyName");
         _showBusinessesModal();
       } else {
         _showErrorDialog("Required data not found in the response.");
@@ -135,6 +139,13 @@ class _MyCustomFormState extends State<MyCustomForm> {
                                     });
                                     await SharedPrefsHelper.saveCompanyId(
                                         company.id);
+                                    // Save company name too
+                                    await SharedPrefsHelper.saveCompanyName(
+                                        company.name);
+
+                                    // Save username as well (so it persists after app restart)
+                                    await SharedPrefsHelper.saveUserName(
+                                        userNameController.text);
                                     Navigator.of(context).pop();
                                     Navigator.pushReplacement(
                                       context,
@@ -193,7 +204,7 @@ class _MyCustomFormState extends State<MyCustomForm> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  'images/hitech_Logo.png',
+                  'assets/images/hitech_Logo.png',
                   width: 150,
                   height: 150,
                 ),

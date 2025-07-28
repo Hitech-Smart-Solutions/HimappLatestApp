@@ -37,6 +37,18 @@ class SharedPrefsHelper {
     return prefs.getInt('selectedCompanyId');
   }
 
+  // Save company name
+  static Future<void> saveCompanyName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('company_name', name);
+  }
+
+// Get company name
+  static Future<String?> getCompanyName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('company_name');
+  }
+
   static const _projectIDKey = 'projectID';
   static Future<void> setProjectID(int projectID) async {
     final prefs = await SharedPreferences.getInstance();
@@ -47,7 +59,7 @@ class SharedPrefsHelper {
   static Future<int?> getProjectID() async {
     final prefs = await SharedPreferences.getInstance();
     int? projectId = prefs.getInt('ProjectID');
-    print("📤 Retrieved ProjectID: $projectId");
+    // print("📤 Retrieved ProjectID: $projectId");
     return projectId;
   }
 
@@ -55,7 +67,7 @@ class SharedPrefsHelper {
   static Future<void> saveProjectID(int projectId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('ProjectID', projectId);
-    print("✅ ProjectID saved: $projectId");
+    // print("✅ ProjectID saved: $projectId");
   }
 
   static Future<void> clear() async {
@@ -92,5 +104,25 @@ class SharedPrefsHelper {
     String token =
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNhIiwibmJmIjoxNzQyNDc4MjgxLCJleHAiOjE3NDc3NDg2ODEsImlhdCI6MTc0MjQ3ODI4MSwiaXNzIjoibG9jYWxob3N0IiwiYXVkIjoibG9jYWxob3N0In0.ic39ZtVmb4fX3VbJ8Uw5mroCgHVl8ZZmhQruPBjDw3g";
     await saveToken(token);
+  }
+
+  static const String _fcmTokenKey = 'fcm_token';
+
+  /// Save FCM token
+  static Future<void> saveFcmToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_fcmTokenKey, token);
+  }
+
+  /// Retrieve FCM token
+  static Future<String?> getFcmToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_fcmTokenKey);
+  }
+
+  /// Optional: Clear FCM token
+  static Future<void> clearFcmToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_fcmTokenKey);
   }
 }
