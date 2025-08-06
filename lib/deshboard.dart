@@ -2,7 +2,9 @@ import 'dart:ui';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:animated_widgets/widgets/scale_animated.dart';
+import 'package:himappnew/constants.dart';
 import 'package:himappnew/labour_registration_page.dart';
+import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/observation_ncr.dart';
 import 'package:himappnew/service/labour_registration_service.dart';
 import 'package:himappnew/service/project_service.dart';
@@ -14,6 +16,7 @@ import 'login_page.dart';
 import 'site_observation_safety.dart';
 import 'package:himappnew/service/firebase_messaging_service.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_html/flutter_html.dart';
 
 class DashboardPage extends StatefulWidget {
   final String companyName;
@@ -44,46 +47,198 @@ class _DashboardPageState extends State<DashboardPage> {
   int qualityObservationsCount = 0;
   int pendingCount = 0;
   bool isLoading = true;
-
+  int _unreadCount = 0;
   @override
   void initState() {
     super.initState();
     isLoading = true;
     _loadStats();
+    _fetchUnreadCount(); // to show badge on start
   }
 
   Future<void> _loadStats() async {
+    print("Loading stats started");
     try {
       final userId = await SharedPrefsHelper.getUserId();
+      print("User ID fetched: $userId");
       if (userId != null) {
         final safety = await widget.siteObservationService
             .fatchSiteObservationSafetyByUserID(userId);
+        print("Safety observations fetched: ${safety.length}");
         final quality = await widget.siteObservationService
             .fatchSiteObservationQualityByUserID(userId);
+        print("Quality observations fetched: ${quality.length}");
         setState(() {
           safetyObservationsCount = safety.length;
           qualityObservationsCount = quality.length;
           isLoading = false;
         });
+        print("State updated with new counts");
       } else {
+        print("User ID is null");
         setState(() {
           isLoading = false;
         });
       }
     } catch (e) {
+      print("Error loading stats: $e");
       setState(() {
         isLoading = false;
       });
     }
   }
 
+  Future<void> _fetchUnreadCount() async {
+    int? userId = await SharedPrefsHelper.getUserId();
+    if (userId == null) return;
+
+    List<NotificationModel> notifications =
+        await getNotificationsByUserID(userId);
+
+    final unread = notifications.where((n) => n.isMobileRead == false).toList();
+
+    setState(() {
+      _unreadCount = unread.length;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    List<NotificationModel> _dialogNotifications = [];
     return Scaffold(
       drawer: _buildDrawer(context),
       appBar: AppBar(
         title: Text("Dashboard - ${widget.companyName}"),
         actions: [
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(Icons.notifications),
+                onPressed: () async {
+                  int? userId = await SharedPrefsHelper.getUserId();
+                  List<NotificationModel> notifications =
+                      await getNotificationsByUserID(userId!);
+
+                  setState(() {
+                    _unreadCount = 0; // Mark as read in UI
+                  });
+
+                  _dialogNotifications = List.from(notifications);
+
+                  showDialog(
+                    context: context,
+                    builder: (_) => StatefulBuilder(
+                      builder: (context, setState) => AlertDialog(
+                        title: Text("Notifications"),
+                        content: SizedBox(
+                          width: double.maxFinite,
+                          child: _dialogNotifications.isEmpty
+                              ? Center(child: Text("No notifications"))
+                              : ListView.builder(
+                                  itemCount: _dialogNotifications.length,
+                                  itemBuilder: (context, index) {
+                                    final n = _dialogNotifications[index];
+                                    return Card(
+                                      elevation: 2,
+                                      margin: EdgeInsets.symmetric(vertical: 8),
+                                      child: ListTile(
+                                        title: Text(n.programRowCode ??
+                                            'ProgramRowCode'),
+                                        subtitle: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(n.programName ?? 'NoMessage'),
+                                            Html(
+                                                data:
+                                                    n.notificationDescription ??
+                                                        ''),
+                                          ],
+                                        ),
+                                        trailing: IconButton(
+                                          icon: Icon(Icons.close),
+                                          onPressed: () async {
+                                            int? userId =
+                                                await SharedPrefsHelper
+                                                    .getUserId();
+                                            if (userId == null) return;
+
+                                            final notificationId =
+                                                _dialogNotifications[index].id;
+                                            if (notificationId == null) return;
+                                            print(
+                                                "Notification deletion success: $notificationId");
+                                            print("userId: $userId");
+                                            print(
+                                                "Device ID: ${AppSettings.DEVICEID['Mobile']}");
+                                            bool success =
+                                                await deleteNotification(
+                                              notificationId
+                                                  .toString(), // Convert to String if needed
+                                              userId,
+                                              AppSettings.DEVICEID[
+                                                  'Mobile']!, // Assuming this is the device type
+                                            );
+
+                                            if (success) {
+                                              setState(() {
+                                                _dialogNotifications
+                                                    .removeAt(index);
+                                              });
+                                            } else {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                    content: Text(
+                                                        "Failed to delete notification")),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                        actions: [
+                          TextButton(
+                            child: Text("Close"),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              if (_unreadCount > 0)
+                Positioned(
+                  right: 7,
+                  top: 7,
+                  child: Container(
+                    padding: EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '$_unreadCount',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          // Theme toggle icon
           IconButton(
             icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
             onPressed: widget.onToggleTheme,
@@ -208,7 +363,7 @@ class _DashboardPageState extends State<DashboardPage> {
         },
         child: _buildNeonGlassCard(
           icon: Icons.science,
-          title: "SiteObservation Quality",
+          title: "Site Observation Quality",
           value: "$qualityObservationsCount",
           color: Color.fromARGB(255, 221, 57, 194),
         ),
@@ -219,10 +374,10 @@ class _DashboardPageState extends State<DashboardPage> {
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+        crossAxisCount: 1,
         mainAxisSpacing: cardSpacing,
         crossAxisSpacing: cardSpacing,
-        childAspectRatio: 2.5,
+        childAspectRatio: 5,
       ),
       itemCount: cards.length,
       itemBuilder: (context, index) => cards[index],
@@ -241,8 +396,17 @@ class _DashboardPageState extends State<DashboardPage> {
         bool isDark = Theme.of(context).brightness == Brightness.dark;
 
         double iconSize = screenWidth < 400 ? 26 : 32;
-        double titleFontSize = screenWidth < 400 ? 13 : 14;
-        double valueFontSize = screenWidth < 400 ? 20 : 22;
+        double titleFontSize = screenWidth < 350
+            ? 12
+            : screenWidth < 400
+                ? 13
+                : 14;
+        double valueFontSize;
+        if (value.length > 3) {
+          valueFontSize = 16; // zyada digit ho to font chhota kar do
+        } else {
+          valueFontSize = screenWidth < 400 ? 20 : 22;
+        }
 
         return ScaleAnimatedWidget.tween(
           enabled: true,
@@ -263,13 +427,16 @@ class _DashboardPageState extends State<DashboardPage> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  // padding: const EdgeInsets.all(12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     border:
                         Border.all(color: color.withOpacity(0.3), width: 1.2),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
@@ -284,29 +451,45 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                           ],
                         ),
-                        child: Icon(icon,
-                            color: isDark ? Colors.white : Colors.black,
-                            size: iconSize),
+                        child: Icon(
+                          icon,
+                          color: isDark ? Colors.white : Colors.black,
+                          size: iconSize,
+                        ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment
+                              .center, // ✅ Center it vertically
                           children: [
-                            Text(title,
+                            Flexible(
+                              child: Text(
+                                title,
                                 style: GoogleFonts.poppins(
                                   color: isDark ? Colors.white : Colors.black,
                                   fontSize: titleFontSize,
                                   fontWeight: FontWeight.w500,
-                                )),
-                            const SizedBox(height: 4),
-                            Text(value,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: true,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Flexible(
+                              child: Text(
+                                value,
                                 style: GoogleFonts.poppins(
                                   color: isDark ? Colors.white : Colors.black,
                                   fontSize: valueFontSize,
                                   fontWeight: FontWeight.w600,
-                                )),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                       ),

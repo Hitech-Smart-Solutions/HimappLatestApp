@@ -78,7 +78,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   String? areaLabel;
   String? floorLabel;
   String? elementLabel;
-
+  bool isSending = false;
   @override
   void initState() {
     super.initState();
@@ -373,6 +373,10 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   }
 
   Future<void> _sendActivityComment() async {
+    if (isSending) return;
+    setState(() {
+      isSending = true; // send start hone pe disable kar do
+    });
     try {
       final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
       final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
@@ -530,6 +534,10 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       }
     } catch (e, st) {
       print(st);
+    } finally {
+      setState(() {
+        isSending = false; // send complete hone ke baad enable kar do
+      });
     }
   }
 
@@ -620,200 +628,283 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              widget.detail.observationCode ?? 'No Code',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+    final media = MediaQuery.of(context);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final height = media.size.height * 0.8;
+          final width = media.size.width * 0.9;
+
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: height,
+              maxWidth: width,
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            // Add this line
-            child: DropdownButtonFormField<String>(
-              value: selectedStatus, // must be String
-              hint: const Text("-- Status --"),
-              isExpanded: true,
-              items: observationStatus.map((status) {
-                final idStr = status['id'].toString(); // String
-                final id = int.tryParse(idStr);
-                final name = SiteObservationStatus.idToName[id] ??
-                    status['name'] ??
-                    'Unknown';
-
-                return DropdownMenuItem<String>(
-                  value: idStr,
-                  child: Text(name),
-                );
-              }).toList(),
-              onChanged: isStatusEnabled
-                  ? (newValue) {
-                      if (newValue != null) {
-                        final int newStatus = int.parse(newValue);
-
-                        setState(() {
-                          fromStatus = toStatus; // 👈 old becomes fromStatus
-                          toStatus = newStatus; // 👈 selected becomes toStatus
-                          selectedStatus = newValue;
-                        });
-
-                        debugPrint(
-                            "📥 fromStatus: $fromStatus, toStatus: $toStatus");
-                      }
-                    }
-                  : null,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please select a status';
-                }
-                return null;
-              },
-            ),
-          ),
-        ],
-      ),
-      content: Portal(
-        child: SizedBox(
-          width: double.maxFinite,
-          child: DefaultTabController(
-            length: 3,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const TabBar(
-                  labelColor: Colors.black,
-                  tabs: [
-                    Tab(text: "Detail"),
-                    Tab(text: "Attachment"),
-                    Tab(text: "Activity"),
-                  ],
-                ),
-                SizedBox(
-                  height: 422,
-                  width: 700,
-                  child: TabBarView(
+                // Title row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  child: Row(
                     children: [
-                      _buildDetailTab(),
-                      _buildAttachmentTab(),
-                      _buildActivityTab(), // contains FlutterMentions
+                      Expanded(
+                        child: Text(
+                          widget.detail.observationCode ?? 'No Code',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: selectedStatus,
+                          hint: const Text("-- Status --"),
+                          isExpanded: true,
+                          items: observationStatus.map((status) {
+                            final idStr = status['id'].toString();
+                            final id = int.tryParse(idStr);
+                            final name = SiteObservationStatus.idToName[id] ??
+                                status['name'] ??
+                                'Unknown';
+
+                            return DropdownMenuItem<String>(
+                              value: idStr,
+                              child: Text(name),
+                            );
+                          }).toList(),
+                          onChanged: isStatusEnabled
+                              ? (newValue) {
+                                  if (newValue != null) {
+                                    final int newStatus = int.parse(newValue);
+                                    setState(() {
+                                      fromStatus = toStatus;
+                                      toStatus = newStatus;
+                                      selectedStatus = newValue;
+                                    });
+                                  }
+                                }
+                              : null,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a status';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 16),
+
+                Expanded(
+                  child: DefaultTabController(
+                    length: 3,
+                    child: Column(
+                      children: [
+                        const TabBar(
+                          labelColor: Colors.black,
+                          tabs: [
+                            Tab(text: "Detail"),
+                            Tab(text: "Attachment"),
+                            Tab(text: "Activity"),
+                          ],
+                        ),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              _buildDetailTab(context), // ⬅️ Updated
+                              _buildAttachmentTab(),
+                              _buildActivityTab(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Actions
+                // Padding(
+                //   padding: const EdgeInsets.all(16),
+                //   child: Align(
+                //     alignment: Alignment.centerRight,
+                //     child: TextButton(
+                //       child: const Text("Close"),
+                //       onPressed: () => Navigator.of(context).pop(),
+                //     ),
+                //   ),
+                // ),
               ],
             ),
-          ),
-        ),
+          );
+        },
       ),
-      actions: [
-        TextButton(
-          child: const Text("Close"),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ],
     );
   }
 
-  Widget _buildDetailTab() {
+  Widget _buildDetailTab(BuildContext context) {
+    // final media = MediaQuery.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.detail.description ?? 'N/A',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+            //   minHeight: media.size.height * 0.4,
+            //   maxHeight: media.size.height * 0.8,
             ),
-          ),
-          const SizedBox(height: 16),
-          Table(
-            columnWidths: const {
-              0: FlexColumnWidth(1),
-              1: FlexColumnWidth(1),
-            },
+        child: IntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildAlignedRow(
-                  "Observation Date : ",
-                  _formatDate(widget.detail.trancationDate),
-                  "Created Date : ",
-                  _formatDate(widget.detail.createdDate)),
-              _buildAlignedRow(
-                "Observation Type : ",
-                widget.detail.observationType ?? 'N/A',
-                "Issue Type : ",
-                widget.detail.issueType ?? 'N/A',
+              Text(
+                widget.detail.description ?? 'N/A',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
-              _buildAlignedRow(
-                  "Created By : ",
+              const SizedBox(height: 16),
+
+              // ✅ Use this single method repeatedly — smart layout
+              _buildResponsiveRow(
+                  context,
+                  "Observation Date :",
+                  _formatDate(widget.detail.trancationDate),
+                  "Created Date :",
+                  _formatDate(widget.detail.createdDate)),
+              _buildResponsiveRow(
+                  context,
+                  "Observation Type :",
+                  widget.detail.observationType ?? 'N/A',
+                  "Issue Type :",
+                  widget.detail.issueType ?? 'N/A'),
+              _buildResponsiveRow(
+                  context,
+                  "Created By :",
                   widget.detail.createdByName ?? 'N/A',
-                  "Due Date : ",
+                  "Due Date :",
                   _formatDate(widget.detail.dueDate)),
-              _buildAlignedRow(
-                  "Activity : ",
+              _buildResponsiveRow(
+                  context,
+                  "Activity :",
                   widget.detail.activityName ?? 'N/A',
-                  "$areaLabel : ",
+                  "$areaLabel :",
                   widget.detail.sectionName ?? 'N/A'),
-              _buildAlignedRow(
-                  "$floorLabel : ",
+              _buildResponsiveRow(
+                  context,
+                  "$floorLabel :",
                   widget.detail.floorName ?? 'N/A',
-                  "Part : ",
+                  "Part :",
                   widget.detail.partName ?? 'N/A'),
-              _buildAlignedRow(
-                  "$elementLabel : ",
+              _buildResponsiveRow(
+                  context,
+                  "$elementLabel :",
                   widget.detail.elementName ?? 'N/A',
-                  "Contractor : ",
+                  "Contractor :",
                   widget.detail.contractorName ?? 'N/A'),
-              _buildAlignedRow(
-                  "Compliance Required : ",
+              _buildResponsiveRow(
+                  context,
+                  "Compliance Required :",
                   widget.detail.complianceRequired ? 'True' : 'False',
-                  "Escalation Required : ",
+                  "Escalation Required :",
                   widget.detail.escalationRequired ? 'True' : 'False'),
+
+              const SizedBox(height: 24),
+
+              // ✅ Your existing form
+              _buildRootCauseForm(),
             ],
           ),
-          const SizedBox(height: 24), // spacing between detail and form
-          // Root Cause Form below details
-          _buildRootCauseForm(),
-        ],
+        ),
       ),
     );
   }
 
-  TableRow _buildAlignedRow(
-      String label1, String value1, String label2, String value2) {
-    return TableRow(
+  Widget _buildResponsiveRow(
+    BuildContext context,
+    String label1,
+    String value1,
+    String label2,
+    String value2,
+  ) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    if (isMobile) {
+      // MOBILE: 1 item per row (stacked vertically)
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDetailRow(label1, value1),
+          _buildDetailRow(label2, value2),
+          const SizedBox(height: 8),
+        ],
+      );
+    } else {
+      // TABLET: 2 items in a row (like table)
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Row(
+          children: [
+            Expanded(child: _buildDetailRow(label1, value1)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildDetailRow(label2, value2)),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabelValue(label1, value1),
-        _buildLabelValue(label2, value2),
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(width: 6),
+        Expanded(child: Text(value)),
       ],
     );
   }
 
-  Widget _buildLabelValue(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              value,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // TableRow _buildAlignedRow(
+  //     String label1, String value1, String label2, String value2) {
+  //   return TableRow(
+  //     children: [
+  //       _buildLabelValue(label1, value1),
+  //       _buildLabelValue(label2, value2),
+  //     ],
+  //   );
+  // }
+
+  // Widget _buildLabelValue(String label, String value) {
+  //   return Padding(
+  //     padding: const EdgeInsets.symmetric(vertical: 8),
+  //     child: Row(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           label,
+  //           style: const TextStyle(fontWeight: FontWeight.w600),
+  //         ),
+  //         const SizedBox(width: 4),
+  //         Expanded(
+  //           child: Text(
+  //             value,
+  //             overflow: TextOverflow.ellipsis,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   String _formatDate(DateTime? date) {
     return date != null
@@ -1249,7 +1340,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Widget _buildActivityTab() {
     final activities = widget.detail.activityDTO;
-    print("Activities: ${activities.length}");
+    // print("Activities: ${activities.length}");
     if (activities.isEmpty) {
       return const Center(child: Text("No activity recorded."));
     }
@@ -1297,7 +1388,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                     final first = acts.first;
                     // print(acts.first.toString());
                     final statusName = first.toStatusName ?? "Unknown";
-                    print("Status Name: $statusName");
+                    // print("Status Name: $statusName");
                     String userName = first.createdByName ??
                         (() {
                           if (first.createdBy != null && userList.isNotEmpty) {
@@ -1464,24 +1555,81 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                                                     .circular(
                                                                         12),
                                                           ),
-                                                          child: ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        10),
-                                                            child:
-                                                                Image.network(
-                                                              "$url/${activity.documentName}",
-                                                              fit: BoxFit.cover,
-                                                              errorBuilder: (context,
-                                                                      error,
-                                                                      stackTrace) =>
-                                                                  const Icon(
-                                                                      Icons
-                                                                          .broken_image,
-                                                                      size: 50),
-                                                            ),
-                                                          ),
+                                                          child: isImage(activity
+                                                                  .documentName)
+                                                              ? GestureDetector(
+                                                                  onTap: () {
+                                                                    showDialog(
+                                                                      context:
+                                                                          context,
+                                                                      barrierColor:
+                                                                          Colors
+                                                                              .black54,
+                                                                      builder:
+                                                                          (_) =>
+                                                                              Dialog(
+                                                                        backgroundColor:
+                                                                            Colors.transparent,
+                                                                        insetPadding: const EdgeInsets
+                                                                            .all(
+                                                                            16),
+                                                                        child:
+                                                                            GestureDetector(
+                                                                          onTap: () =>
+                                                                              Navigator.pop(context),
+                                                                          child:
+                                                                              InteractiveViewer(
+                                                                            panEnabled:
+                                                                                true,
+                                                                            minScale:
+                                                                                1,
+                                                                            maxScale:
+                                                                                4,
+                                                                            child:
+                                                                                ClipRRect(
+                                                                              borderRadius: BorderRadius.circular(12),
+                                                                              child: Image.network(
+                                                                                "$url/${activity.documentName}",
+                                                                                fit: BoxFit.contain,
+                                                                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 100),
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    );
+                                                                  },
+                                                                  child:
+                                                                      ClipRRect(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                            10),
+                                                                    child: Image
+                                                                        .network(
+                                                                      "$url/${activity.documentName}",
+                                                                      fit: BoxFit
+                                                                          .cover,
+                                                                      errorBuilder: (context,
+                                                                              error,
+                                                                              stackTrace) =>
+                                                                          const Icon(
+                                                                              Icons.broken_image,
+                                                                              size: 50),
+                                                                    ),
+                                                                  ),
+                                                                )
+                                                              : ClipRRect(
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              10),
+                                                                  child: Image
+                                                                      .asset(
+                                                                    "assets/default-image.png",
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                  ),
+                                                                ),
                                                         ),
                                                       ],
                                                     ),
@@ -1510,58 +1658,98 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 children: [
                   Expanded(
                     child: Container(
-                      constraints: const BoxConstraints(maxHeight: 250),
-                      child: FlutterMentions(
-                        key: mentionsKey,
-                        maxLines: 5,
-                        minLines: 2,
-                        suggestionPosition: SuggestionPosition.Top,
-                        suggestionListHeight: 150,
-                        suggestionListDecoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black26, blurRadius: 4)
+                        constraints: const BoxConstraints(maxHeight: 250),
+                        child: FlutterMentions(
+                          key: mentionsKey,
+                          maxLines: 3,
+                          minLines: 1,
+                          suggestionPosition: SuggestionPosition.Top,
+                          suggestionListHeight: 250, // 👈 enough height
+                          decoration: InputDecoration(
+                            hintText: "Enter '@' Or #...",
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          mentions: [
+                            Mention(
+                              trigger: '@',
+                              style: const TextStyle(color: Colors.blue),
+                              data: userList,
+                              matchAll: true,
+                              suggestionBuilder: (data) {
+                                return Container(
+                                  margin: const EdgeInsets.only(
+                                      left:
+                                          25), // 👈 Shift box to right by 50 pixels
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border(
+                                      bottom: BorderSide(
+                                          color: Colors.grey.shade300),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: Colors.blueAccent,
+                                        child: Text(
+                                          data['display'][0].toUpperCase(),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              data['display'],
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            Text(
+                                              data['full_name'],
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           ],
-                        ),
-                        decoration: InputDecoration(
-                          hintText: "Add comment and assign user...",
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        mentions: [
-                          Mention(
-                            trigger: '@',
-                            style: const TextStyle(color: Colors.blue),
-                            data: userList,
-                            matchAll: true,
-                            suggestionBuilder: (data) {
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  child: Text(data['display'][0].toUpperCase()),
-                                ),
-                                title: Text(data['display']),
-                                subtitle: Text(data['full_name']),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
+                        )),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _sendActivityComment,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(70, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
                     ),
-                    child: const Text("Send"),
+                    child: IconButton(
+                      icon: const Icon(Icons.send, color: Colors.white),
+                      onPressed: isSending ? null : _sendActivityComment,
+                    ),
                   ),
                 ],
               ),

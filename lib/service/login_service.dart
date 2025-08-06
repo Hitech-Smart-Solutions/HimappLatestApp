@@ -5,8 +5,7 @@ import 'package:http/http.dart' as http;
 class LoginService {
   final String apiUrl =
       "https://d94acvrm8bvo5.cloudfront.net/api/UserMaster/UserLogin";
-  String token =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNhIiwibmJmIjoxNzQzNTA2NDg0LCJleHAiOjE3NDg3NzY4ODQsImlhdCI6MTc0MzUwNjQ4NCwiaXNzIjoibG9jYWxob3N0IiwiYXVkIjoibG9jYWxob3N0In0.FWB3drzcevP4m0KiHecDu0Xuer1yCNxVGoOCUl26do0"; // Manually added token
+  String token = ""; // Manually added token
   // Login function
   Future<Map<String, dynamic>> login(String username, String password) async {
     try {
@@ -53,6 +52,35 @@ class LoginService {
       }
     } catch (e) {
       return {'success': false, 'message': 'An error occurred: $e'};
+    }
+  }
+
+  Future<void> updateUserMobileAppToken(int userId, String fcmToken) async {
+    final token = await SharedPrefsHelper.getToken(); // JWT Auth token
+
+    final url = Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/UserMaster/UpdateUserMobileAppToken/$userId');
+
+    final body = jsonEncode({
+      "userId": userId,
+      "webTokenID": "",
+      "mobileAppTokenID": fcmToken,
+    });
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: body,
+    );
+
+    if (response.statusCode == 200) {
+      print("✅ FCM token saved to DB");
+    } else {
+      print("❌ Failed to save FCM token: ${response.statusCode}");
+      print("Response body: ${response.body}");
     }
   }
 }

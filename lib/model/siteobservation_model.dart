@@ -1494,3 +1494,44 @@ class ElementModel {
     );
   }
 }
+
+class NotificationModel {
+  final int id;
+  final String userName;
+  final String notificationDescription;
+  final String programName;
+  final String programRowCode;
+  final bool isMobileRead;
+  final bool isWebRead;
+  final String createdByName;
+  final String createdDate;
+  final int actionID;
+
+  NotificationModel({
+    required this.id,
+    required this.userName,
+    required this.notificationDescription,
+    required this.programName,
+    required this.programRowCode,
+    required this.isMobileRead,
+    required this.isWebRead,
+    required this.createdByName,
+    required this.createdDate,
+    required this.actionID,
+  });
+
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    return NotificationModel(
+      id: json['id'],
+      userName: json['userName'],
+      notificationDescription: json['notificationDescription'],
+      programName: json['programName'],
+      programRowCode: json['programRowCode'],
+      isMobileRead: json['isMobileRead'],
+      isWebRead: json['isWebRead'],
+      createdByName: json['createdByName'],
+      createdDate: json['createdDate'],
+      actionID: json['actionID'],
+    );
+  }
+}

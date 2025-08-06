@@ -12,32 +12,26 @@ void main() async {
   await Firebase.initializeApp();
   await FirebaseMessagingService.initialize();
 
-  // final token = await SharedPrefsHelper.getToken();
-  // final userName = await SharedPrefsHelper.getUserName();
-  // final companyName = await SharedPrefsHelper.getCompanyName();
-  // // Yahan print karo values ko debug ke liye
-  // print("🚀 Token: $token");
-  // print("🚀 UserName: $userName");
-  // print("🚀 CompanyName: $companyName");
-  runApp(MyApp());
-//   runApp(MyApp(
-//     token: token,
-//     userName: userName,
-//     companyName: companyName,
-//   ));
+  runApp(MyAppWrapper());
+}
+
+/// 👇 Yeh widget wrap karta hai poori app ko with fixed [textScaleFactor]
+class MyAppWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Builder(
+      builder: (context) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+          child: const MyApp(),
+        );
+      },
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
-  // final String? token;
-  // final String? userName;
-  // final String? companyName;
-
-  const MyApp({
-    super.key,
-    // required this.token,
-    // required this.userName,
-    // required this.companyName,
-  });
+  const MyApp({super.key});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -49,6 +43,7 @@ class _MyAppState extends State<MyApp> {
   String? userName;
   String? companyName;
   bool isLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -66,10 +61,6 @@ class _MyAppState extends State<MyApp> {
     userName = await SharedPrefsHelper.getUserName();
     companyName = await SharedPrefsHelper.getCompanyName();
 
-    // print("🚀 Token: $token");
-    // print("🚀 UserName: $userName");
-    // print("🚀 CompanyName: $companyName");
-
     setState(() {
       isLoading = false;
     });
@@ -79,7 +70,8 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return MaterialApp(
-        home: Scaffold(
+        debugShowCheckedModeBanner: false,
+        home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
       );
@@ -89,6 +81,15 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       title: 'Dashboard App',
       theme: isDarkMode ? ThemeData.dark() : ThemeData.light(),
+
+      /// 👇 Yahan bhi builder lagana optional hai (already wrapped upar se)
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+          child: child!,
+        );
+      },
+
       home: token != null && token!.isNotEmpty
           ? DashboardPage(
               isDarkMode: isDarkMode,

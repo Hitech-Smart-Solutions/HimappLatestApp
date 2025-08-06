@@ -7,7 +7,16 @@ class ScreenTypes {
 class AppSettings {
   static const String url =
       'https://s3.ap-south-1.amazonaws.com/documents.himapp.test';
+  static const Map<String, int> DEVICEID = {
+    'Web': 1,
+    'Mobile': 2,
+  };
 }
+
+// class DEVICEID {
+//   static const int Web = 1;
+//   static const int Mobile = 2;
+// }
 
 class SiteObservationActions {
   static const int Created = 1;
