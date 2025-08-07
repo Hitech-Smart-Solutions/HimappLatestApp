@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:himappnew/deshboard.dart';
 import 'package:himappnew/model/company_model.dart';
@@ -51,15 +52,23 @@ class _MyCustomFormState extends State<MyCustomForm> {
       var userId = responseBody['userId'];
       var userName = responseBody['userName'];
       var token = responseBody['token'];
+      print("responseBody: $responseBody");
 
       if (userId != null && token != null) {
         await SharedPrefsHelper.clear();
         await SharedPrefsHelper.saveUserId(userId);
         await SharedPrefsHelper.saveToken(token);
         await SharedPrefsHelper.saveUserName(userName);
-        // await SharedPrefsHelper.saveCompanyName(companyName);
         print("✅ Saved UserName: $userName");
-        // print("✅ Saved CompanyName: $companyName");
+
+        // ✅ STEP: Get Firebase token
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        print("✅ FCM Token: $fcmToken");
+        if (fcmToken != null) {
+          // ✅ STEP: Call API to save mobileAppToken
+          await _loginService.updateUserMobileAppToken(userId, fcmToken);
+        }
+
         _showBusinessesModal();
       } else {
         _showErrorDialog("Required data not found in the response.");

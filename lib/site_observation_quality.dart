@@ -105,6 +105,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   List<String> uploadedFiles = [];
   int? selectedObservationTypeId;
   int? selectedIssueTypeId;
+
   bool get isToggleEnabled {
     if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
       return false;
@@ -161,6 +162,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   SiteObservation? selectedObservationForView;
   GetSiteObservationMasterById? _currentObservation;
   List<ActivityDTO> activityDTOList = [];
+  bool isDraftObservation = false;
   @override
   void initState() {
     super.initState();
@@ -196,9 +198,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           .map((user) => MultiSelectItem<User>(user, user.userName))
           .toList();
     });
-
-    _dateController.text =
-        DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()); // Local time
+    if (!isEditMode) {
+      _dateController.text =
+          DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()); // Local time
+    }
     // futureObservations = widget._siteObservationService
     // _loadObservationFromServer(widget.de);
   }
@@ -446,15 +449,30 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   }
 
   void _submitForm({bool isDraft = false}) async {
-    if (_formKey.currentState?.validate() ?? false || isDraft) {
+    bool isFormValid = _formKey.currentState?.validate() ?? false;
+
+    // ✅ Only validate user if dropdown is enabled
+    bool isUserValidationRequired = isEditMode && isUserSelectionEnabled;
+    bool isUserSelected = selectedUserObjects.isNotEmpty;
+
+    if (isFormValid && (!isUserValidationRequired || isUserSelected)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(isDraft ? 'Saving as Draft...' : 'Submitting...')),
       );
-      await submitForm(isDraft: isDraft); // 👈 Forward flag
+
+      await submitForm(isDraft: isDraft);
     } else {
+      String errorMessage = '';
+
+      if (!isFormValid) {
+        errorMessage = 'Please fill all required fields correctly.';
+      } else if (isUserValidationRequired && !isUserSelected) {
+        errorMessage = 'Please select at least one user.';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please correct the errors')),
+        SnackBar(content: Text(errorMessage)),
       );
     }
   }
@@ -820,12 +838,57 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       List<SiteObservationActivity> finalActivityList = [];
 
       // ✅ Step 1: Add OLD DocUploaded images
-      finalActivityList.addAll(activityList.where((a) =>
-          a.actionID == SiteObservationActions.DocUploaded && a.id != 0));
+      // finalActivityList.addAll(activityList.where((a) =>
+      //     a.actionID == SiteObservationActions.DocUploaded && a.id != 0));
 
-      // ✅ Step 2: Add NEW DocUploaded images
-      finalActivityList.addAll(activityList.where((a) =>
-          a.actionID == SiteObservationActions.DocUploaded && a.id == 0));
+      // // ✅ Step 2: Add NEW DocUploaded images
+      // finalActivityList.addAll(activityList.where((a) =>
+      //     a.actionID == SiteObservationActions.DocUploaded && a.id == 0));
+
+      // ✅ Step 1: Add OLD DocUploaded images, override status for final submit
+      finalActivityList.addAll(activityList
+          .where((a) =>
+              a.actionID == SiteObservationActions.DocUploaded && a.id != 0)
+          .map((a) {
+        return SiteObservationActivity(
+          id: a.id,
+          siteObservationID: a.siteObservationID,
+          actionID: a.actionID,
+          comments: a.comments,
+          documentName: a.documentName,
+          fileName: a.fileName,
+          fileContentType: a.fileContentType,
+          filePath: a.filePath,
+          // override only if NOT draft
+          fromStatusID: isDraft ? a.fromStatusID : fromStatusID,
+          toStatusID: isDraft ? a.toStatusID : toStatusID,
+          assignedUserID: a.assignedUserID,
+          createdBy: a.createdBy,
+          createdDate: a.createdDate,
+        );
+      }));
+
+// ✅ Step 2: Add NEW DocUploaded images, override status for final submit
+      finalActivityList.addAll(activityList
+          .where((a) =>
+              a.actionID == SiteObservationActions.DocUploaded && a.id == 0)
+          .map((a) {
+        return SiteObservationActivity(
+          id: a.id,
+          siteObservationID: a.siteObservationID,
+          actionID: a.actionID,
+          comments: a.comments,
+          documentName: a.documentName,
+          fileName: a.fileName,
+          fileContentType: a.fileContentType,
+          filePath: a.filePath,
+          fromStatusID: isDraft ? a.fromStatusID : fromStatusID,
+          toStatusID: isDraft ? a.toStatusID : toStatusID,
+          assignedUserID: a.assignedUserID,
+          createdBy: a.createdBy,
+          createdDate: a.createdDate,
+        );
+      }));
 
       bool alreadyCreated = finalActivityList.any(
         (a) => a.actionID == SiteObservationActions.Created,
@@ -1014,7 +1077,15 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         lastModifiedDate: formatDateForApi(DateTime.now().toUtc()),
         siteObservationActivity: finalActivityList,
       );
-
+      for (var dto in activityDTOList) {
+        if (dto.actionID == SiteObservationActions.DocUploaded) {
+          debugPrint("📁 DocUploaded => "
+              "id: ${dto.id}, "
+              "doc: ${dto.documentName}, "
+              "fromStatusID: ${dto.fromStatusID}, "
+              "toStatusID: ${dto.toStatusID}");
+        }
+      }
       bool success = false;
 
       if (selectedObservationId == 0) {
@@ -1044,8 +1115,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           lastModifiedDate: commonFields.lastModifiedDate,
           activityDTO: activityDTOList,
         );
-        // debugPrint("🟡 From Status ID: $fromStatusID");
-        // debugPrint("🟢 To Status ID: $toStatusID");
+
         Map<int, String> actionNames = {
           1: "Created",
           2: "Assigned",
@@ -1109,15 +1179,22 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     try {
       final observationList = await widget._siteObservationService
           .fetchGetSiteObservationMasterById(observationId);
-      // print("observationList: $observationList");
+
       if (observationList.isNotEmpty) {
         final observation = observationList.first;
+
+        if (observation.trancationDate != null) {
+          // 👇 Convert UTC to Local + Use T format
+          final localDate = observation.trancationDate.toLocal();
+          _dateController.text =
+              DateFormat('yyyy-MM-dd HH:mm').format(localDate);
+        }
 
         setState(() {
           showObservations = false;
         });
 
-        _loadDataAndObservation(observation); // ✅ Now pass a single object
+        _loadDataAndObservation(observation);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('❌ Observation not found')),
@@ -1132,11 +1209,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   Future<void> _loadDataAndObservation(
       GetSiteObservationMasterById observation) async {
-    // Step 1: Set observationType and observationTypeId
+    print("Loading observation: $observation - ${observation.description}");
+
     selectedObservationType = observation.observationType;
     selectedObservationTypeId = observation.observationTypeID;
-
     selectedIssueType = observation.issueType ?? '';
+    isDraftObservation = observation.statusID == SiteObservationStatus.Draft;
 
     await fetchIssueTypes();
 
@@ -1144,7 +1222,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       (e) => e.name == selectedIssueType,
       orElse: () => IssueType(id: 0, name: '', observationTypeID: 0),
     );
-
     selectedIssueTypeId = foundIssue.id;
     selectedIssueType = foundIssue.name;
 
@@ -1175,46 +1252,59 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       ),
     );
 
-    if (foundObs.id != 0) {
+    if (isDraftObservation) {
+      selectedObservation = observation.description;
+      observationDescriptionController.text = observation.description;
+      isComplianceRequired = observation.complianceRequired ?? false;
+      isEscalationRequired = observation.escalationRequired ?? false;
+      actionToBeTakenController.text = observation.actionToBeTaken ?? '';
+    } else if (foundObs.id != 0) {
       selectedObservation = foundObs.observationDescription;
-
       observationDescriptionController.text = foundObs.observationDescription;
       isComplianceRequired = foundObs.complianceRequired;
       isEscalationRequired = foundObs.escalationRequired;
       actionToBeTakenController.text = foundObs.actionToBeTaken ?? '';
+    }
 
-      if (_dateController.text.isNotEmpty &&
-          foundObs.dueTimeInHrs != null &&
-          foundObs.dueTimeInHrs != 0) {
-        try {
-          DateTime startDate =
-              DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
-          DateTime dueDate =
-              startDate.add(Duration(hours: foundObs.dueTimeInHrs.floor()));
+    // ⏳ Due date calculation (unchanged)
+    if (_dateController.text.isNotEmpty) {
+      try {
+        DateTime startDate =
+            DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
 
-          String formattedDueDate =
+        int? hoursToAdd;
+        if (isDraftObservation) {
+          hoursToAdd = observation.dueDate != null
+              ? observation.dueDate!.difference(startDate).inHours
+              : null;
+        } else {
+          hoursToAdd = foundObs.dueTimeInHrs;
+        }
+
+        if (hoursToAdd != null && hoursToAdd != 0) {
+          DateTime dueDate = startDate.add(Duration(hours: hoursToAdd));
+          _dateDueDateController.text =
               DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
-          _dateDueDateController.text = formattedDueDate;
-        } catch (e) {
-          print("Date calculation error: $e");
+        } else {
           _dateDueDateController.text = '';
         }
-      } else {
+      } catch (e) {
+        print("Date calculation error: $e");
         _dateDueDateController.text = '';
       }
     } else {
-      selectedObservation = null;
+      _dateDueDateController.text = '';
     }
-    selectedActivities = observation.activityName;
-    final observedName = observation.observedByName ?? '';
 
+    selectedActivities = observation.activityName;
+
+    final observedName = observation.observedByName ?? '';
     final matchedObservedBy = ObservationConstants.observedBy.firstWhere(
       (item) =>
           (item['observedBy'] as String).toLowerCase() ==
           observedName.toLowerCase(),
       orElse: () => const {"id": 0, "observedBy": ""},
     );
-
     observedById =
         matchedObservedBy['id'] is int ? matchedObservedBy['id'] as int : 0;
 
@@ -1223,10 +1313,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     selectedPart = observation.partName;
     selectedElement = observation.elementName;
     selectedContractor = observation.contractorName;
-    // 🔸 Extract all assigned usernames from the assignment DTO
-    final fetchedUsers = await fetchUserList(); // ✅ returns list
-    userList = fetchedUsers;
 
+    // 🧑‍🤝‍🧑 Assigned users
+    final fetchedUsers = await fetchUserList();
+    userList = fetchedUsers;
     final assignedUsernames = observation.assignmentStatusDTO
         .map((e) => e.assignedUserName?.trim().toLowerCase())
         .where((name) => name != null && name.isNotEmpty)
@@ -1245,13 +1335,16 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     if (uploadedFiles.isNotEmpty) {
       selectedFileName = uploadedFiles.first;
     }
+
     activityDTOList = observation.activityDTO;
-    // // debugPrint("Current Observation: $activityDTOList");
     debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
-    // populateActivityListFromDTO(observation);
     populateActivityListFromDTO(activityDTOList);
+
     setState(() {
       selectedObservationId = observation.id;
+
+      // ✅ Set based on type ID only
+      isUserSelectionEnabled = observation.observationTypeID != 1;
     });
   }
 
@@ -1358,6 +1451,72 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   //     }
   //   });
   // }
+// 🔧 1. Switch Row: Ek label aur switch
+  Widget _buildToggleRow(
+      String label, bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          Text(label),
+          const SizedBox(width: 8),
+          Switch(
+            value: value,
+            onChanged: isToggleEnabled ? onChanged : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+// 🔧 2. Responsive Layout (mobile/tablet)
+  Widget _buildToggleSwitches(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    if (isMobile) {
+      // 📱 Mobile view: stacked
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildToggleRow("Compliance Required", isComplianceRequired, (value) {
+            setState(() {
+              isComplianceRequired = value;
+            });
+          }),
+          _buildToggleRow("Escalation Required", isEscalationRequired, (value) {
+            setState(() {
+              isEscalationRequired = value;
+            });
+          }),
+        ],
+      );
+    } else {
+      // 💻 Tablet view: side-by-side
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: _buildToggleRow("Compliance Required", isComplianceRequired,
+                (value) {
+              setState(() {
+                isComplianceRequired = value;
+              });
+            }),
+          ),
+          Expanded(
+            child: _buildToggleRow("Escalation Required", isEscalationRequired,
+                (value) {
+              setState(() {
+                isEscalationRequired = value;
+              });
+            }),
+          ),
+        ],
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1744,7 +1903,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                           selectedObservationType)
                                                   ? selectedObservationType
                                                   : null,
-                                              onChanged: isEditMode
+                                              onChanged: (!isDraftObservation &&
+                                                      isEditMode)
                                                   ? (String? newValue) {
                                                       setState(() {
                                                         selectedObservationType =
@@ -1818,64 +1978,15 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                             ),
 
                                             SizedBox(height: 20),
-                                            // Dropdown for Select Issue Type
-                                            // DropdownButtonFormField<String>(
-                                            //   value: issueTypes.any((e) =>
-                                            //           e.name ==
-                                            //           selectedIssueType)
-                                            //       ? selectedIssueType
-                                            //       : null,
-                                            //   onChanged: (String? newValue) {
-                                            //     setState(() {
-                                            //       selectedIssueType = newValue;
 
-                                            //       try {
-                                            //         final selectedIssue =
-                                            //             issueTypes
-                                            //                 .firstWhere((e) =>
-                                            //                     e.name ==
-                                            //                     newValue);
-                                            //         selectedIssueTypeId =
-                                            //             selectedIssue.id;
-                                            //         fetchObservations();
-                                            //       } catch (e) {
-                                            //         selectedIssueTypeId = 0;
-                                            //         observationsList = [];
-                                            //         selectedObservation = null;
-                                            //       }
-                                            //     });
-                                            //   },
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'Issue Type',
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   items: issueTypes.isEmpty
-                                            //       ? [
-                                            //           const DropdownMenuItem(
-                                            //             value: null,
-                                            //             child: Text(
-                                            //                 "Loading...",
-                                            //                 style: TextStyle(
-                                            //                     color: Colors
-                                            //                         .grey)),
-                                            //           )
-                                            //         ]
-                                            //       : issueTypes.map((issueType) {
-                                            //           return DropdownMenuItem<
-                                            //               String>(
-                                            //             value: issueType.name,
-                                            //             child: Text(
-                                            //                 issueType.name),
-                                            //           );
-                                            //         }).toList(),
-                                            // ),
                                             DropdownButtonFormField<String>(
                                               value: issueTypes.any((e) =>
                                                       e.name ==
                                                       selectedIssueType)
                                                   ? selectedIssueType
                                                   : null,
-                                              onChanged: isEditMode
+                                              onChanged: (!isDraftObservation &&
+                                                      isEditMode)
                                                   ? (String? newValue) {
                                                       setState(() {
                                                         selectedIssueType =
@@ -1940,7 +2051,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                           selectedObservation))
                                                   ? selectedObservation
                                                   : null,
-                                              onChanged: isEditMode
+                                              onChanged: (!isDraftObservation &&
+                                                      isEditMode)
                                                   ? (selectedIssueTypeId ==
                                                               null ||
                                                           selectedIssueTypeId ==
@@ -2119,62 +2231,63 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               // validator: _validateDueDate,
                                             ),
                                             SizedBox(height: 20),
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                // **Compliance Required** Toggle Switch
-                                                Expanded(
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                          "Compliance Required"),
-                                                      Switch(
-                                                        value:
-                                                            isComplianceRequired,
-                                                        onChanged: isToggleEnabled
-                                                            ? (bool value) {
-                                                                setState(() {
-                                                                  isComplianceRequired =
-                                                                      value;
-                                                                });
-                                                              }
-                                                            : null, // disables switch when observation is selected
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
+                                            // Row(
+                                            //   mainAxisAlignment:
+                                            //       MainAxisAlignment
+                                            //           .spaceBetween,
+                                            //   children: [
+                                            //     // **Compliance Required** Toggle Switch
+                                            //     Expanded(
+                                            //       child: Row(
+                                            //         mainAxisAlignment:
+                                            //             MainAxisAlignment.start,
+                                            //         children: [
+                                            //           Text(
+                                            //               "Compliance Required"),
+                                            //           Switch(
+                                            //             value:
+                                            //                 isComplianceRequired,
+                                            //             onChanged: isToggleEnabled
+                                            //                 ? (bool value) {
+                                            //                     setState(() {
+                                            //                       isComplianceRequired =
+                                            //                           value;
+                                            //                     });
+                                            //                   }
+                                            //                 : null, // disables switch when observation is selected
+                                            //           ),
+                                            //         ],
+                                            //       ),
+                                            //     ),
 
-                                                // **Escalation Required** Toggle Switch
-                                                Expanded(
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                          "Escalation Required"),
-                                                      Switch(
-                                                        value:
-                                                            isEscalationRequired,
-                                                        onChanged:
-                                                            isToggleEnabled
-                                                                ? (bool value) {
-                                                                    setState(
-                                                                        () {
-                                                                      isEscalationRequired =
-                                                                          value;
-                                                                    });
-                                                                  }
-                                                                : null,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                            //     // **Escalation Required** Toggle Switch
+                                            //     Expanded(
+                                            //       child: Row(
+                                            //         mainAxisAlignment:
+                                            //             MainAxisAlignment.start,
+                                            //         children: [
+                                            //           Text(
+                                            //               "Escalation Required"),
+                                            //           Switch(
+                                            //             value:
+                                            //                 isEscalationRequired,
+                                            //             onChanged:
+                                            //                 isToggleEnabled
+                                            //                     ? (bool value) {
+                                            //                         setState(
+                                            //                             () {
+                                            //                           isEscalationRequired =
+                                            //                               value;
+                                            //                         });
+                                            //                       }
+                                            //                     : null,
+                                            //           ),
+                                            //         ],
+                                            //       ),
+                                            //     ),
+                                            //   ],
+                                            // ),
+                                            _buildToggleSwitches(context),
 
                                             SizedBox(height: 20),
                                             DropdownButtonFormField<String>(
@@ -2679,8 +2792,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                         // We're on form, going back to list → reset the form
                         _resetForm();
                         isEditMode = false;
+                        isDraftObservation = false;
                       } else {
                         isEditMode = true;
+                        isDraftObservation = false;
+                        _dateController.text = DateFormat('yyyy-MM-dd HH:mm')
+                            .format(DateTime.now());
                       }
                       showObservations = !showObservations;
                     });

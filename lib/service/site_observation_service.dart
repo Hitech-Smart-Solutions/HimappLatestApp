@@ -917,3 +917,68 @@ Future<List<ElementModel>> getElementByProjectID(int projectID) async {
     throw Exception('Failed to load elements');
   }
 }
+
+Future<List<NotificationModel>> getNotificationsByUserID(int userID) async {
+  String? token =
+      await SharedPrefsHelper.getToken(); // Optional: if your API requires auth
+
+  final response = await http.get(
+    Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/Notification/GetNotificationByUserID/$userID'),
+    headers: {
+      'Authorization': 'Bearer $token', // Only if needed
+      'Content-Type': 'application/json',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is List) {
+      return decoded.map((json) => NotificationModel.fromJson(json)).toList();
+    } else if (decoded is Map && decoded.containsKey('value')) {
+      List<dynamic> data = decoded['value'];
+      return data.map((json) => NotificationModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Unexpected response format for notifications');
+    }
+  } else {
+    throw Exception('Failed to load notifications');
+  }
+}
+
+Future<bool> deleteNotification(
+    String notificationId, int userId, int deviceId) async {
+  String? token = await SharedPrefsHelper.getToken();
+
+  final url = Uri.parse(
+      'https://d94acvrm8bvo5.cloudfront.net/api/Notification/UpdateNotificationReadFlag/$notificationId/$userId/$deviceId');
+
+  final response = await http.put(
+    url,
+    headers: {
+      'Authorization': 'Bearer $token', // Agar token required hai to
+      'Content-Type': 'application/json',
+    },
+  );
+  print('Response status: ${response.statusCode}');
+  print('Response body: ${response.body}');
+  if (response.statusCode == 200 || response.statusCode == 204) {
+    // 204 ke case me body empty hota hai, to directly true return karo
+    if (response.statusCode == 204) {
+      return true;
+    }
+    // Agar 200 hai to existing logic
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is bool) return decoded;
+      if (response.body.toLowerCase() == 'true') return true;
+      return false;
+    } catch (e) {
+      print('Error decoding response: $e');
+      return false;
+    }
+  } else {
+    return false;
+  }
+}

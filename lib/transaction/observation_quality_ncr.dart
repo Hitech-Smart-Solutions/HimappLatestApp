@@ -37,7 +37,7 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
     return Scaffold(
       // ✅ Ye add karna hai
       appBar: AppBar(
-        title: Text('Observation NCR'),
+        title: Text('Site Observation NCR Quality'),
       ),
       body: FutureBuilder<List<NCRObservation>>(
         future: futureObservations,
