@@ -11,20 +11,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await FirebaseMessagingService.initialize();
-
-  // final token = await SharedPrefsHelper.getToken();
-  // final userName = await SharedPrefsHelper.getUserName();
-  // final companyName = await SharedPrefsHelper.getCompanyName();
-  // // Yahan print karo values ko debug ke liye
-  // print("🚀 Token: $token");
-  // print("🚀 UserName: $userName");
-  // print("🚀 CompanyName: $companyName");
   runApp(MyApp());
-//   runApp(MyApp(
-//     token: token,
-//     userName: userName,
-//     companyName: companyName,
-//   ));
 }
 
 class MyApp extends StatefulWidget {
