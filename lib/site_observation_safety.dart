@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:himappnew/constants.dart';
@@ -9,6 +10,7 @@ import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:multi_select_flutter/multi_select_flutter.dart';
 import 'package:collection/collection.dart';
@@ -77,7 +79,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   List<String> selectedUsers = [];
   List<User> userList = [];
   List<User> selectedMultiUsers = []; // Selected users (multi-select)
+  List<User> selectedUserObjects = [];
   List<MultiSelectItem<User>> userItems = [];
+  List<AssignmentStatusDTO> assignmentList = [];
 
   bool isComplianceRequired = false; // Compliance toggle state
   bool isEscalationRequired = false; // Escalation toggle state
@@ -86,7 +90,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
   TextEditingController observationDescriptionController =
       TextEditingController();
-  TextEditingController userDescriptionController = TextEditingController();
+  // TextEditingController userDescriptionController = TextEditingController();
   TextEditingController actionToBeTakenController = TextEditingController();
   TextEditingController reworkCostController = TextEditingController();
   TextEditingController observedByController = TextEditingController();
@@ -100,7 +104,11 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   List<String> uploadedFiles = [];
   int? selectedObservationTypeId;
   int? selectedIssueTypeId;
+
   bool get isToggleEnabled {
+    if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
+      return false;
+    }
     if (selectedObservation == null || selectedObservation!.isEmpty) {
       return true; // toggle enabled
     }
@@ -123,6 +131,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   }
 
   bool get isDueDateEnabled {
+    if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
+      return false;
+    }
     if (selectedObservation == null || selectedObservation!.isEmpty) {
       return true; // enable by default
     }
@@ -136,23 +147,40 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   }
 
   int? observedById;
+  String? selectedViolationText;
+  String? selectedViolation;
+  int? violationTypesId;
+  bool isUserSelectionEnabled = true;
+  bool actionToBeTakenEnabled = false;
+  bool isDraft = true;
+  bool isLoadingObservationForm = true;
+  String? areaLabel;
+  late Future<List<NCRObservation>> futureObservations;
+  int selectedObservationId = 0;
+  bool isEditMode = false;
+  // bool isDueDateEnabled = true;
+  // bool isToggleEnabled = true;
+  SiteObservation? selectedObservationForView;
+  GetSiteObservationMasterById? _currentObservation;
+  List<ActivityDTO> activityDTOList = [];
+  // bool get isObservationTypeGoodPractice => selectedObservationTypeId == 1;
+  bool isObservationTypeGoodPractice = false;
+  bool isDraftObservation = false;
 
   @override
   void initState() {
     super.initState();
     _initializeData();
-    userItems = userList
-        .map((user) => MultiSelectItem<User>(user, user.userName))
-        .toList();
+    // userItems = userList
+    //     .map((user) => MultiSelectItem<User>(user, user.userName))
+    //     .toList();
   }
 
   Future<void> _initializeData() async {
-    await fetchCompanies(); // Optional: if company needed first
-    await fetchProjects(); // Wait for project fetch and selection
-    print("selected uSERid : ${selectedProject!.id}");
+    await fetchCompanies();
+    await fetchProjects();
     if (selectedProject != null) {
-      // print("selected uSERid : $selectedProject");
-      await _fetchSiteObservations(selectedProject!.id);
+      await fetchSiteObservationsSafety(selectedProject!.id);
       await fetchAreaList(selectedProject!.id);
       await fetchFloorList(selectedProject!.id);
       await fetchPartList(selectedProject!.id);
@@ -164,20 +192,22 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     fetchIssueTypes();
     fetchActivities();
     fetchObservations();
-
-    // fetchAreaList();
-    // fetchFloorList();
-    // fetchPartList();
-    // fetchElementList();
     fetchContractorList();
     fetchUserList();
 
-    _dateController.text =
-        DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()); // Local time
-
-    // _dateController.text =
-    //     DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now().toUtc());
-    // print("Local: ${DateTime.now()}, UTC: ${DateTime.now().toUtc()}");
+    final fetchedUsers = await fetchUserList();
+    setState(() {
+      userList = fetchedUsers;
+      userItems = userList
+          .map((user) => MultiSelectItem<User>(user, user.userName))
+          .toList();
+    });
+    if (!isEditMode) {
+      _dateController.text =
+          DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()); // Local time
+    }
+    // futureObservations = widget._siteObservationService
+    // _loadObservationFromServer(widget.de);
   }
 
   String formatDateForApi(DateTime date) {
@@ -187,13 +217,11 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   // Fetch issue types from the service
   Future<void> fetchIssueTypes() async {
     setState(() => isLoading = true);
-
     try {
       List<IssueType> fetchedIssueTypes = await widget._siteObservationService
           .fetchIssueTypes(selectedObservationTypeId ?? 0);
       setState(() {
         issueTypes = fetchedIssueTypes;
-        // print('Fetched issue types count: ${fetchedIssueTypes.length}');
         fetchedIssueTypes
             .forEach((e) => print('IssueType: ${e.id} - ${e.name}'));
       });
@@ -208,22 +236,16 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   Future<void> fetchActivities() async {
     int? companyId = await SharedPrefsHelper.getCompanyId();
     if (companyId == null) {
-      print('Error: Company ID is null');
       return;
     }
-
     setState(() {
       isLoading = true;
     });
-
     try {
       List<Activities> fetchedActivities = await widget._siteObservationService
           .fetchActivities(companyId, ScreenTypes.Safety);
-
       setState(() {
         activitieList = fetchedActivities;
-
-        // 👇 Change here: selectedActivities ko null rakh do by default
         selectedActivities = null;
       });
     } catch (e) {
@@ -239,28 +261,23 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   Future<void> fetchObservations() async {
     int? companyId = await SharedPrefsHelper.getCompanyId();
     if (companyId == null) {
-      print('Error: Company ID is null');
       return; // Exit the method if companyId is null
     }
     setState(() {
       isLoading = true;
     });
     try {
-      // print("selectedIssueTypeId: $selectedIssueTypeId");
       List<Observation> fetchedObservations =
           await widget._siteObservationService.fetchObservations(
         companyId,
         ScreenTypes.Safety,
         selectedIssueTypeId ?? 0,
       );
+
       setState(() {
         observationsList = fetchedObservations;
         selectedObservation = null;
-        // print("Observations List: $observationsList");
-        // Ensure `selectedObservation` is set to a valid Observation from the list
         if (observationsList.isNotEmpty) {
-          // selectedObservation = observationsList[0]
-          //     .observationDescription; // Set to first Observation if available
           selectedIssueTypeId = observationsList[0].issueTypeID;
         } else {
           selectedObservation = null; // If no Observation, keep it null
@@ -286,7 +303,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
           await widget._siteObservationService.fetchObservationType();
       setState(() {
         observationTypeList = fetchedObservationType;
-        // selectedObservationType = null;  // keep it null
+        observationTypeList.forEach(
+            (e) => print('observationTypeList268: ${e.id} - ${e.name}'));
       });
     } catch (e) {
       print('Error fetching ObservationType: $e');
@@ -299,16 +317,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
   // Fetch Area from the service
   Future<void> fetchAreaList(int projectId) async {
-    // int? projectID = await SharedPrefsHelper.getProjectID();
-    // print("Project IDdcdcvd: ${selectedProject!.id}");
     setState(() {
       isLoading = true;
     });
-    // print(projectID);
     try {
       List<Area> fetchedArea =
           await widget._siteObservationService.fetchAreaList(projectId);
-
       setState(() {
         areaList = fetchedArea;
         selectedArea = null; // ✅ Don't auto-select any area
@@ -324,16 +338,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
   // Fetch Floor from the service
   Future<void> fetchFloorList(int projectId) async {
-    // int? projectID = await SharedPrefsHelper.getProjectID();
-    // print("floor projectid:$projectID");
     setState(() {
       isLoading = true;
     });
-    // print(projectID);
     try {
       List<Floor> fetchedFloor =
           await widget._siteObservationService.fetchFloorList(projectId);
-
       setState(() {
         floorList = fetchedFloor;
         selectedFloor = null; // ✅ Don't auto-select any floor
@@ -352,20 +362,15 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     setState(() {
       isLoading = true;
     });
-
     try {
       List<Part> fetchedPart =
           await widget._siteObservationService.fetchPartList(projectId);
-
-      // Filter unique part names
       final seen = <String>{};
       partList = fetchedPart.where((part) {
         final name = part.partName.trim().toLowerCase();
         return seen.add(name); // Only add if not already in Set
       }).toList();
-
       selectedPart = null; // Ensure nothing is pre-selected on load
-      print("Filtered Unique Part Names: ${partList.map((e) => e.partName)}");
     } catch (e) {
       print('Error fetching Part: $e');
     } finally {
@@ -377,7 +382,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
   // Fetch Element from the service
   Future<void> fetchElementList(int projectId) async {
-    // int? projectID = await SharedPrefsHelper.getProjectID();
     setState(() {
       isLoading = true;
     });
@@ -385,8 +389,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     try {
       List<Elements> fetchedElement =
           await widget._siteObservationService.fetchElementList(projectId);
-
-      // Deduplicate elements by elementName
       final seen = <String>{};
       final uniqueElements = fetchedElement.where((element) {
         final name = element.elementName.trim();
@@ -396,13 +398,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       setState(() {
         elementList = uniqueElements;
         selectedElement = null;
-        // if (elementList.isNotEmpty) {
-        //   selectedElement = elementList[0].elementName;
-        //   print(
-        //       'Unique Elements: ${elementList.map((e) => e.elementName).toList()}');
-        // } else {
-        //   selectedElement = null;
-        // }
       });
     } catch (e) {
       print('Error fetching Element: $e');
@@ -418,11 +413,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     setState(() {
       isLoading = true;
     });
-    // print(projectID);
     try {
       List<Party> fetchedContractor =
           await widget._siteObservationService.fetchContractorList();
-
       setState(() {
         ContractorList = fetchedContractor;
         selectedContractor = null;
@@ -436,12 +429,10 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
-  // Fetch User List from the service
-  Future<void> fetchUserList() async {
-    setState(() {
-      isLoading = true;
-    });
+  Future<List<User>> fetchUserList() async {
     try {
+      int? currentUserId = await SharedPrefsHelper.getUserId();
+
       List<User> fetchedUsers =
           await widget._siteObservationService.fetchUserList();
 
@@ -449,37 +440,46 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       Set<String> userNames = {};
 
       for (var user in fetchedUsers) {
-        if (!userNames.contains(user.userName)) {
+        if (!userNames.contains(user.userName) && user.id != currentUserId) {
           uniqueUsers.add(user);
           userNames.add(user.userName);
         }
       }
 
-      setState(() {
-        userList = uniqueUsers;
-        // No longer setting a default selected user
-      });
+      return uniqueUsers; // ✅ return the list instead of setting state
     } catch (e) {
-      print('Error fetching User: $e');
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
+      return [];
     }
   }
 
-  void _submitForm() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      // ✅ FORM IS VALID
+  void _submitForm({bool isDraft = false}) async {
+    bool isFormValid = _formKey.currentState?.validate() ?? false;
+
+    bool isUserValidationRequired = isEditMode && isUserSelectionEnabled;
+    bool isUserSelected = selectedUserObjects.isNotEmpty;
+
+    print('Selected Observation: $selectedObservation');
+
+    if (isFormValid && (!isUserValidationRequired || isUserSelected)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Submitting...')),
+        SnackBar(
+          content: Text(isDraft ? 'Saving as Draft...' : 'Submitting...'),
+        ),
       );
 
-      await submitForm(); // 👈 Your actual async method
+      await submitForm(isDraft: isDraft);
     } else {
-      // ❌ FORM IS INVALID
+      String errorMessage = '';
+
+      if (!isFormValid) {
+        errorMessage = 'Please fill all required fields correctly.';
+      } else if (isUserValidationRequired && !isUserSelected) {
+        errorMessage = 'Please select at least one user.';
+      }
+
+      print("Error: $errorMessage");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please correct the errors')),
+        SnackBar(content: Text(errorMessage)),
       );
     }
   }
@@ -493,7 +493,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         companies = companyList;
         selectedCompany = companies.isNotEmpty ? companies[0].name : null;
       });
-
       if (selectedCompany != null) {
         fetchProjects();
       }
@@ -507,25 +506,20 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       int? userId = await SharedPrefsHelper.getUserId();
       int? companyId = await SharedPrefsHelper.getCompanyId();
       if (userId == null || companyId == null) {
-        print("User ID or Company ID not found in SharedPreferences");
         setState(() {
           isLoading = false;
         });
         return;
       }
-
       List<Project> projects = await widget._projectService.fetchProject(
         userId,
         companyId,
       );
-
       setState(() {
         projectList = projects; // ✅ Keep full Project objects
         selectedProject = projects.isNotEmpty ? projects[0] : null;
         isLoading = false;
       });
-
-      // Save the selected project ID in SharedPreferences (assuming first project is selected)
       if (projects.isNotEmpty) {
         await SharedPrefsHelper.saveProjectID(projects[0].id);
       }
@@ -538,11 +532,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   }
 
 // Fetch Observations
-  Future<void> _fetchSiteObservations(int projectId) async {
+  Future<void> fetchSiteObservationsSafety(int projectId) async {
     setState(() => isLoading = true);
-
     try {
-      // int? projectID = await SharedPrefsHelper.getProjectID();
       final fetched =
           await widget._siteObservationService.fetchSiteObservationsSafety(
         projectId: projectId,
@@ -609,12 +601,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     return null;
   }
 
-  String? _validateUser(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'User Description is required';
-    }
-    return null;
-  }
+  // String? _validateUser(String? value) {
+  //   if (value == null || value.isEmpty) {
+  //     return 'User Description is required';
+  //   }
+  //   return null;
+  // }
 
   String? _validateDueDate(String? value) {
     if (value == null || value.isEmpty) {
@@ -705,179 +697,779 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
-  void onFileUploadSuccess(String uploadedFileName) async {
-    int? userID = await SharedPrefsHelper.getUserId();
+  Future<void> loadSection() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    int? projectID = prefs.getInt('projectID');
 
-    activityList.add(
-      SiteObservationActivity(
-        id: 0,
-        siteObservationID: null,
-        actionID: SiteObservationActions.DocUploaded,
-        comments: '',
-        documentName: uploadedFileName,
-        fromStatusID: SiteObservationStatus.Open,
-        toStatusID: SiteObservationStatus.Open,
-        assignedUserID: userID!,
-        createdBy: userID,
-        createdDate: formatDateForApi(DateTime.now()),
-      ),
-    );
+    if (projectID != null) {
+      try {
+        List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        if (sections.isNotEmpty) {
+          setState(() {
+            areaLabel = sections[0].labelName;
+          });
+        }
+      } catch (e) {
+        print('Error fetching sections: $e');
+      }
+    }
   }
 
-  // Function to submit the form data
-  Future<void> submitForm() async {
-    // Retrieve text field values from controllers
-    String observationDescription = observationDescriptionController.text;
-    String userDescription = userDescriptionController.text;
-    String actionToBeTaken =
-        actionToBeTakenController.text; // Add this line to get the action text
-    int? projectID = await SharedPrefsHelper.getProjectID();
-    int? companyID = await SharedPrefsHelper.getCompanyId();
-    int? userID = await SharedPrefsHelper.getUserId();
-    final selectedObservedBy = ObservationConstants.observedBy.firstWhere(
-        (item) => item['id'] == observedById,
-        orElse: () => {"id": 0, "observedBy": ""})['id'] as int;
+  void onFileUploadSuccess(
+    String uploadedFileName, {
+    required bool isDraft,
+    String? fileName,
+    String? fileContentType,
+    String? filePath,
+  }) async {
+    if (uploadedFileName.trim().isEmpty) return;
 
-    final String? dueDateValue;
-    if (isDueDateEnabled) {
-      if (_dateDueDateController.text.isEmpty) {
+    int? userID = await SharedPrefsHelper.getUserId();
+    if (userID == null || userID == 0) return;
+
+    int statusIdToSend = isDraft
+        ? SiteObservationStatus.Draft
+        : (selectedObservationTypeId == 1
+            ? SiteObservationStatus.Closed
+            : SiteObservationStatus.Open);
+
+    final observationIdToSend = selectedObservationId;
+
+    final fileAlreadyExists =
+        activityList.any((a) => a.documentName == uploadedFileName) ||
+            activityDTOList.any((dto) => dto.documentName == uploadedFileName);
+
+    if (fileAlreadyExists) {
+      return;
+    }
+    // 🔵 Add to UI list
+    final newActivity = SiteObservationActivity(
+      id: 0,
+      siteObservationID: observationIdToSend == 0 ? null : observationIdToSend,
+      actionID: SiteObservationActions.DocUploaded,
+      comments: '',
+      documentName: uploadedFileName,
+      fileName: fileName,
+      fileContentType: fileContentType,
+      filePath: filePath,
+      fromStatusID: statusIdToSend,
+      toStatusID: statusIdToSend,
+      assignedUserID: userID,
+      createdBy: userID,
+      createdDate: formatDateForApi(DateTime.now()),
+    );
+
+    // 🔵 Add to DTO list (important!)
+    final dtoActivity = ActivityDTO(
+      id: 0,
+      siteObservationID: observationIdToSend,
+      actionID: SiteObservationActions.DocUploaded,
+      actionName: "Document Uploaded",
+      comments: '',
+      documentName: uploadedFileName,
+      fileName: fileName,
+      fileContentType: fileContentType,
+      filePath: filePath,
+      fromStatusID: statusIdToSend,
+      toStatusID: statusIdToSend,
+      assignedUserID: userID ?? 0,
+      assignedUserName: null,
+      createdBy: userID,
+      createdByName: userID.toString(),
+      createdDate: DateTime.now(),
+    );
+
+    setState(() {
+      activityList.add(newActivity); // For UI
+      activityDTOList.add(dtoActivity); // For API
+      uploadedFiles.add(uploadedFileName);
+      selectedFileName = uploadedFileName;
+    });
+  }
+
+  Future<void> submitForm({bool isDraft = false}) async {
+    try {
+      String observationDescription = observationDescriptionController.text;
+      String actionToBeTaken = actionToBeTakenController.text;
+
+      int? projectID = await SharedPrefsHelper.getProjectID();
+      int? companyID = await SharedPrefsHelper.getCompanyId();
+      int? userID = await SharedPrefsHelper.getUserId();
+
+      if (projectID == null || companyID == null || userID == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❗ Please select a due date')),
+          SnackBar(content: Text('❗ Missing user or project information')),
         );
         return;
       }
-      dueDateValue = _dateDueDateController.text;
-    } else {
-      dueDateValue = null;
-    }
-    // For Creator
-    activityList.add(
-      SiteObservationActivity(
-        id: 0,
-        siteObservationID: null,
-        actionID: SiteObservationActions.Created,
-        comments: '',
-        documentName: "",
-        fromStatusID: SiteObservationStatus.Open,
-        toStatusID: SiteObservationStatus.Open,
-        assignedUserID: userID!, // creator ka ID
-        createdBy: userID,
-        createdDate: formatDateForApi(DateTime.now()),
-      ),
-    );
-    // FOr Uploaded Files
-    // if (uploadedFiles.isEmpty && selectedFileName != null) {
 
-// For Assigned Users
-    for (var username in selectedUsers) {
-      final user = userList.firstWhere((u) => u.userName == username);
-      activityList.add(
-        SiteObservationActivity(
+      final selectedObservedBy = ObservationConstants.observedBy.firstWhere(
+        (item) => item['id'] == observedById,
+        orElse: () => {"id": 0, "observedBy": ""},
+      )['id'] as int;
+
+      // final selectedViolation = ViolationTypes.violationType.firstWhere(
+      //   (item) => item['id'] == violationTypesId,
+      //   orElse: () => {"id": 0, "violationTypeID": ""},
+      // )['id'] as int;
+      final String? dueDateValue;
+
+      if (isDueDateEnabled) {
+        if (_dateDueDateController.text.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❗ Please select a due date')),
+          );
+          return;
+        }
+        dueDateValue = _dateDueDateController.text;
+      } else {
+        dueDateValue = null;
+      }
+      final observationIdToSend = selectedObservationId;
+      int fromStatusID = isDraft
+          ? SiteObservationStatus.Draft
+          : (selectedObservationId != 0
+              ? SiteObservationStatus.Draft
+              : SiteObservationStatus.Open);
+
+      int toStatusID = isDraft
+          ? SiteObservationStatus.Draft
+          : (selectedObservationTypeId == 1
+              ? SiteObservationStatus.Closed
+              : SiteObservationStatus.Open);
+
+      List<SiteObservationActivity> finalActivityList = [];
+      // ✅ Step 1: Add OLD DocUploaded images, override status for final submit
+      finalActivityList.addAll(activityList
+          .where((a) =>
+              a.actionID == SiteObservationActions.DocUploaded && a.id != 0)
+          .map((a) {
+        return SiteObservationActivity(
+          id: a.id,
+          siteObservationID: a.siteObservationID,
+          actionID: a.actionID,
+          comments: a.comments,
+          documentName: a.documentName,
+          fileName: a.fileName,
+          fileContentType: a.fileContentType,
+          filePath: a.filePath,
+          // override only if NOT draft
+          fromStatusID: isDraft ? a.fromStatusID : fromStatusID,
+          toStatusID: isDraft ? a.toStatusID : toStatusID,
+          assignedUserID: a.assignedUserID,
+          createdBy: a.createdBy,
+          createdDate: a.createdDate,
+        );
+      }));
+
+// ✅ Step 2: Add NEW DocUploaded images, override status for final submit
+      finalActivityList.addAll(activityList
+          .where((a) =>
+              a.actionID == SiteObservationActions.DocUploaded && a.id == 0)
+          .map((a) {
+        return SiteObservationActivity(
+          id: a.id,
+          siteObservationID: a.siteObservationID,
+          actionID: a.actionID,
+          comments: a.comments,
+          documentName: a.documentName,
+          fileName: a.fileName,
+          fileContentType: a.fileContentType,
+          filePath: a.filePath,
+          fromStatusID: isDraft ? a.fromStatusID : fromStatusID,
+          toStatusID: isDraft ? a.toStatusID : toStatusID,
+          assignedUserID: a.assignedUserID,
+          createdBy: a.createdBy,
+          createdDate: a.createdDate,
+        );
+      }));
+
+      bool alreadyCreated = finalActivityList.any(
+        (a) => a.actionID == SiteObservationActions.Created,
+      );
+
+      if (!alreadyCreated) {
+        finalActivityList.add(SiteObservationActivity(
           id: 0,
-          siteObservationID: null,
-          actionID: SiteObservationActions.Assigned,
+          siteObservationID: observationIdToSend,
+          actionID: SiteObservationActions.Created,
           comments: '',
           documentName: '',
-          fromStatusID: SiteObservationStatus.Open,
-          toStatusID: SiteObservationStatus.Open,
-          assignedUserID: user.id,
-          createdBy: userID,
+          fromStatusID: fromStatusID,
+          toStatusID: toStatusID,
+          assignedUserID: userID ?? 0,
+          createdBy: userID ?? 0,
           createdDate: formatDateForApi(DateTime.now()),
-        ),
+        ));
+      }
+
+      for (var username in selectedUsers.toSet()) {
+        final user = userList.firstWhere((u) => u.userName == username);
+        bool alreadyAssigned = finalActivityList.any(
+          (a) =>
+              a.actionID == SiteObservationActions.Assigned &&
+              a.assignedUserID == user.id,
+        );
+
+        if (!alreadyAssigned) {
+          finalActivityList.add(SiteObservationActivity(
+            id: 0,
+            siteObservationID: observationIdToSend,
+            actionID: SiteObservationActions.Assigned,
+            comments: '',
+            documentName: '',
+            fromStatusID: fromStatusID,
+            toStatusID: toStatusID,
+            assignedUserID: user.id,
+            createdBy: userID ?? 0,
+            createdDate: formatDateForApi(DateTime.now()),
+          ));
+        }
+      }
+
+      // ✅ Step 3: Add Created action if not already submitted
+      if (!activityList.any(
+          (a) => a.id != 0 && a.actionID == SiteObservationActions.Created)) {
+        final created = activityList.firstWhere(
+          (a) => a.actionID == SiteObservationActions.Created,
+          orElse: () => SiteObservationActivity(
+            id: -1,
+            actionID: SiteObservationActions.Created,
+            comments: '',
+            documentName: '',
+            fromStatusID: fromStatusID,
+            toStatusID: toStatusID,
+            assignedUserID: userID ?? 0,
+            createdBy: userID ?? 0,
+            createdDate: formatDateForApi(DateTime.now()),
+          ),
+        );
+        if (created.id == 0 &&
+            created.actionID == SiteObservationActions.Created) {
+          finalActivityList.add(created);
+        }
+      }
+
+      // ✅ Step 4: Add Assigned action if not already submitted
+      if (!activityList.any(
+          (a) => a.id != 0 && a.actionID == SiteObservationActions.Assigned)) {
+        final assigned = activityList.firstWhere(
+          (a) => a.actionID == SiteObservationActions.Assigned,
+          orElse: () => SiteObservationActivity(
+            id: -1,
+            actionID: SiteObservationActions.Assigned,
+            comments: '',
+            documentName: '',
+            fromStatusID: fromStatusID,
+            toStatusID: toStatusID,
+            assignedUserID: userID ?? 0,
+            createdBy: userID ?? 0,
+            createdDate: formatDateForApi(DateTime.now()),
+          ),
+        );
+        if (assigned.id == 0 &&
+            assigned.actionID == SiteObservationActions.Assigned) {
+          finalActivityList.add(assigned);
+        }
+      }
+      // ✅ Step 5: Remove invalid entries
+      finalActivityList.removeWhere((a) =>
+          a.actionID == 0 ||
+          a.fromStatusID == null ||
+          a.toStatusID == null ||
+          a.createdBy == null);
+
+      // ✅ Step 6: Log for debugging
+      // debugPrint(
+      //     "📦 Final activityList to send (Draft/Submit): ${finalActivityList.length}");
+      if (selectedObservation == null || selectedObservation!.trim().isEmpty) {
+        throw Exception("❌ No observation selected.");
+      }
+
+// Split karo '__' se to get ID
+      final parts = selectedObservation!.split('__');
+      if (parts.length != 2) {
+        throw Exception("❌ Invalid observation format");
+      }
+
+      final obsId = int.tryParse(parts[1]);
+      if (obsId == null) {
+        throw Exception("❌ Invalid observation ID");
+      }
+
+// Ab observation ko ID se find karo, description se nahi
+      final matchedObservation = observationsList.firstWhere(
+        (o) => o.id == obsId,
+        orElse: () {
+          throw Exception("❌ Observation not found for ID: $obsId");
+        },
       );
-    }
 
-    SiteObservationModel siteObservation = SiteObservationModel(
-      uniqueID: const Uuid().v4(),
-      id: 0,
-      siteObservationCode: "",
-      trancationDate: formatDateForApi(DateTime.now().toUtc()),
-      observationRaisedBy: userID!,
-      observationID: observations
-          .firstWhere((o) => o.observationDescription == selectedObservation)
-          .id,
-      observationTypeID: observationTypeList
-          .firstWhere(
-              (observation) => observation.name == selectedObservationType)
-          .id,
-      issueTypeID: issueTypes
-          .firstWhere((issueType) => issueType.name == selectedIssueType)
-          .id,
-      dueDate: (dueDateValue != null && dueDateValue.isNotEmpty)
-          ? dueDateValue
-          : formatDateForApi(DateTime.now().toUtc()),
-      observationDescription: observationDescription,
-      userDescription: userDescription, // You can add more fields
-      complianceRequired: isComplianceRequired,
-      escalationRequired: isEscalationRequired,
-      actionToBeTaken: actionToBeTaken,
-      companyID: companyID!,
-      projectID: projectID!,
-      functionID: ScreenTypes.Safety,
-      activityID: activitieList
-          .firstWhere(
-              (activities) => activities.activityName == selectedActivities)
-          .id,
-      observedBy: selectedObservedBy,
-      sectionID:
-          areaList.firstWhere((area) => area.sectionName == selectedArea).id,
-      floorID:
-          floorList.firstWhere((floor) => floor.floorName == selectedFloor).id,
-      partID: partList.firstWhere((part) => part.partName == selectedPart).id,
-      elementID: elementList
-          .firstWhere((element) => element.elementName == selectedElement)
-          .id,
-      contractorID: ContractorList.firstWhere(
-          (contractor) => contractor.partyName == selectedContractor).id,
-      reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
-      comments: 'string',
-      rootCauseID: 0,
-      corretiveActionToBeTaken: 'Corrective action here',
-      preventiveActionTaken: 'Preventive action here',
-      statusID: SiteObservationStatus.Open,
-      isActive: true,
-      createdBy: userID,
-      createdDate: formatDateForApi(DateTime.now().toUtc()),
-      lastModifiedBy: userID,
-      lastModifiedDate: formatDateForApi(DateTime.now().toUtc()),
-      siteObservationActivity: activityList,
-    );
-    print("Site Observation Model: ${siteObservation.toJson()}");
+      for (var obs in observationsList) {
+        debugPrint("Available: '${obs.observationDescription}'");
+      }
+      debugPrint("Selected Observation: '$selectedObservation'");
+      activityDTOList = finalActivityList.map((activity) {
+        return ActivityDTO(
+          id: activity.id,
+          siteObservationID: activity.siteObservationID,
+          actionID: activity.actionID,
+          actionName: getActionNameFromID(activity.actionID),
+          comments: activity.comments,
+          documentName: activity.documentName,
+          fileName: activity.fileName,
+          fileContentType: activity.fileContentType,
+          filePath: activity.filePath,
+          fromStatusID:
+              (activity.fromStatusID != 0 && activity.fromStatusID != null)
+                  ? activity.fromStatusID
+                  : fromStatusID,
+          toStatusID: (activity.toStatusID != 0 && activity.toStatusID != null)
+              ? activity.toStatusID
+              : toStatusID,
+          assignedUserID: activity.assignedUserID != 0
+              ? activity.assignedUserID
+              : userID ?? 0,
+          assignedUserName: activity.assignedUserName,
+          createdBy: activity.createdBy != 0 ? activity.createdBy : userID ?? 0,
+          createdByName: activity.createdByName,
+          createdDate: DateTime.parse(activity.createdDate),
+        );
+      }).toList();
+      // for (var dto in activityDTOList) {
+      //   print(
+      //       "📝 Draft Activity -> actionID: ${dto.actionID}, id: ${dto.id}, doc: ${dto.documentName}");
+      // }
 
-    try {
-      bool success = await widget._siteObservationService
-          .submitSiteObservation(siteObservation);
+      SiteObservationModel commonFields = SiteObservationModel(
+        uniqueID: const Uuid().v4(),
+        id: selectedObservationId,
+        siteObservationCode: "",
+        trancationDate: formatDateForApi(DateTime.now().toUtc()),
+        observationRaisedBy: userID,
+        // observationID: observationsList
+        //     .firstWhere((o) => o.observationDescription == selectedObservation)
+        //     .id,
+        observationID: matchedObservation.id,
+        observationTypeID: observationTypeList
+            .firstWhere(
+                (observation) => observation.name == selectedObservationType)
+            .id,
+        issueTypeID: issueTypes
+            .firstWhere((issueType) => issueType.name == selectedIssueType)
+            .id,
+        dueDate: (dueDateValue != null && dueDateValue.isNotEmpty)
+            ? dueDateValue
+            : formatDateForApi(DateTime.now().toUtc()),
+        observationDescription: observationDescription,
+        userDescription: '',
+        complianceRequired: isComplianceRequired,
+        escalationRequired: isEscalationRequired,
+        actionToBeTaken: actionToBeTaken,
+        companyID: companyID,
+        projectID: projectID,
+        functionID: ScreenTypes.Safety,
+        activityID: activitieList
+            .firstWhere((a) => a.activityName == selectedActivities)
+            .id,
+        observedBy: selectedObservedBy,
+        violationTypeID: violationTypesId ?? 0,
+        sectionID:
+            areaList.firstWhere((area) => area.sectionName == selectedArea).id,
+        floorID: floorList
+            .firstWhere((floor) => floor.floorName == selectedFloor)
+            .id,
+        partID: partList.firstWhere((part) => part.partName == selectedPart).id,
+        elementID: elementList
+            .firstWhere((element) => element.elementName == selectedElement)
+            .id,
+        contractorID:
+            ContractorList.firstWhere((c) => c.partyName == selectedContractor)
+                .id,
+        reworkCost: 0,
+        comments: 'string',
+        rootCauseID: 0,
+        corretiveActionToBeTaken: 'Corrective action here',
+        preventiveActionTaken: 'Preventive action here',
+        statusID: toStatusID,
+        isActive: true,
+        createdBy: userID,
+        createdDate: formatDateForApi(DateTime.now().toUtc()),
+        lastModifiedBy: userID,
+        lastModifiedDate: formatDateForApi(DateTime.now().toUtc()),
+        siteObservationActivity: finalActivityList,
+      );
+      // for (var dto in activityDTOList) {
+      //   if (dto.actionID == SiteObservationActions.DocUploaded) {
+      //     debugPrint("📁 DocUploaded => "
+      //         "id: ${dto.id}, "
+      //         "doc: ${dto.documentName}, "
+      //         "fromStatusID: ${dto.fromStatusID}, "
+      //         "toStatusID: ${dto.toStatusID}");
+      //   }
+      // }
+      print("📦 commonFields to send: ${commonFields.toJson()}");
+      // debugPrint("commonFields: ${commonFields.toJson()}");
+      // debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
+      bool success = false;
+      if (selectedObservationId == 0) {
+        // return; // Debugging line, remove when ready
+        success = await widget._siteObservationService
+            .submitSiteObservation(commonFields);
+      } else {
+        SiteObservationUpdateDraftModel updateModel =
+            SiteObservationUpdateDraftModel(
+          id: commonFields.id,
+          dueDate: commonFields.dueDate,
+          observationDescription: commonFields.observationDescription,
+          complianceRequired: commonFields.complianceRequired,
+          escalationRequired: commonFields.escalationRequired,
+          actionToBeTaken: commonFields.actionToBeTaken,
+          violationTypeID: commonFields.violationTypeID!,
+          activityID: commonFields.activityID,
+          sectionID: commonFields.sectionID,
+          floorID: commonFields.floorID,
+          partID: commonFields.partID,
+          elementID: commonFields.elementID,
+          contractorID: commonFields.contractorID,
+          observedBy: commonFields.observedBy,
+          statusID: commonFields.statusID,
+          lastModifiedBy: commonFields.lastModifiedBy,
+          lastModifiedDate: commonFields.lastModifiedDate,
+          activityDTO: activityDTOList,
+        );
+
+        Map<int, String> actionNames = {
+          1: "Created",
+          2: "Assigned",
+          3: "DocUploaded",
+        };
+
+        // for (var dto in activityDTOList) {
+        //   final name = actionNames[dto.actionID] ?? 'Unknown';
+        //   debugPrint("📝 $name => "
+        //       "id: ${dto.id}, "
+        //       "doc: ${dto.documentName}, "
+        //       "assignedUserID: ${dto.assignedUserID}, "
+        //       "fromStatusID: ${dto.fromStatusID}, "
+        //       "toStatusID: ${dto.toStatusID}, "
+        //       "createdBy: ${dto.createdBy}, "
+        //       "createdDate: ${dto.createdDate}");
+        // }
+        debugPrint("updateModel: $updateModel.toJson()");
+        debugPrint(const JsonEncoder.withIndent('  ').convert(updateModel));
+        // return;
+        success = await widget._siteObservationService
+            .updateSiteObservationDraft(updateModel);
+      }
 
       if (success) {
-        _resetForm(); // ⬅️ Reset form here
+        _resetForm();
         setState(() {
-          showObservations = true; // 👈 Form hide
+          showObservations = true;
         });
-        await _fetchSiteObservations(projectID);
+        await fetchSiteObservationsSafety(projectID);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('✅ Operation Successful')),
         );
       } else {
-        // Optional: for boolean false without exception
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('❌ Submission failed without specific error')),
         );
       }
     } catch (e) {
-      // 👇 This will now show backend error like "Please Map RootCause with Activity"
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Error: ${e.toString().replaceAll('"', '')}')),
       );
     }
   }
 
+// Helper function for actionName
+  String getActionNameFromID(int actionID) {
+    switch (actionID) {
+      case SiteObservationActions.Created:
+        return 'Created';
+      case SiteObservationActions.Assigned:
+        return 'Assigned';
+      case SiteObservationActions.DocUploaded:
+        return 'DocUploaded';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  Future<void> _loadObservationFromServer(int observationId) async {
+    try {
+      final observationList = await widget._siteObservationService
+          .fetchGetSiteObservationMasterById(observationId);
+
+      if (observationList.isNotEmpty) {
+        final observation = observationList.first;
+
+        if (observation.trancationDate != null) {
+          // 👇 Convert UTC to Local + Use T format
+          final localDate = observation.trancationDate.toLocal();
+          _dateController.text =
+              DateFormat('yyyy-MM-dd HH:mm').format(localDate);
+        }
+
+        setState(() {
+          showObservations = false;
+        });
+
+        _loadDataAndObservation(observation);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Observation not found')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Failed to load observation: $e')),
+      );
+    }
+  }
+
+  Future<void> _loadDataAndObservation(
+      GetSiteObservationMasterById observation) async {
+    print("Loading observation: $observation");
+
+    selectedObservationType = observation.observationType;
+    selectedObservationTypeId = observation.observationTypeID;
+    selectedIssueType = observation.issueType ?? '';
+    isDraftObservation = observation.statusID == SiteObservationStatus.Draft;
+
+    await fetchIssueTypes();
+
+    final foundIssue = issueTypes.firstWhere(
+      (e) => e.name == selectedIssueType,
+      orElse: () => IssueType(id: 0, name: '', observationTypeID: 0),
+    );
+
+    selectedIssueTypeId = foundIssue.id;
+    selectedIssueType = foundIssue.name;
+
+    setState(() {});
+
+    if (selectedIssueTypeId != 0) {
+      await fetchObservations();
+    } else {
+      observationsList = [];
+      selectedObservation = null;
+      setState(() {});
+      return;
+    }
+
+    // Create dropdown options with "description__id" format
+    List<String> dropdownOptions = observationsList
+        .map((o) => '${o.observationDescription.trim().toLowerCase()}__${o.id}')
+        .toList();
+
+    // Draft observation combined value
+    final draftValue =
+        '${observation.description.trim().toLowerCase()}__${observation.id}';
+
+    if (isDraftObservation && !dropdownOptions.contains(draftValue)) {
+      dropdownOptions.add(draftValue);
+
+      observationsList.add(
+        Observation(
+          id: observation.id,
+          observationTypeID: observation.observationTypeID!,
+          issueTypeID: foundIssue.id,
+          observationDescription: observation.description.trim(),
+          complianceRequired: observation.complianceRequired ?? false,
+          escalationRequired: observation.escalationRequired ?? false,
+          dueTimeInHrs: observation.dueDate != null &&
+                  _dateController.text.isNotEmpty
+              ? observation.dueDate!
+                  .difference(
+                    DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text),
+                  )
+                  .inHours
+              : 0,
+          actionToBeTaken: observation.actionToBeTaken ?? '',
+          lastModifiedBy: '',
+          lastModifiedDate: DateTime.now().toIso8601String(),
+        ),
+      );
+    }
+
+    // Set selectedObservation to combined string
+    selectedObservation = isDraftObservation
+        ? draftValue
+        : '${observation.description.trim().toLowerCase()}__${observation.id}';
+
+    // Update fields based on selectedObservation
+    updateFieldsFromSelectedObservation();
+
+    // Other field assignments as before
+    selectedActivities = observation.activityName;
+
+    final observedName = observation.observedByName ?? '';
+    final matchedObservedBy = ObservationConstants.observedBy.firstWhere(
+      (item) =>
+          (item['observedBy'] as String).toLowerCase() ==
+          observedName.toLowerCase(),
+      orElse: () => const {"id": 0, "observedBy": ""},
+    );
+    observedById =
+        matchedObservedBy['id'] is int ? matchedObservedBy['id'] as int : 0;
+
+    selectedArea = observation.sectionName;
+    selectedFloor = observation.floorName;
+    selectedPart = observation.partName;
+    selectedElement = observation.elementName;
+    selectedContractor = observation.contractorName;
+
+    final matchedViolation = ViolationTypes.violationType.firstWhere(
+      (item) => item['id'] == observation.violationTypeID,
+      orElse: () => {"id": 0, "violationTypeID": ""},
+    );
+
+// Assign it here
+    selectedViolationText = matchedViolation['violationTypeID'].toString();
+
+    final dropdownViolationValues = ViolationTypes.violationType
+        .map((e) => e['violationTypeID'].toString())
+        .toList();
+
+    print('Draft observation.violationTypeID: ${observation.violationTypeID}');
+    print('Available violationTypeIDs: $dropdownViolationValues');
+    print('Selected violation text: $selectedViolationText');
+    final fetchedUsers = await fetchUserList();
+    userList = fetchedUsers;
+
+    final assignedUsernames = observation.assignmentStatusDTO
+        .map((e) => e.assignedUserName?.trim().toLowerCase())
+        .where((name) => name != null && name.isNotEmpty)
+        .toSet();
+
+    selectedUserObjects = userList.where((user) {
+      final userName = user.userName.trim().toLowerCase();
+      return assignedUsernames.contains(userName);
+    }).toList();
+
+    selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
+
+    uploadedFiles = observation.activityDTO
+        .where((a) => a.documentName != null && a.documentName!.isNotEmpty)
+        .map((a) => a.documentName!)
+        .toList();
+
+    if (uploadedFiles.isNotEmpty) {
+      selectedFileName = uploadedFiles.first;
+    }
+
+    activityDTOList = observation.activityDTO;
+    debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
+    populateActivityListFromDTO(activityDTOList);
+
+    setState(() {
+      selectedObservationId = observation.id;
+      isUserSelectionEnabled = observation.observationTypeID != 1;
+    });
+
+    // print('selectedObservation: $selectedObservation');
+    // print('dropdown items:');
+    // observationsList.forEach((obs) {
+    //   print('${obs.observationDescription.trim().toLowerCase()}__${obs.id}');
+    // });
+  }
+
+  void updateFieldsFromSelectedObservation() {
+    if (selectedObservation == null) return;
+
+    final parts = selectedObservation!.split('__');
+    if (parts.length != 2) return;
+
+    final obsId = int.tryParse(parts[1]);
+    if (obsId == null) return;
+
+    final foundObs = observationsList.firstWhere(
+      (o) => o.id == obsId,
+      orElse: () => Observation(
+        id: 0,
+        observationTypeID: 0,
+        issueTypeID: 0,
+        observationDescription: '',
+        complianceRequired: false,
+        escalationRequired: false,
+        dueTimeInHrs: 0,
+        actionToBeTaken: '',
+        lastModifiedBy: '',
+        lastModifiedDate: DateTime.now().toIso8601String(),
+      ),
+    );
+
+    if (foundObs.id != 0) {
+      observationDescriptionController.text = foundObs.observationDescription;
+      isComplianceRequired = foundObs.complianceRequired;
+      isEscalationRequired = foundObs.escalationRequired;
+      actionToBeTakenController.text = foundObs.actionToBeTaken ?? '';
+
+      if (_dateController.text.isNotEmpty) {
+        try {
+          DateTime startDate =
+              DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+
+          if (foundObs.dueTimeInHrs != 0) {
+            DateTime dueDate =
+                startDate.add(Duration(hours: foundObs.dueTimeInHrs));
+            _dateDueDateController.text =
+                DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+          } else {
+            _dateDueDateController.text = '';
+          }
+        } catch (e) {
+          print(
+              "Date calculation error in updateFieldsFromSelectedObservation: $e");
+          _dateDueDateController.text = '';
+        }
+      } else {
+        _dateDueDateController.text = '';
+      }
+    } else {
+      // Clear fields if observation not found
+      observationDescriptionController.text = '';
+      isComplianceRequired = false;
+      isEscalationRequired = false;
+      actionToBeTakenController.text = '';
+      _dateDueDateController.text = '';
+    }
+
+    setState(() {});
+  }
+
+  void populateActivityListFromDTO(List<ActivityDTO> dtoList) {
+    activityList = dtoList.map((dto) {
+      return SiteObservationActivity(
+        id: dto.id ?? 0,
+        siteObservationID: dto.siteObservationID,
+        actionID: dto.actionID ?? 0,
+        comments: dto.comments,
+        documentName: dto.documentName ?? '',
+        fileName: dto.fileName,
+        fileContentType: dto.fileContentType,
+        filePath: dto.filePath,
+        fromStatusID: dto.fromStatusID ?? 0,
+        toStatusID: dto.toStatusID ?? 0,
+        assignedUserID: dto.assignedUserID ?? 0,
+        assignedUserName: dto.assignedUserName,
+        createdBy: dto.createdBy ?? 0,
+        createdByName: dto.createdByName,
+        createdDate: dto.createdDate.toIso8601String(),
+      );
+    }).toList();
+  }
+
   void _resetForm() {
     _formKey.currentState?.reset();
 
     setState(() {
-      selectedObservation = null; // Or null based on your logic
       // _dateController.clear();
-      // // Dropdowns
+      selectedObservationId = 0;
+      selectedObservation = null; // Or null based on your logic
       selectedObservationType = null;
       selectedIssueType = null;
       selectedActivities = null;
@@ -887,11 +1479,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       selectedElement = null;
       selectedContractor = null;
       actionToBeTakenController.clear();
-      reworkCostController.clear();
+      // reworkCostController.clear();
       observationDescriptionController.clear();
-      userDescriptionController.clear();
-      // userList = ''; // Reset selected user
-      // // Others
+      // userDescriptionController.clear();
       uploadedFiles.clear();
       selectedFileName = null;
       isComplianceRequired = false;
@@ -900,10 +1490,84 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       observedById = null;
       observationsList = [];
       issueTypes = [];
-      selectedUsers = [];
+      selectedUsers.clear();
+      selectedUserObjects.clear();
       activityList = [];
-      // isUploading = false;
+      selectedViolationText = null;
+      violationTypesId = null;
+      // isEditMode = false;
     });
+  }
+
+// 🔧 1. Switch Row: Ek label aur switch
+  // ✅ Toggle Row Widget: Add this inside your class
+  Widget _buildToggleRow(
+    String label,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          Text(label),
+          const SizedBox(width: 8),
+          Switch(
+            value: value,
+            onChanged: isToggleEnabled ? onChanged : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+// 🔧 2. Responsive Layout (mobile/tablet)
+  Widget _buildToggleSwitches(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    if (isMobile) {
+      // 📱 Mobile view: stacked
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildToggleRow("Compliance Required", isComplianceRequired, (value) {
+            setState(() {
+              isComplianceRequired = value;
+            });
+          }),
+          _buildToggleRow("Escalation Required", isEscalationRequired, (value) {
+            setState(() {
+              isEscalationRequired = value;
+            });
+          }),
+        ],
+      );
+    } else {
+      // 💻 Tablet view: side-by-side
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: _buildToggleRow("Compliance Required", isComplianceRequired,
+                (value) {
+              setState(() {
+                isComplianceRequired = value;
+              });
+            }),
+          ),
+          Expanded(
+            child: _buildToggleRow("Escalation Required", isEscalationRequired,
+                (value) {
+              setState(() {
+                isEscalationRequired = value;
+              });
+            }),
+          ),
+        ],
+      );
+    }
   }
 
   @override
@@ -913,10 +1577,18 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         if (!showObservations) {
           // 👇 Reset form values
           _resetForm();
-
+          isEditMode = false;
           // 👇 Switch back to observations list
           setState(() {
             showObservations = true;
+          });
+          return false;
+        }
+        if (selectedObservationForView != null) {
+          // 🔴 Non-draft view se back
+          setState(() {
+            selectedObservationForView = null;
+            showObservations = false;
           });
           return false;
         }
@@ -951,7 +1623,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                         isFormReady = false;
                       });
                       await SharedPrefsHelper.saveProjectID(newProject.id);
-                      await _fetchSiteObservations(newProject.id);
+                      await fetchSiteObservationsSafety(newProject.id);
                       await fetchAreaList(newProject.id);
                       await fetchFloorList(newProject.id);
                       await fetchPartList(newProject.id);
@@ -989,84 +1661,182 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                               Theme.of(context).brightness ==
                                                   Brightness.dark;
 
-                                          return Card(
-                                            color: isDark
-                                                ? Colors.grey[900]
-                                                : Colors.white,
-                                            elevation: 0,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              side: BorderSide.none,
-                                            ),
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.all(12.0),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    observation
-                                                        .siteObservationCode,
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 16,
-                                                      color: isDark
-                                                          ? Colors.white
-                                                          : Colors.black,
+                                          return InkWell(
+                                            onTap: () {
+                                              if (observation.observationStatus
+                                                      .toLowerCase() ==
+                                                  'draft') {
+                                                // 🟢 Open editable form
+                                                setState(() {
+                                                  showObservations = false;
+                                                  _loadObservationFromServer(
+                                                      observation.id);
+                                                  selectedObservationForView =
+                                                      null;
+                                                });
+                                              } else {
+                                                // 🔴 Show read-only data inside popup
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (context) =>
+                                                      AlertDialog(
+                                                    title: Text(
+                                                        'Observation Details (View Only)'),
+                                                    content:
+                                                        SingleChildScrollView(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          _popupRow(
+                                                              "Observation Code",
+                                                              observation
+                                                                  .siteObservationCode),
+                                                          _popupRow(
+                                                              "Observation Type",
+                                                              observation
+                                                                  .observationType),
+                                                          _popupRow(
+                                                              "Issue Type",
+                                                              observation
+                                                                  .issueType),
+                                                          _popupRow(
+                                                              "Status",
+                                                              observation
+                                                                  .observationStatus),
+                                                          _popupRow(
+                                                              "Project",
+                                                              observation
+                                                                  .projectName),
+                                                          _popupRow(
+                                                              "Date",
+                                                              observation
+                                                                  .transactionDate
+                                                                  .toString()
+                                                                  .split(
+                                                                      " ")[0]),
+                                                          _popupRow(
+                                                              "Due Date",
+                                                              observation
+                                                                  .dueDate
+                                                                  .toString()
+                                                                  .split(
+                                                                      " ")[0]),
+                                                          _popupRow(
+                                                              "Compliance Required",
+                                                              observation
+                                                                      .compliancerequired
+                                                                  ? 'Yes'
+                                                                  : 'No'),
+                                                          _popupRow(
+                                                              "Escalation Required",
+                                                              observation
+                                                                      .escalationrequired
+                                                                  ? 'Yes'
+                                                                  : 'No'),
+                                                          _popupRow(
+                                                              "Description",
+                                                              observation
+                                                                  .observationDescription),
+                                                          // Aur bhi fields chahiye to add kar lo
+                                                        ],
+                                                      ),
                                                     ),
-                                                  ),
-                                                  SizedBox(height: 8),
-                                                  Wrap(
-                                                    spacing: 16,
-                                                    runSpacing: 12,
-                                                    children: [
-                                                      _infoBox(
-                                                          "ObservationType",
-                                                          observation
-                                                              .observationType,
-                                                          isDark: isDark),
-                                                      _infoBox("IssueType",
-                                                          observation.issueType,
-                                                          isDark: isDark),
-                                                      _infoBox(
-                                                          "Status",
-                                                          observation
-                                                              .observationStatus,
-                                                          isDark: isDark),
-                                                      _infoBox(
-                                                          "Project",
-                                                          observation
-                                                              .projectName,
-                                                          isDark: isDark),
-                                                      _infoBox(
-                                                        "Date",
-                                                        observation
-                                                            .transactionDate
-                                                            .toLocal()
-                                                            .toString()
-                                                            .split(' ')[0],
-                                                        isDark: isDark,
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.of(
+                                                                    context)
+                                                                .pop(),
+                                                        child: Text('Close'),
                                                       ),
                                                     ],
                                                   ),
-                                                  SizedBox(height: 8),
-                                                  Text(
-                                                    observation
-                                                        .observationDescription,
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: isDark
-                                                          ? Colors.white70
-                                                          : Colors.black87,
+                                                );
+                                              }
+                                            },
+                                            child: Card(
+                                              color: isDark
+                                                  ? Colors.grey[900]
+                                                  : Colors.white,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                side: BorderSide.none,
+                                              ),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(12.0),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      observation
+                                                          .siteObservationCode,
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 16,
+                                                        color: isDark
+                                                            ? Colors.white
+                                                            : Colors.black,
+                                                      ),
                                                     ),
-                                                    softWrap: true,
-                                                    overflow:
-                                                        TextOverflow.visible,
-                                                  ),
-                                                ],
+                                                    SizedBox(height: 8),
+                                                    Wrap(
+                                                      spacing: 16,
+                                                      runSpacing: 12,
+                                                      children: [
+                                                        _infoBox(
+                                                            "ObservationType",
+                                                            observation
+                                                                .observationType,
+                                                            isDark: isDark),
+                                                        _infoBox(
+                                                            "IssueType",
+                                                            observation
+                                                                .issueType,
+                                                            isDark: isDark),
+                                                        _infoBox(
+                                                            "Status",
+                                                            observation
+                                                                .observationStatus,
+                                                            isDark: isDark),
+                                                        _infoBox(
+                                                            "Project",
+                                                            observation
+                                                                .projectName,
+                                                            isDark: isDark),
+                                                        _infoBox(
+                                                          "Date",
+                                                          observation
+                                                              .transactionDate
+                                                              .toLocal()
+                                                              .toString()
+                                                              .split(' ')[0],
+                                                          isDark: isDark,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    SizedBox(height: 8),
+                                                    Text(
+                                                      observation
+                                                          .observationDescription,
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: isDark
+                                                            ? Colors.white70
+                                                            : Colors.black87,
+                                                      ),
+                                                      softWrap: true,
+                                                      overflow:
+                                                          TextOverflow.visible,
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           );
@@ -1094,10 +1864,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                 suffixIcon: IconButton(
                                                   icon: Icon(
                                                       Icons.calendar_today),
-                                                  onPressed: () {
-                                                    _selectDate(context,
-                                                        _dateController); // Allow changing Start Date
-                                                  },
+                                                  onPressed: isEditMode
+                                                      ? () {
+                                                          _selectDate(context,
+                                                              _dateController); // Allow changing Start Date
+                                                        }
+                                                      : null,
                                                 ),
                                               ),
                                               readOnly: true,
@@ -1105,50 +1877,150 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
                                             SizedBox(height: 20),
                                             // Dropdown for Select observation
+                                            // DropdownButtonFormField<String>(
+                                            //   value: selectedObservationType,
+                                            //   onChanged: isEditMode
+                                            //       ? null
+                                            //       : (String? newValue) {
+                                            //           setState(() {
+                                            //             selectedObservationType =
+                                            //                 newValue;
+                                            //             final selected =
+                                            //                 observationTypeList
+                                            //                     .firstWhereOrNull(
+                                            //                         (e) =>
+                                            //                             e.name ==
+                                            //                             newValue);
+                                            //             if (selected != null) {
+                                            //               selectedObservationTypeId =
+                                            //                   selected.id;
+                                            //               if (selected.id ==
+                                            //                   1) {
+                                            //                 isUserSelectionEnabled =
+                                            //                     false;
+                                            //                 actionToBeTakenEnabled =
+                                            //                     false;
+                                            //                 selectedUsers
+                                            //                     .clear(); // Optionally clear users
+                                            //               } else {
+                                            //                 isUserSelectionEnabled =
+                                            //                     true;
+                                            //                 actionToBeTakenEnabled =
+                                            //                     true;
+                                            //               }
+                                            //               fetchIssueTypes();
+                                            //             } else {
+                                            //               selectedObservationTypeId =
+                                            //                   0;
+                                            //               issueTypes = [];
+                                            //             }
+                                            //             selectedIssueType =
+                                            //                 null;
+                                            //             selectedIssueTypeId = 0;
+                                            //             selectedObservation =
+                                            //                 null;
+                                            //             observationsList = [];
+                                            //             issueTypes = [];
+                                            //             observationDescriptionController
+                                            //                 .text = '';
+                                            //             _dateDueDateController
+                                            //                 .text = '';
+                                            //             isComplianceRequired =
+                                            //                 false;
+                                            //             isEscalationRequired =
+                                            //                 false;
+                                            //             actionToBeTakenController
+                                            //                 .text = '';
+                                            //           });
+                                            //         },
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Observation Type',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   validator:
+                                            //       _validateObservationType,
+                                            //   items: observationTypeList
+                                            //       .map((observationType) {
+                                            //     return DropdownMenuItem<String>(
+                                            //       value: observationType.name,
+                                            //       child: Text(
+                                            //           observationType.name),
+                                            //     );
+                                            //   }).toList(),
+                                            // ),
                                             DropdownButtonFormField<String>(
-                                              value: selectedObservationType,
-                                              onChanged: (String? newValue) {
-                                                setState(() {
-                                                  // **Ye line galat hai:**
-                                                  // selectedIssueType = newValue;  <-- yaha selectedObservationType set karna chahiye, na ki selectedIssueType
+                                              value: observationTypeList.any(
+                                                      (e) =>
+                                                          e.name ==
+                                                          selectedObservationType)
+                                                  ? selectedObservationType
+                                                  : null,
+                                              onChanged: (!isDraftObservation &&
+                                                      isEditMode)
+                                                  ? (String? newValue) {
+                                                      setState(() {
+                                                        selectedObservationType =
+                                                            newValue;
+                                                        final selected =
+                                                            observationTypeList
+                                                                .firstWhereOrNull(
+                                                          (e) =>
+                                                              e.name ==
+                                                              newValue,
+                                                        );
+                                                        print(
+                                                            "selectedObservationTypeId: $selectedObservationTypeId");
+                                                        if (selected != null) {
+                                                          print(
+                                                              "selectedObservationTypeId: $selectedObservationTypeId");
 
-                                                  selectedObservationType =
-                                                      newValue;
-
-                                                  // Phir ye karna chahiye:
-                                                  final selected =
-                                                      observationTypeList
-                                                          .firstWhereOrNull(
-                                                              (e) =>
-                                                                  e.name ==
-                                                                  newValue);
-                                                  if (selected != null) {
-                                                    selectedObservationTypeId =
-                                                        selected.id;
-
-                                                    // Jab observation type change ho to issue types fetch karo
-                                                    fetchIssueTypes();
-                                                  } else {
-                                                    selectedObservationTypeId =
-                                                        0;
-                                                    issueTypes =
-                                                        []; // IssueTypes clear karo jab koi observation type nahi ho
-                                                  }
-
-                                                  // Issue type ko bhi reset karna chahiye jab observation type change ho
-                                                  selectedIssueType = null;
-                                                  selectedIssueTypeId = 0;
-                                                  selectedObservation = null;
-                                                  observationsList = [];
-                                                  issueTypes = [];
-                                                  observationDescriptionController
-                                                      .text = '';
-                                                  _dateDueDateController.text =
-                                                      '';
-                                                  isComplianceRequired = false;
-                                                  isEscalationRequired = false;
-                                                });
-                                              },
+                                                          selectedObservationTypeId =
+                                                              selected.id;
+                                                          isObservationTypeGoodPractice =
+                                                              selectedObservationTypeId ==
+                                                                  1;
+                                                          if (isEditMode) {
+                                                            if (selected.id ==
+                                                                1) {
+                                                              isUserSelectionEnabled =
+                                                                  false;
+                                                              actionToBeTakenEnabled =
+                                                                  false;
+                                                              selectedUsers
+                                                                  .clear();
+                                                            } else {
+                                                              isUserSelectionEnabled =
+                                                                  true;
+                                                              actionToBeTakenEnabled =
+                                                                  true;
+                                                            }
+                                                          }
+                                                          fetchIssueTypes();
+                                                        } else {
+                                                          selectedObservationTypeId =
+                                                              0;
+                                                          issueTypes = [];
+                                                        }
+                                                        selectedIssueType =
+                                                            null;
+                                                        selectedIssueTypeId = 0;
+                                                        selectedObservation =
+                                                            null;
+                                                        observationsList = [];
+                                                        issueTypes = [];
+                                                        observationDescriptionController
+                                                            .text = '';
+                                                        _dateDueDateController
+                                                            .text = '';
+                                                        isComplianceRequired =
+                                                            false;
+                                                        isEscalationRequired =
+                                                            false;
+                                                        actionToBeTakenController
+                                                            .text = '';
+                                                      });
+                                                    }
+                                                  : null,
                                               decoration: InputDecoration(
                                                 labelText: 'Observation Type',
                                                 border: OutlineInputBorder(),
@@ -1166,35 +2038,54 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             ),
 
                                             SizedBox(height: 20),
+
                                             DropdownButtonFormField<String>(
                                               value: issueTypes.any((e) =>
                                                       e.name ==
                                                       selectedIssueType)
                                                   ? selectedIssueType
                                                   : null,
-                                              onChanged: (String? newValue) {
-                                                setState(() {
-                                                  selectedIssueType = newValue;
+                                              onChanged: (!isDraftObservation &&
+                                                      isEditMode)
+                                                  ? (String? newValue) {
+                                                      setState(() {
+                                                        selectedIssueType =
+                                                            newValue;
 
-                                                  try {
-                                                    final selectedIssue =
-                                                        issueTypes.firstWhere(
-                                                      (element) =>
-                                                          element.name ==
-                                                          newValue,
-                                                    );
-                                                    selectedIssueTypeId =
-                                                        selectedIssue
-                                                            .id; // Issue Type ID update karo yahan
-                                                    // Iss ID ke basis pe observations fetch karo yahan se
-                                                    fetchObservations();
-                                                  } catch (e) {
-                                                    selectedIssueTypeId = 0;
-                                                    observationsList = [];
-                                                    selectedObservation = null;
-                                                  }
-                                                });
-                                              },
+                                                        try {
+                                                          final selectedIssue =
+                                                              issueTypes
+                                                                  .firstWhere(
+                                                            (element) =>
+                                                                element.name ==
+                                                                newValue,
+                                                          );
+                                                          selectedIssueTypeId =
+                                                              selectedIssue.id;
+                                                          // bool isNCRSelected =
+                                                          //     selectedIssue
+                                                          //                 .id ==
+                                                          //             1 &&
+                                                          //         selectedIssue
+                                                          //                 .name ==
+                                                          //             'NCR';
+
+                                                          // // 🔁 Enable/Disable fields
+                                                          // isDueDateEnabled =
+                                                          //     !isNCRSelected;
+                                                          // isToggleEnabled =
+                                                          //     !isNCRSelected;
+                                                          fetchObservations();
+                                                        } catch (e) {
+                                                          selectedIssueTypeId =
+                                                              0;
+                                                          observationsList = [];
+                                                          selectedObservation =
+                                                              null;
+                                                        }
+                                                      });
+                                                    }
+                                                  : null,
                                               decoration: InputDecoration(
                                                 labelText: 'Issue Type',
                                                 border: OutlineInputBorder(),
@@ -1209,29 +2100,60 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             ),
 
                                             SizedBox(height: 20),
+                                            // Dropdown for Select Observation
                                             DropdownButtonFormField<String>(
-                                              value: (selectedObservation ?? '')
-                                                          .isEmpty ||
-                                                      !observationsList.any((obs) =>
-                                                          obs.observationDescription ==
-                                                          selectedObservation)
-                                                  ? null
-                                                  : selectedObservation,
-                                              onChanged: (selectedIssueTypeId ==
-                                                          null ||
-                                                      selectedIssueTypeId == 0)
-                                                  ? null // 🔒 disable until issueType is selected
-                                                  : (String? newValue) {
+                                              value: (selectedObservation !=
+                                                          null &&
+                                                      selectedObservation!
+                                                          .isNotEmpty &&
+                                                      observationsList
+                                                          .map((obs) =>
+                                                              '${obs.observationDescription.trim().toLowerCase()}__${obs.id}')
+                                                          .contains(
+                                                              selectedObservation))
+                                                  ? selectedObservation
+                                                  : '',
+                                              onChanged: (!isDraftObservation &&
+                                                      isEditMode)
+                                                  ? (String? newValue) {
+                                                      if (newValue == null ||
+                                                          newValue.isEmpty) {
+                                                        setState(() {
+                                                          selectedObservation =
+                                                              '';
+                                                          observationDescriptionController
+                                                              .text = '';
+                                                          isComplianceRequired =
+                                                              false;
+                                                          isEscalationRequired =
+                                                              false;
+                                                          actionToBeTakenController
+                                                              .text = '';
+                                                          _dateDueDateController
+                                                              .text = '';
+                                                        });
+                                                        return;
+                                                      }
+
                                                       setState(() {
                                                         selectedObservation =
-                                                            newValue ?? '';
+                                                            newValue;
+                                                        final parts = newValue
+                                                            .split('__');
+                                                        if (parts.length != 2)
+                                                          return;
+
+                                                        final obsId =
+                                                            int.tryParse(
+                                                                parts[1]);
+                                                        if (obsId == null)
+                                                          return;
 
                                                         final selected =
                                                             observationsList
                                                                 .firstWhere(
                                                           (obs) =>
-                                                              obs.observationDescription ==
-                                                              selectedObservation,
+                                                              obs.id == obsId,
                                                           orElse: () =>
                                                               Observation(
                                                             id: 0,
@@ -1263,63 +2185,44 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                         isEscalationRequired =
                                                             selected
                                                                 .escalationRequired;
-                                                        // Calculate due date based on start date and dueTimeInHrs
+                                                        actionToBeTakenController
+                                                            .text = selected
+                                                                .actionToBeTaken ??
+                                                            '';
+
                                                         if (_dateController.text
                                                                 .isNotEmpty &&
                                                             selected.dueTimeInHrs !=
                                                                 null &&
                                                             selected.dueTimeInHrs !=
                                                                 0) {
-                                                          if (selectedIssueTypeId !=
-                                                              3) {
-                                                            try {
-                                                              // Parse startDate from input (assume it's in local time)
-                                                              DateTime
-                                                                  startDate =
-                                                                  DateFormat(
-                                                                          'yyyy-MM-dd HH:mm')
-                                                                      .parse(_dateController
-                                                                          .text);
-
-                                                              // Add due hours
-                                                              DateTime dueDate =
-                                                                  startDate.add(Duration(
-                                                                      hours: selected
-                                                                          .dueTimeInHrs
-                                                                          .floor()));
-
-                                                              // Convert to local datetime string like 'yyyy-MM-ddTHH:mm'
-                                                              String
-                                                                  formattedDueDate =
-                                                                  DateFormat(
-                                                                          "yyyy-MM-dd HH:mm")
-                                                                      .format(dueDate
-                                                                          .toUtc());
-
-                                                              print(
-                                                                  "Formatted Due Date: $formattedDueDate");
-
-                                                              // Set this string to the controller
-                                                              _dateDueDateController
-                                                                      .text =
-                                                                  formattedDueDate;
-                                                            } catch (e) {
-                                                              print(
-                                                                  "Date parse or calculation error: $e");
-                                                              _dateDueDateController
-                                                                  .text = '';
-                                                            }
-                                                          } else {
+                                                          try {
+                                                            DateTime startDate =
+                                                                DateFormat(
+                                                                        'yyyy-MM-dd HH:mm')
+                                                                    .parse(_dateController
+                                                                        .text);
+                                                            DateTime dueDate =
+                                                                startDate.add(Duration(
+                                                                    hours: selected
+                                                                        .dueTimeInHrs
+                                                                        .floor()));
+                                                            _dateDueDateController
+                                                                .text = DateFormat(
+                                                                    'yyyy-MM-dd HH:mm')
+                                                                .format(
+                                                                    dueDate);
+                                                          } catch (e) {
                                                             _dateDueDateController
                                                                 .text = '';
                                                           }
                                                         } else {
-                                                          // If no start date or no due time, clear due date
                                                           _dateDueDateController
                                                               .text = '';
                                                         }
                                                       });
-                                                    },
+                                                    }
+                                                  : null,
                                               decoration: const InputDecoration(
                                                 labelText: 'Select Observation',
                                                 border: OutlineInputBorder(),
@@ -1338,26 +2241,27 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                               items: (selectedIssueTypeId ==
                                                           null ||
                                                       selectedIssueTypeId == 0)
-                                                  ? [] // 🔒 empty list until issueType selected
+                                                  ? []
                                                   : [
                                                       const DropdownMenuItem<
                                                           String>(
                                                         value: '',
                                                         child: Text(
-                                                            'Select Observation',
-                                                            style: TextStyle(
-                                                                color: Colors
-                                                                    .grey)),
+                                                          'Select Observation',
+                                                          style: TextStyle(
+                                                              color:
+                                                                  Colors.grey),
+                                                        ),
                                                       ),
                                                       ...observationsList
-                                                          .map((observation) {
+                                                          .map((obs) {
+                                                        final itemValue =
+                                                            '${obs.observationDescription.trim().toLowerCase()}__${obs.id}';
                                                         return DropdownMenuItem<
                                                             String>(
-                                                          value: observation
-                                                              .observationDescription,
+                                                          value: itemValue,
                                                           child: Text(
-                                                            observation
-                                                                .observationDescription,
+                                                            obs.observationDescription,
                                                             overflow:
                                                                 TextOverflow
                                                                     .ellipsis,
@@ -1385,7 +2289,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             TextFormField(
                                               controller:
                                                   _dateDueDateController,
-                                              enabled: isDueDateEnabled,
+                                              enabled: isDueDateEnabled &&
+                                                  !isObservationTypeGoodPractice,
                                               decoration: InputDecoration(
                                                 labelText: 'Due Date',
                                                 hintText: 'Select a date',
@@ -1403,66 +2308,119 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                               // validator: _validateDueDate,
                                             ),
                                             SizedBox(height: 20),
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                // **Compliance Required** Toggle Switch
-                                                Expanded(
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                          "Compliance Required"),
-                                                      Switch(
-                                                        value:
-                                                            isComplianceRequired,
-                                                        onChanged: isToggleEnabled
-                                                            ? (bool value) {
-                                                                setState(() {
-                                                                  isComplianceRequired =
-                                                                      value;
-                                                                });
-                                                              }
-                                                            : null, // disables switch when observation is selected
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
+                                            // Row(
+                                            //   mainAxisAlignment:
+                                            //       MainAxisAlignment
+                                            //           .spaceBetween,
+                                            //   children: [
+                                            //     // **Compliance Required** Toggle Switch
+                                            //     Expanded(
+                                            //       child: Row(
+                                            //         mainAxisAlignment:
+                                            //             MainAxisAlignment.start,
+                                            //         children: [
+                                            //           Text(
+                                            //               "Compliance Required"),
+                                            //           Switch(
+                                            //             value:
+                                            //                 isComplianceRequired,
+                                            //             onChanged: isToggleEnabled
+                                            //                 ? (bool value) {
+                                            //                     setState(() {
+                                            //                       isComplianceRequired =
+                                            //                           value;
+                                            //                     });
+                                            //                   }
+                                            //                 : null, // disables switch when observation is selected
+                                            //           ),
+                                            //         ],
+                                            //       ),
+                                            //     ),
 
-                                                // **Escalation Required** Toggle Switch
-                                                Expanded(
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                          "Escalation Required"),
-                                                      Switch(
-                                                        value:
-                                                            isEscalationRequired,
-                                                        onChanged:
-                                                            isToggleEnabled
-                                                                ? (bool value) {
-                                                                    setState(
-                                                                        () {
-                                                                      isEscalationRequired =
-                                                                          value;
-                                                                    });
-                                                                  }
-                                                                : null,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
+                                            //     // **Escalation Required** Toggle Switch
+                                            //     Expanded(
+                                            //       child: Row(
+                                            //         mainAxisAlignment:
+                                            //             MainAxisAlignment.start,
+                                            //         children: [
+                                            //           Text(
+                                            //               "Escalation Required"),
+                                            //           Switch(
+                                            //             value:
+                                            //                 isEscalationRequired,
+                                            //             onChanged:
+                                            //                 isToggleEnabled
+                                            //                     ? (bool value) {
+                                            //                         setState(
+                                            //                             () {
+                                            //                           isEscalationRequired =
+                                            //                               value;
+                                            //                         });
+                                            //                       }
+                                            //                     : null,
+                                            //           ),
+                                            //         ],
+                                            //       ),
+                                            //     ),
+                                            //   ],
+                                            // ),
+                                            _buildToggleSwitches(context),
+                                            SizedBox(height: 20),
+                                            DropdownButtonFormField<String>(
+                                              value: ViolationTypes
+                                                      .violationType
+                                                      .any((item) =>
+                                                          item[
+                                                              'violationTypeID'] ==
+                                                          selectedViolationText)
+                                                  ? selectedViolationText
+                                                  : null,
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  selectedViolationText =
+                                                      newValue;
+
+                                                  final selected =
+                                                      ViolationTypes
+                                                          .violationType
+                                                          .firstWhere(
+                                                    (item) =>
+                                                        item[
+                                                            'violationTypeID'] ==
+                                                        newValue,
+                                                    orElse: () => {"id": 0},
+                                                  );
+                                                  violationTypesId =
+                                                      selected['id'] as int;
+                                                });
+                                              },
+                                              items: ViolationTypes
+                                                  .violationType
+                                                  .map((item) {
+                                                final name =
+                                                    item['violationTypeID']
+                                                        .toString();
+                                                return DropdownMenuItem<String>(
+                                                  value: name,
+                                                  child: Text(name),
+                                                );
+                                              }).toList(),
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    'Select Violation Type',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              validator: (value) {
+                                                if (value == null ||
+                                                    value.isEmpty) {
+                                                  return 'Please select a violation type';
+                                                }
+                                                return null;
+                                              },
                                             ),
 
                                             SizedBox(height: 20),
                                             DropdownButtonFormField<String>(
-                                              // key: ValueKey(selectedActivities),
                                               value:
                                                   selectedActivities, // This will bind to selectedActivities
                                               onChanged: (String? newValue) {
@@ -1509,20 +2467,19 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                               },
                                             ),
 
-                                            SizedBox(height: 20),
-                                            TextFormField(
-                                              controller:
-                                                  userDescriptionController,
-                                              decoration: InputDecoration(
-                                                labelText: 'User Description',
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                              ),
-                                              // Add Controller to manage input text here (optional)
-                                              validator: _validateUser,
-                                            ),
+                                            // SizedBox(height: 20),
+                                            // TextFormField(
+                                            //   controller:
+                                            //       userDescriptionController,
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'User Description',
+                                            //     border: OutlineInputBorder(
+                                            //       borderRadius:
+                                            //           BorderRadius.circular(8),
+                                            //     ),
+                                            //   ),
+                                            //   validator: _validateUser,
+                                            // ),
 
                                             SizedBox(height: 20),
                                             DropdownButtonFormField<String>(
@@ -1595,42 +2552,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                 );
                                               }).toList(),
                                             ),
-                                            // DropdownButtonFormField<String>(
-                                            //   value: partList.any((p) =>
-                                            //           p.partName ==
-                                            //           selectedPart)
-                                            //       ? selectedPart
-                                            //       : null,
-                                            //   onChanged: (String? newValue) {
-                                            //     setState(() {
-                                            //       selectedPart = newValue;
-                                            //     });
-                                            //   },
-                                            //   decoration: InputDecoration(
-                                            //     labelText:
-                                            //         'Choose Part', // This is the form field label above the box
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   validator: _validatePart,
-                                            //   items: [
-                                            //     DropdownMenuItem<String>(
-                                            //       value:
-                                            //           null, // 👈 use `null` for no selection
-                                            //       child: Text(
-                                            //         'Choose Part', // 👈 Your desired default text
-                                            //         style: TextStyle(
-                                            //             color: Colors.grey),
-                                            //       ),
-                                            //     ),
-                                            //     ...partList.map((part) {
-                                            //       return DropdownMenuItem<
-                                            //           String>(
-                                            //         value: part.partName,
-                                            //         child: Text(part.partName),
-                                            //       );
-                                            //     }).toList(),
-                                            //   ],
-                                            // ),
 
                                             SizedBox(height: 20),
                                             // Dropdown for Select Element
@@ -1684,62 +2605,108 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             ),
 
                                             SizedBox(height: 20),
-                                            // Dropdown for Select Assigned To
-                                            // DropdownButtonFormField<String>(
-                                            //   value: selectedUser,
-                                            //   onChanged: (String? newValue) {
-                                            //     setState(() {
-                                            //       selectedUser = newValue;
-                                            //     });
-                                            //   },
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'Assigned To',
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   validator: _validateAssigned,
-                                            //   items: userList.map((User user) {
-                                            //     return DropdownMenuItem<String>(
-                                            //       value: user.userName,
-                                            //       child: Text(user.userName),
-                                            //     );
-                                            //   }).toList(),
-                                            // ),
-                                            MultiSelectDialogField<User>(
-                                              items: userList
-                                                  .map((user) =>
-                                                      MultiSelectItem<User>(
-                                                          user, user.userName))
-                                                  .toList(),
-                                              title: Text("Assigned To"),
-                                              selectedItemsTextStyle: TextStyle(
-                                                  fontWeight: FontWeight.bold),
-                                              itemsTextStyle:
-                                                  TextStyle(fontSize: 16),
-                                              searchable: true,
-                                              buttonText: Text("Select Users"),
-                                              onConfirm: (List<User> selected) {
-                                                setState(() {
-                                                  selectedUsers = selected
-                                                      .map((u) => u.userName)
-                                                      .toList(); // ✅ Strings only
-                                                });
-                                              },
-                                              chipDisplay:
-                                                  MultiSelectChipDisplay(
-                                                onTap: (user) {
-                                                  setState(() {
-                                                    selectedUsers.remove(
-                                                        user); // ✅ Remove full User object
-                                                  });
-                                                },
-                                              ),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                    color: Colors.grey),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
+                                            // MultiSelect for Assigned Users
+                                            IgnorePointer(
+                                              ignoring: !isUserSelectionEnabled,
+                                              child: Opacity(
+                                                opacity: isUserSelectionEnabled
+                                                    ? 1.0
+                                                    : 0.5,
+                                                child: MultiSelectDialogField<
+                                                    User>(
+                                                  items: userList
+                                                      .map((user) =>
+                                                          MultiSelectItem<User>(
+                                                              user,
+                                                              user.userName))
+                                                      .toList(),
+                                                  initialValue:
+                                                      selectedUserObjects,
+                                                  title: Text("Assigned To"),
+                                                  selectedItemsTextStyle:
+                                                      TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold),
+                                                  itemsTextStyle:
+                                                      TextStyle(fontSize: 16),
+                                                  searchable: true,
+                                                  buttonText:
+                                                      Text("Select Users"),
+                                                  onConfirm:
+                                                      (List<User> selected) {
+                                                    setState(() {
+                                                      selectedUserObjects =
+                                                          selected;
+                                                      selectedUsers = selected
+                                                          .map(
+                                                              (u) => u.userName)
+                                                          .toList();
+                                                    });
+                                                  },
+                                                  chipDisplay:
+                                                      MultiSelectChipDisplay(
+                                                    onTap: (User user) {
+                                                      setState(() {
+                                                        selectedUserObjects
+                                                            .remove(user);
+                                                        selectedUsers =
+                                                            selectedUserObjects
+                                                                .map((u) =>
+                                                                    u.userName)
+                                                                .toList();
+                                                      });
+                                                    },
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(
+                                                        color: Colors.grey),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                  ),
+                                                ),
                                               ),
                                             ),
+                                            // MultiSelectDialogField<User>(
+                                            //   items: userList
+                                            //       .map((user) =>
+                                            //           MultiSelectItem<User>(
+                                            //               user, user.userName))
+                                            //       .toList(),
+
+                                            //   // ✅ prefill selection here
+                                            //   initialValue: selectedUserObjects,
+
+                                            //   title: Text("Assigned To"),
+                                            //   searchable: true,
+                                            //   buttonText: Text("Select Users"),
+                                            //   onConfirm: (List<User> selected) {
+                                            //     setState(() {
+                                            //       selectedUserObjects =
+                                            //           selected;
+                                            //       selectedUsers = selected
+                                            //           .map((u) => u.userName)
+                                            //           .toList();
+                                            //     });
+                                            //   },
+                                            //   chipDisplay:
+                                            //       MultiSelectChipDisplay(
+                                            //     onTap: (user) {
+                                            //       setState(() {
+                                            //         selectedUserObjects
+                                            //             .remove(user);
+                                            //         selectedUsers
+                                            //             .remove(user.userName);
+                                            //       });
+                                            //     },
+                                            //   ),
+                                            //   decoration: BoxDecoration(
+                                            //     border: Border.all(
+                                            //         color: Colors.grey),
+                                            //     borderRadius:
+                                            //         BorderRadius.circular(4),
+                                            //   ),
+                                            // ),
 
                                             SizedBox(height: 10),
                                             TextFormField(
@@ -1752,32 +2719,11 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                       BorderRadius.circular(8),
                                                 ),
                                               ),
-                                              validator: _validateDescription,
-                                              // Add Controller to manage input text here (optional)
+                                              // validator: _validateDescription,
+                                              enabled:
+                                                  actionToBeTakenEnabled, // 🔑 Use your flag here
                                             ),
 
-                                            SizedBox(height: 10),
-                                            TextFormField(
-                                              controller: reworkCostController,
-                                              keyboardType: TextInputType
-                                                  .number, // Allow only number input
-                                              decoration: InputDecoration(
-                                                labelText: 'Rework Cost',
-                                                border: OutlineInputBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8)),
-                                              ),
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty)
-                                                  return 'Please enter rework cost';
-                                                if (double.tryParse(value) ==
-                                                    null)
-                                                  return 'Enter valid number';
-                                                return null;
-                                              },
-                                            ),
                                             SizedBox(height: 20),
                                             // 🔽 File Upload Section just like TextFormField
                                             Column(
@@ -1814,11 +2760,13 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                         final file =
                                                             result.files.first;
 
-                                                        setState(() {
-                                                          selectedFileName =
-                                                              file.name;
-                                                          isUploading = true;
-                                                        });
+                                                        if (mounted) {
+                                                          setState(() {
+                                                            isUploading = true;
+                                                            selectedFileName = file
+                                                                .name; // Show filename immediately after picking file
+                                                          });
+                                                        }
 
                                                         final uploadedFileName =
                                                             await SiteObservationService()
@@ -1826,27 +2774,27 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                                     file.name,
                                                                     file.bytes!);
 
-                                                        setState(() {
-                                                          isUploading = false;
-                                                        });
+                                                        if (mounted) {
+                                                          setState(() {
+                                                            isUploading = false;
+                                                          });
+                                                        }
 
                                                         if (uploadedFileName !=
                                                             null) {
-                                                          setState(() {
-                                                            uploadedFiles.add(
-                                                                uploadedFileName);
-                                                          });
-
                                                           onFileUploadSuccess(
-                                                              uploadedFileName);
+                                                              uploadedFileName,
+                                                              isDraft: isDraft);
                                                         } else {
-                                                          ScaffoldMessenger.of(
-                                                                  context)
-                                                              .showSnackBar(
-                                                            const SnackBar(
-                                                                content: Text(
-                                                                    "❌ File upload failed")),
-                                                          );
+                                                          if (mounted) {
+                                                            ScaffoldMessenger
+                                                                    .of(context)
+                                                                .showSnackBar(
+                                                              const SnackBar(
+                                                                  content: Text(
+                                                                      "❌ File upload failed")),
+                                                            );
+                                                          }
                                                         }
                                                       }
                                                     },
@@ -1899,23 +2847,63 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                               ],
                                             ),
 
-                                            ElevatedButton(
-                                              onPressed: () {
-                                                if (_formKey.currentState
-                                                        ?.validate() ??
-                                                    false) {
-                                                  _submitForm();
-                                                }
-                                              },
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.blue,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: ElevatedButton(
+                                                    onPressed: () {
+                                                      if (_formKey.currentState
+                                                              ?.validate() ??
+                                                          false) {
+                                                        _submitForm(
+                                                            isDraft: true);
+                                                      }
+                                                    },
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          Colors.grey,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                      ),
+                                                    ),
+                                                    child:
+                                                        Text('Save as Draft'),
+                                                  ),
                                                 ),
-                                              ),
-                                              child: Text('Submit'),
-                                            ),
+                                                SizedBox(width: 12),
+                                                Expanded(
+                                                  child: ElevatedButton(
+                                                    onPressed: () {
+                                                      if (_formKey.currentState
+                                                              ?.validate() ??
+                                                          false) {
+                                                        _submitForm(
+                                                            isDraft: false);
+                                                      }
+                                                    },
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          Colors.blue,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                      ),
+                                                    ),
+                                                    child: Text('Submit'),
+                                                  ),
+                                                ),
+                                              ],
+                                            )
                                           ],
                                         ),
                                       ),
@@ -1933,6 +2921,13 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                       if (!showObservations) {
                         // We're on form, going back to list → reset the form
                         _resetForm();
+                        isEditMode = false;
+                        isDraftObservation = false;
+                      } else {
+                        isEditMode = true;
+                        isDraftObservation = false;
+                        _dateController.text = DateFormat('yyyy-MM-dd HH:mm')
+                            .format(DateTime.now());
                       }
                       showObservations = !showObservations;
                     });
@@ -1951,8 +2946,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   Widget _infoBox(String title, String value, {required bool isDark}) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      // No background color, so it stays transparent and matches card bg
-      // color: Colors.transparent, // optional, can keep or remove color property
       child: RichText(
         text: TextSpan(
           children: [
@@ -1974,4 +2967,17 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       ),
     );
   }
+}
+
+Widget _popupRow(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("$label: ", style: TextStyle(fontWeight: FontWeight.bold)),
+        Expanded(child: Text(value)),
+      ],
+    ),
+  );
 }

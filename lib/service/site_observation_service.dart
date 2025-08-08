@@ -522,7 +522,7 @@ class SiteObservationService {
     }
   }
 
-  Future<List<NCRObservation>> fetchNCRObservations(int userId) async {
+  Future<List<NCRObservation>> fetchNCRSafetyObservations(int userId) async {
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       Uri.parse(

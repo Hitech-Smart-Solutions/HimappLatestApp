@@ -82,3 +82,21 @@ class ObservationConstants {
 //     'Quality': 12,
 //     'Safety': 13
 //   };
+// class violationType {
+//   static const int violationTypeID = 11;
+//   static const int Quality = 12;
+//   static const int Safety = 13;
+// }
+
+class ViolationTypes {
+  static const List<Map<String, Object>> violationType = [
+    {
+      "id": 1,
+      "violationTypeID": "UnsafeCondition",
+    },
+    {
+      "id": 2,
+      "violationTypeID": "UnsafeAct",
+    },
+  ];
+}

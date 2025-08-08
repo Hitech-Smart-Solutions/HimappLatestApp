@@ -139,6 +139,7 @@ class Observation {
   });
 
   factory Observation.fromJson(Map<String, dynamic> json) {
+    print("Observation fromJson: $json");
     return Observation(
       id: (json['id'] as num).toInt(),
       observationTypeID: (json['observationTypeID'] as num).toInt(),
@@ -433,6 +434,7 @@ class SiteObservationModel {
   final int rootCauseID;
   final String corretiveActionToBeTaken;
   final String preventiveActionTaken;
+  final int? violationTypeID;
   final int statusID;
   final bool isActive;
   final int createdBy;
@@ -471,6 +473,7 @@ class SiteObservationModel {
     required this.rootCauseID,
     required this.corretiveActionToBeTaken,
     required this.preventiveActionTaken,
+    this.violationTypeID,
     required this.statusID,
     required this.isActive,
     required this.createdBy,
@@ -511,6 +514,7 @@ class SiteObservationModel {
       'rootCauseID': rootCauseID,
       'corretiveActionToBeTaken': corretiveActionToBeTaken,
       'preventiveActionTaken': preventiveActionTaken,
+      'violationTypeID': violationTypeID,
       'statusID': statusID,
       'isActive': isActive,
       'createdBy': createdBy,
@@ -594,6 +598,7 @@ class SiteObservationUpdateDraftModel {
   final bool complianceRequired;
   final bool escalationRequired;
   final String actionToBeTaken;
+  final int violationTypeID;
   final int activityID;
   final int sectionID;
   final int floorID;
@@ -613,6 +618,7 @@ class SiteObservationUpdateDraftModel {
     required this.complianceRequired,
     required this.escalationRequired,
     required this.actionToBeTaken,
+    this.violationTypeID = 0, // Default to 0 if not provided
     required this.activityID,
     required this.sectionID,
     required this.floorID,
@@ -635,6 +641,8 @@ class SiteObservationUpdateDraftModel {
       complianceRequired: json['complianceRequired'],
       escalationRequired: json['escalationRequired'],
       actionToBeTaken: json['actionToBeTaken'],
+      violationTypeID:
+          json['violationTypeID'] ?? 0, // Default to 0 if not provided
       activityID: json['activityID'],
       sectionID: json['sectionID'],
       floorID: json['floorID'],
@@ -658,6 +666,7 @@ class SiteObservationUpdateDraftModel {
         'complianceRequired': complianceRequired,
         'escalationRequired': escalationRequired,
         'actionToBeTaken': actionToBeTaken,
+        'violationTypeID': violationTypeID,
         'activityID': activityID,
         'sectionID': sectionID,
         'floorID': floorID,
@@ -1013,6 +1022,8 @@ class GetSiteObservationMasterById {
   final int? activityID; // Assuming activityId is an int
   final int projectID; // Assuming projectId is a String
   final String? observedByName;
+  final int? violationTypeID;
+  final String violationTypeName;
 
   final List<ActivityDTO> activityDTO;
   final List<AssignmentStatusDTO> assignmentStatusDTO;
@@ -1049,6 +1060,8 @@ class GetSiteObservationMasterById {
     required this.activityID,
     required this.projectID,
     this.observedByName,
+    this.violationTypeID,
+    this.violationTypeName = '',
     required this.activityDTO,
     required this.assignmentStatusDTO,
   });
@@ -1090,6 +1103,8 @@ class GetSiteObservationMasterById {
       // projectID: json['projectID'] as int,
       projectID: json['projectID'] != null ? json['projectID'] as int : 0,
       observedByName: json["observedByName"]?.toString(),
+      violationTypeID: json['violationTypeID'] as int?,
+      violationTypeName: json['violationTypeName'] ?? '',
       activityDTO: (json['activityDTO'] as List<dynamic>?)
               ?.map((item) => ActivityDTO.fromJson(item))
               .toList() ??

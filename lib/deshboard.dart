@@ -12,6 +12,7 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:himappnew/site_observation_quality.dart';
 import 'package:himappnew/transaction/observation_quality_ncr.dart';
+import 'package:himappnew/transaction/observation_safety_ncr.dart';
 import 'login_page.dart';
 import 'site_observation_safety.dart';
 import 'package:himappnew/service/firebase_messaging_service.dart';
@@ -323,7 +324,7 @@ class _DashboardPageState extends State<DashboardPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => ObservationNCRPage(
+                builder: (_) => ObservationSafetyNCRPage(
                   userId: userId,
                   siteObservationService: SiteObservationService(),
                   siteObservationId: 0,
