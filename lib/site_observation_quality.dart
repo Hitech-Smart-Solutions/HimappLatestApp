@@ -1266,33 +1266,57 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       actionToBeTakenController.text = foundObs.actionToBeTaken ?? '';
     }
 
-    // ⏳ Due date calculation (unchanged)
-    if (_dateController.text.isNotEmpty) {
-      try {
-        DateTime startDate =
-            DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+    // ✅ Due Date Calculation Fix
+    try {
+      DateTime startDate;
 
-        int? hoursToAdd;
-        if (isDraftObservation) {
-          hoursToAdd = observation.dueDate != null
-              ? observation.dueDate!.difference(startDate).inHours
-              : null;
+      if (_dateController.text.isNotEmpty) {
+        startDate = DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+      } else {
+        final createdDate = observation.activityDTO.isNotEmpty
+            ? observation.activityDTO.last.createdDate
+            : null;
+
+        startDate =
+            (createdDate ?? DateTime.now()).toLocal(); // ✅ Convert to local
+        _dateController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDate);
+      }
+
+      int? hoursToAdd;
+
+      if (isDraftObservation) {
+        if (observation.dueDate != null) {
+          DateTime dueDate =
+              observation.dueDate!.toLocal(); // ✅ Convert to local
+          _dateDueDateController.text =
+              DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+
+          hoursToAdd = dueDate.difference(startDate).inHours;
         } else {
           hoursToAdd = foundObs.dueTimeInHrs;
         }
-
-        if (hoursToAdd != null && hoursToAdd != 0) {
-          DateTime dueDate = startDate.add(Duration(hours: hoursToAdd));
-          _dateDueDateController.text =
-              DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
-        } else {
-          _dateDueDateController.text = '';
-        }
-      } catch (e) {
-        print("Date calculation error: $e");
-        _dateDueDateController.text = '';
+      } else {
+        hoursToAdd = foundObs.dueTimeInHrs;
       }
-    } else {
+
+      if (observation.dueDate == null &&
+          hoursToAdd != null &&
+          hoursToAdd != 0) {
+        final dueDate = startDate.add(Duration(hours: hoursToAdd));
+        _dateDueDateController.text =
+            DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+      }
+    } catch (e) {
+      print("⚠️ Date calculation error: $e");
+      _dateDueDateController.text = '';
+    }
+
+    print("Due Date: ${_dateDueDateController.text}");
+
+    final isGoodPractice =
+        foundObs.observationTypeID == goodPracticeObservationTypeId;
+
+    if (isGoodPractice) {
       _dateDueDateController.text = '';
     }
 
@@ -1314,7 +1338,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     selectedElement = observation.elementName;
     selectedContractor = observation.contractorName;
 
-    // 🧑‍🤝‍🧑 Assigned users
     final fetchedUsers = await fetchUserList();
     userList = fetchedUsers;
     final assignedUsernames = observation.assignmentStatusDTO
@@ -1342,8 +1365,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
     setState(() {
       selectedObservationId = observation.id;
-
-      // ✅ Set based on type ID only
       isUserSelectionEnabled = observation.observationTypeID != 1;
     });
   }

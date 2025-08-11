@@ -105,21 +105,41 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   int? selectedObservationTypeId;
   int? selectedIssueTypeId;
 
+  // bool get isToggleEnabled {
+  //   if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
+  //     return false;
+  //   }
+  //   if (selectedObservation == null || selectedObservation!.isEmpty) {
+  //     return true; // toggle enabled
+  //   }
+
+  //   // Find selected Observation from the list
+  //   final selectedObs = observationsList.firstWhereOrNull(
+  //     (obs) => obs.observationDescription == selectedObservation,
+  //   );
+  //   if (selectedObs == null) return true;
+
+  //   // Compare using observationTypeID
+  //   return selectedObs.observationTypeID != goodPracticeObservationTypeId;
+  // }
   bool get isToggleEnabled {
-    if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
+    // 🔒 New condition added by you: disable toggle if type is "Good Practice"
+    if (selectedObservationTypeId == goodPracticeObservationTypeId) {
       return false;
     }
+
+    // ✅ Original logic — keep this as-is
     if (selectedObservation == null || selectedObservation!.isEmpty) {
       return true; // toggle enabled
     }
-
-    // Find selected Observation from the list
+    if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
+      return false;
+    }
     final selectedObs = observationsList.firstWhereOrNull(
       (obs) => obs.observationDescription == selectedObservation,
     );
     if (selectedObs == null) return true;
 
-    // Compare using observationTypeID
     return selectedObs.observationTypeID != goodPracticeObservationTypeId;
   }
 
@@ -131,19 +151,21 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   }
 
   bool get isDueDateEnabled {
+    // Disable if NCR issue type selected
     if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
+      print("Due date disabled: NCR selected");
       return false;
     }
-    if (selectedObservation == null || selectedObservation!.isEmpty) {
-      return true; // enable by default
+
+    // Disable if Good Practice selected
+    if (isObservationTypeGoodPractice) {
+      print("Due date disabled: Good Practice selected");
+      return false;
     }
 
-    final selectedObs = observationsList.firstWhereOrNull(
-      (obs) => obs.observationDescription == selectedObservation,
-    );
-    if (selectedObs == null) return true;
-
-    return selectedObs.observationTypeID != goodPracticeObservationTypeId;
+    // Enable in all other cases
+    print("Due date enabled");
+    return true;
   }
 
   int? observedById;
@@ -171,9 +193,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   void initState() {
     super.initState();
     _initializeData();
-    // userItems = userList
-    //     .map((user) => MultiSelectItem<User>(user, user.userName))
-    //     .toList();
   }
 
   Future<void> _initializeData() async {
@@ -188,12 +207,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
 
     // Then load all static or unrelated data
-    fetchObservationType();
-    fetchIssueTypes();
-    fetchActivities();
-    fetchObservations();
-    fetchContractorList();
-    fetchUserList();
+    await fetchObservationType();
+    await fetchIssueTypes();
+    await fetchActivities();
+    await fetchObservations();
+    await fetchContractorList();
+    await fetchUserList();
 
     final fetchedUsers = await fetchUserList();
     setState(() {
@@ -201,6 +220,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       userItems = userList
           .map((user) => MultiSelectItem<User>(user, user.userName))
           .toList();
+      updateGoodPracticeFlag();
     });
     if (!isEditMode) {
       _dateController.text =
@@ -208,6 +228,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
     // futureObservations = widget._siteObservationService
     // _loadObservationFromServer(widget.de);
+    // observationTypeList = await fetchObservationTypes(); // API call or local
+    // updateGoodPracticeFlag(); // 👈 Yeh lagao jaise hi data aata hai
   }
 
   String formatDateForApi(DateTime date) {
@@ -255,6 +277,23 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         isLoading = false;
       });
     }
+  }
+
+  void updateGoodPracticeFlag() {
+    final selected = observationTypeList.firstWhereOrNull(
+      (e) => e.name == selectedObservationType,
+    );
+
+    if (selected != null) {
+      selectedObservationTypeId = selected.id;
+      isObservationTypeGoodPractice =
+          selected.name.toLowerCase().contains('good practice');
+    } else {
+      selectedObservationTypeId = 0;
+      isObservationTypeGoodPractice = false;
+    }
+    print(
+        'updateGoodPracticeFlag - isObservationTypeGoodPractice: $isObservationTypeGoodPractice');
   }
 
   // Fetch observations from the service
@@ -814,7 +853,10 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       // )['id'] as int;
       final String? dueDateValue;
 
-      if (isDueDateEnabled) {
+      final isDueDateFieldEnabled =
+          isDueDateEnabled && !isObservationTypeGoodPractice;
+
+      if (isDueDateFieldEnabled) {
         if (_dateDueDateController.text.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('❗ Please select a due date')),
@@ -1230,9 +1272,128 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
+//   Future<void> _loadDataAndObservation(
+//       GetSiteObservationMasterById observation) async {
+//     print("Loading observation: $observation");
+
+//     selectedObservationType = observation.observationType;
+//     selectedObservationTypeId = observation.observationTypeID;
+//     selectedIssueType = observation.issueType ?? '';
+//     isDraftObservation = observation.statusID == SiteObservationStatus.Draft;
+
+//     await fetchIssueTypes();
+
+//     final foundIssue = issueTypes.firstWhere(
+//       (e) => e.name == selectedIssueType,
+//       orElse: () => IssueType(id: 0, name: '', observationTypeID: 0),
+//     );
+
+//     selectedIssueTypeId = foundIssue.id;
+//     selectedIssueType = foundIssue.name;
+
+//     setState(() {});
+
+//     if (selectedIssueTypeId != 0) {
+//       await fetchObservations();
+//     } else {
+//       observationsList = [];
+//       selectedObservation = null;
+//       setState(() {});
+//       return;
+//     }
+//     // Create dropdown options with "description__id" format
+//     List<String> dropdownOptions = observationsList
+//         .map((o) => '${o.observationDescription.trim().toLowerCase()}__${o.id}')
+//         .toList();
+//     // Draft observation combined value
+//     final draftValue =
+//         '${observation.description.trim().toLowerCase()}__${observation.id}';
+//     if (isDraftObservation && !dropdownOptions.contains(draftValue)) {
+//       dropdownOptions.add(draftValue);
+//       observationsList.add(
+//         Observation(
+//           id: observation.id,
+//           observationTypeID: observation.observationTypeID!,
+//           issueTypeID: foundIssue.id,
+//           observationDescription: observation.description.trim(),
+//           complianceRequired: observation.complianceRequired ?? false,
+//           escalationRequired: observation.escalationRequired ?? false,
+//           dueTimeInHrs: observation.dueDate != null &&
+//                   _dateController.text.isNotEmpty
+//               ? observation.dueDate!
+//                   .difference(
+//                     DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text),
+//                   )
+//                   .inHours
+//               : 0,
+//           actionToBeTaken: observation.actionToBeTaken ?? '',
+//           lastModifiedBy: '',
+//           lastModifiedDate: DateTime.now().toIso8601String(),
+//         ),
+//       );
+//     }
+//     // Set selectedObservation to combined string
+//     selectedObservation = isDraftObservation
+//         ? draftValue
+//         : '${observation.description.trim().toLowerCase()}__${observation.id}';
+//     // Update fields based on selectedObservation
+//     updateFieldsFromSelectedObservation();
+
+//     // Other field assignments as before
+//     selectedActivities = observation.activityName;
+//     final observedName = observation.observedByName ?? '';
+//     final matchedObservedBy = ObservationConstants.observedBy.firstWhere(
+//       (item) =>
+//           (item['observedBy'] as String).toLowerCase() ==
+//           observedName.toLowerCase(),
+//       orElse: () => const {"id": 0, "observedBy": ""},
+//     );
+//     observedById =
+//         matchedObservedBy['id'] is int ? matchedObservedBy['id'] as int : 0;
+
+//     selectedArea = observation.sectionName;
+//     selectedFloor = observation.floorName;
+//     selectedPart = observation.partName;
+//     selectedElement = observation.elementName;
+//     selectedContractor = observation.contractorName;
+//     final matchedViolation = ViolationTypes.violationType.firstWhere(
+//       (item) => item['id'] == observation.violationTypeID,
+//       orElse: () => {"id": 0, "violationTypeID": ""},
+//     );
+// // Assign it here
+//     selectedViolationText = matchedViolation['violationTypeID'].toString();
+//     final dropdownViolationValues = ViolationTypes.violationType
+//         .map((e) => e['violationTypeID'].toString())
+//         .toList();
+//     final fetchedUsers = await fetchUserList();
+//     userList = fetchedUsers;
+//     final assignedUsernames = observation.assignmentStatusDTO
+//         .map((e) => e.assignedUserName?.trim().toLowerCase())
+//         .where((name) => name != null && name.isNotEmpty)
+//         .toSet();
+//     selectedUserObjects = userList.where((user) {
+//       final userName = user.userName.trim().toLowerCase();
+//       return assignedUsernames.contains(userName);
+//     }).toList();
+//     selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
+//     uploadedFiles = observation.activityDTO
+//         .where((a) => a.documentName != null && a.documentName!.isNotEmpty)
+//         .map((a) => a.documentName!)
+//         .toList();
+//     if (uploadedFiles.isNotEmpty) {
+//       selectedFileName = uploadedFiles.first;
+//     }
+//     activityDTOList = observation.activityDTO;
+//     debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
+//     populateActivityListFromDTO(activityDTOList);
+//     setState(() {
+//       selectedObservationId = observation.id;
+//       isUserSelectionEnabled = observation.observationTypeID != 1;
+//     });
+//   }
   Future<void> _loadDataAndObservation(
       GetSiteObservationMasterById observation) async {
-    print("Loading observation: $observation");
+    print("Loading observation: $observation - ${observation.description}");
 
     selectedObservationType = observation.observationType;
     selectedObservationTypeId = observation.observationTypeID;
@@ -1245,7 +1406,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       (e) => e.name == selectedIssueType,
       orElse: () => IssueType(id: 0, name: '', observationTypeID: 0),
     );
-
     selectedIssueTypeId = foundIssue.id;
     selectedIssueType = foundIssue.name;
 
@@ -1260,50 +1420,90 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       return;
     }
 
-    // Create dropdown options with "description__id" format
-    List<String> dropdownOptions = observationsList
-        .map((o) => '${o.observationDescription.trim().toLowerCase()}__${o.id}')
-        .toList();
+    final foundObs = observationsList.firstWhere(
+      (o) => o.observationDescription == observation.description,
+      orElse: () => Observation(
+        id: 0,
+        observationTypeID: 0,
+        issueTypeID: 0,
+        observationDescription: '',
+        complianceRequired: false,
+        escalationRequired: false,
+        dueTimeInHrs: 0,
+        actionToBeTaken: '',
+        lastModifiedBy: '',
+        lastModifiedDate: DateTime.now().toIso8601String(),
+      ),
+    );
 
-    // Draft observation combined value
-    final draftValue =
-        '${observation.description.trim().toLowerCase()}__${observation.id}';
-
-    if (isDraftObservation && !dropdownOptions.contains(draftValue)) {
-      dropdownOptions.add(draftValue);
-
-      observationsList.add(
-        Observation(
-          id: observation.id,
-          observationTypeID: observation.observationTypeID!,
-          issueTypeID: foundIssue.id,
-          observationDescription: observation.description.trim(),
-          complianceRequired: observation.complianceRequired ?? false,
-          escalationRequired: observation.escalationRequired ?? false,
-          dueTimeInHrs: observation.dueDate != null &&
-                  _dateController.text.isNotEmpty
-              ? observation.dueDate!
-                  .difference(
-                    DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text),
-                  )
-                  .inHours
-              : 0,
-          actionToBeTaken: observation.actionToBeTaken ?? '',
-          lastModifiedBy: '',
-          lastModifiedDate: DateTime.now().toIso8601String(),
-        ),
-      );
+    if (isDraftObservation) {
+      selectedObservation = observation.description;
+      observationDescriptionController.text = observation.description;
+      isComplianceRequired = observation.complianceRequired ?? false;
+      isEscalationRequired = observation.escalationRequired ?? false;
+      actionToBeTakenController.text = observation.actionToBeTaken ?? '';
+    } else if (foundObs.id != 0) {
+      selectedObservation = foundObs.observationDescription;
+      observationDescriptionController.text = foundObs.observationDescription;
+      isComplianceRequired = foundObs.complianceRequired;
+      isEscalationRequired = foundObs.escalationRequired;
+      actionToBeTakenController.text = foundObs.actionToBeTaken ?? '';
     }
 
-    // Set selectedObservation to combined string
-    selectedObservation = isDraftObservation
-        ? draftValue
-        : '${observation.description.trim().toLowerCase()}__${observation.id}';
+    // ✅ Due Date Calculation Fix
+    try {
+      DateTime startDate;
 
-    // Update fields based on selectedObservation
-    updateFieldsFromSelectedObservation();
+      if (_dateController.text.isNotEmpty) {
+        startDate = DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+      } else {
+        final createdDate = observation.activityDTO.isNotEmpty
+            ? observation.activityDTO.last.createdDate
+            : null;
 
-    // Other field assignments as before
+        startDate =
+            (createdDate ?? DateTime.now()).toLocal(); // ✅ Convert to local
+        _dateController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDate);
+      }
+
+      int? hoursToAdd;
+
+      if (isDraftObservation) {
+        if (observation.dueDate != null) {
+          DateTime dueDate =
+              observation.dueDate!.toLocal(); // ✅ Convert to local
+          _dateDueDateController.text =
+              DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+
+          hoursToAdd = dueDate.difference(startDate).inHours;
+        } else {
+          hoursToAdd = foundObs.dueTimeInHrs;
+        }
+      } else {
+        hoursToAdd = foundObs.dueTimeInHrs;
+      }
+
+      if (observation.dueDate == null &&
+          hoursToAdd != null &&
+          hoursToAdd != 0) {
+        final dueDate = startDate.add(Duration(hours: hoursToAdd));
+        _dateDueDateController.text =
+            DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+      }
+    } catch (e) {
+      print("⚠️ Date calculation error: $e");
+      _dateDueDateController.text = '';
+    }
+
+    print("Due Date: ${_dateDueDateController.text}");
+
+    final isGoodPractice =
+        foundObs.observationTypeID == goodPracticeObservationTypeId;
+
+    if (isGoodPractice) {
+      _dateDueDateController.text = '';
+    }
+
     selectedActivities = observation.activityName;
 
     final observedName = observation.observedByName ?? '';
@@ -1322,24 +1522,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     selectedElement = observation.elementName;
     selectedContractor = observation.contractorName;
 
-    final matchedViolation = ViolationTypes.violationType.firstWhere(
-      (item) => item['id'] == observation.violationTypeID,
-      orElse: () => {"id": 0, "violationTypeID": ""},
-    );
-
-// Assign it here
-    selectedViolationText = matchedViolation['violationTypeID'].toString();
-
-    final dropdownViolationValues = ViolationTypes.violationType
-        .map((e) => e['violationTypeID'].toString())
-        .toList();
-
-    print('Draft observation.violationTypeID: ${observation.violationTypeID}');
-    print('Available violationTypeIDs: $dropdownViolationValues');
-    print('Selected violation text: $selectedViolationText');
     final fetchedUsers = await fetchUserList();
     userList = fetchedUsers;
-
     final assignedUsernames = observation.assignmentStatusDTO
         .map((e) => e.assignedUserName?.trim().toLowerCase())
         .where((name) => name != null && name.isNotEmpty)
@@ -1349,14 +1533,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       final userName = user.userName.trim().toLowerCase();
       return assignedUsernames.contains(userName);
     }).toList();
-
     selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
 
     uploadedFiles = observation.activityDTO
         .where((a) => a.documentName != null && a.documentName!.isNotEmpty)
         .map((a) => a.documentName!)
         .toList();
-
     if (uploadedFiles.isNotEmpty) {
       selectedFileName = uploadedFiles.first;
     }
@@ -1369,12 +1551,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       selectedObservationId = observation.id;
       isUserSelectionEnabled = observation.observationTypeID != 1;
     });
-
-    // print('selectedObservation: $selectedObservation');
-    // print('dropdown items:');
-    // observationsList.forEach((obs) {
-    //   print('${obs.observationDescription.trim().toLowerCase()}__${obs.id}');
-    // });
   }
 
   void updateFieldsFromSelectedObservation() {
@@ -1961,6 +2137,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                       setState(() {
                                                         selectedObservationType =
                                                             newValue;
+                                                        updateGoodPracticeFlag();
                                                         final selected =
                                                             observationTypeList
                                                                 .firstWhereOrNull(
