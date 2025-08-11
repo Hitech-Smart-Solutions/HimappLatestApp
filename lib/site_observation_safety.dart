@@ -19,6 +19,7 @@ class SiteObservationSafety extends StatefulWidget {
   final String companyName;
   final ProjectService _projectService;
   final SiteObservationService _siteObservationService;
+  final GetSiteObservationMasterById? existingObservation;
 
   const SiteObservationSafety({
     super.key,
@@ -26,7 +27,8 @@ class SiteObservationSafety extends StatefulWidget {
     required ProjectService projectService,
     required SiteObservationService siteObservationService,
   })  : _projectService = projectService,
-        _siteObservationService = siteObservationService;
+        _siteObservationService = siteObservationService,
+        this.existingObservation = null;
 
   @override
   _SiteObservationState createState() => _SiteObservationState();
@@ -151,19 +153,31 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   }
 
   bool get isDueDateEnabled {
-    // Disable if NCR issue type selected
+    // 1. If no observation selected, disable due date
+    if (selectedObservation == null || selectedObservation!.isEmpty) {
+      print("Due date disabled: No observation selected");
+      return false;
+    }
+
+    // 2. Disable for NCR issue type
     if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
       print("Due date disabled: NCR selected");
       return false;
     }
 
-    // Disable if Good Practice selected
-    if (isObservationTypeGoodPractice) {
+    // 3. Disable for Good Practice observation type
+    if (selectedObservationTypeId == goodPracticeObservationTypeId) {
       print("Due date disabled: Good Practice selected");
       return false;
     }
-
-    // Enable in all other cases
+    // print("isDueDateEnabled: $isDueDateEnabled");
+    print("isToggleEnabled: $isToggleEnabled");
+    print("selectedObservationTypeId: $selectedObservationTypeId");
+    print("goodPracticeObservationTypeId: $goodPracticeObservationTypeId");
+    print("selectedIssueTypeId: $selectedIssueTypeId");
+    print("isDraftObservation: $isDraftObservation");
+    print("selectedObservation: $selectedObservation");
+    // 4. Otherwise enable
     print("Due date enabled");
     return true;
   }
@@ -208,6 +222,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
     // Then load all static or unrelated data
     await fetchObservationType();
+    updateGoodPracticeFlag();
     await fetchIssueTypes();
     await fetchActivities();
     await fetchObservations();
@@ -220,9 +235,10 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       userItems = userList
           .map((user) => MultiSelectItem<User>(user, user.userName))
           .toList();
-      updateGoodPracticeFlag();
     });
-    if (!isEditMode) {
+    if (isEditMode && widget.existingObservation != null) {
+      await _loadDataAndObservation(widget.existingObservation!);
+    } else {
       _dateController.text =
           DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()); // Local time
     }
@@ -1451,47 +1467,62 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
 
     // ✅ Due Date Calculation Fix
+    // ✅ Due Date Calculation Fix
     try {
       DateTime startDate;
 
-      if (_dateController.text.isNotEmpty) {
-        startDate = DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+      // Skip due date calculation completely for Good Practice
+      bool isGoodPracticeObservation =
+          observation.observationTypeID == goodPracticeObservationTypeId;
+
+      if (isGoodPracticeObservation) {
+        _dateDueDateController.text = '';
+        print("⏩ Good Practice detected — skipping due date calculation");
       } else {
-        final createdDate = observation.activityDTO.isNotEmpty
-            ? observation.activityDTO.last.createdDate
-            : null;
+        if (_dateController.text.isNotEmpty) {
+          startDate =
+              DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+        } else {
+          final createdDate = observation.activityDTO.isNotEmpty
+              ? observation.activityDTO.last.createdDate
+              : null;
 
-        startDate =
-            (createdDate ?? DateTime.now()).toLocal(); // ✅ Convert to local
-        _dateController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDate);
-      }
+          startDate = (createdDate ?? DateTime.now()).toLocal();
+          _dateController.text =
+              DateFormat('yyyy-MM-dd HH:mm').format(startDate);
+        }
 
-      int? hoursToAdd;
+        int? hoursToAdd;
 
-      if (isDraftObservation) {
-        if (observation.dueDate != null) {
-          DateTime dueDate =
-              observation.dueDate!.toLocal(); // ✅ Convert to local
-          _dateDueDateController.text =
-              DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+        if (isDraftObservation) {
+          if (observation.dueDate != null) {
+            DateTime dueDate = observation.dueDate!.toLocal();
+            _dateDueDateController.text =
+                DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
 
-          hoursToAdd = dueDate.difference(startDate).inHours;
+            hoursToAdd = dueDate.difference(startDate).inHours;
+          } else {
+            hoursToAdd = foundObs.dueTimeInHrs;
+          }
         } else {
           hoursToAdd = foundObs.dueTimeInHrs;
         }
-      } else {
-        hoursToAdd = foundObs.dueTimeInHrs;
-      }
 
-      if (observation.dueDate == null &&
-          hoursToAdd != null &&
-          hoursToAdd != 0) {
-        final dueDate = startDate.add(Duration(hours: hoursToAdd));
-        _dateDueDateController.text =
-            DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+        if (observation.dueDate == null &&
+            hoursToAdd != null &&
+            hoursToAdd != 0) {
+          final dueDate = startDate.add(Duration(hours: hoursToAdd));
+          _dateDueDateController.text =
+              DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+        }
       }
     } catch (e) {
       print("⚠️ Date calculation error: $e");
+      _dateDueDateController.text = '';
+    }
+
+// Final safeguard: if still Good Practice, make sure it's empty
+    if (observation.observationTypeID == goodPracticeObservationTypeId) {
       _dateDueDateController.text = '';
     }
 
@@ -1542,7 +1573,15 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     if (uploadedFiles.isNotEmpty) {
       selectedFileName = uploadedFiles.first;
     }
-
+    final matchedViolation = ViolationTypes.violationType.firstWhere(
+      (item) => item['id'] == observation.violationTypeID,
+      orElse: () => {"id": 0, "violationTypeID": ""},
+    );
+// Assign it here
+    selectedViolationText = matchedViolation['violationTypeID'].toString();
+    final dropdownViolationValues = ViolationTypes.violationType
+        .map((e) => e['violationTypeID'].toString())
+        .toList();
     activityDTOList = observation.activityDTO;
     debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
     populateActivityListFromDTO(activityDTOList);
