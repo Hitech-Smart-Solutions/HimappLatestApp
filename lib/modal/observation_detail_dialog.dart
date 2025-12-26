@@ -31,7 +31,7 @@ class ObservationDetailDialog extends StatefulWidget {
     required this.projectID,
   });
 
-   @override
+  @override
   State<ObservationDetailDialog> createState() =>
       _ObservationDetailDialogState();
 }
@@ -49,6 +49,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController rootCauseController = TextEditingController();
+  final TextEditingController materialCostController = TextEditingController();
+  final TextEditingController labourCostController = TextEditingController();
   final TextEditingController reworkCostController = TextEditingController();
   final TextEditingController preventiveActionController =
       TextEditingController();
@@ -265,8 +267,12 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
       rootCauseID: rootCauseID,
       corretiveActionToBeTaken: correctiveActionController.text,
       preventiveActionTaken: preventiveActionController.text,
+      materialCost: double.tryParse(materialCostController.text) ?? 0.0,
+      labourCost: double.tryParse(labourCostController.text) ?? 0.0,
       reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
       statusID: selectedStatusId,
+      reopenRemarks: null,
+      closeRemarks: null,
       lastModifiedBy: userId!,
       lastModifiedDate: DateTime.now(),
       activityDTO: activities,

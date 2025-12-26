@@ -1,4 +1,4 @@
-// // new quality code
+// current code quality
 // import 'dart:convert';
 // import 'package:file_picker/file_picker.dart';
 // import 'package:flutter/material.dart';
@@ -105,9 +105,13 @@
 //   List<String> uploadedFiles = [];
 //   int? selectedObservationTypeId;
 //   int? selectedIssueTypeId;
+
 //   bool get isToggleEnabled {
 //     if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
 //       return false;
+//     }
+//     if (selectedIssueType == 'Observation') {
+//       return true;
 //     }
 //     if (selectedObservation == null || selectedObservation!.isEmpty) {
 //       return true; // toggle enabled
@@ -161,6 +165,7 @@
 //   SiteObservation? selectedObservationForView;
 //   GetSiteObservationMasterById? _currentObservation;
 //   List<ActivityDTO> activityDTOList = [];
+//   bool isDraftObservation = false;
 //   @override
 //   void initState() {
 //     super.initState();
@@ -196,9 +201,10 @@
 //           .map((user) => MultiSelectItem<User>(user, user.userName))
 //           .toList();
 //     });
-
-//     _dateController.text =
-//         DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()); // Local time
+//     if (!isEditMode) {
+//       _dateController.text =
+//           DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()); // Local time
+//     }
 //     // futureObservations = widget._siteObservationService
 //     // _loadObservationFromServer(widget.de);
 //   }
@@ -229,7 +235,6 @@
 //   Future<void> fetchActivities() async {
 //     int? companyId = await SharedPrefsHelper.getCompanyId();
 //     if (companyId == null) {
-//       print('Error: Company ID is null');
 //       return;
 //     }
 //     setState(() {
@@ -255,7 +260,6 @@
 //   Future<void> fetchObservations() async {
 //     int? companyId = await SharedPrefsHelper.getCompanyId();
 //     if (companyId == null) {
-//       print('Error: Company ID is null');
 //       return; // Exit the method if companyId is null
 //     }
 //     setState(() {
@@ -271,10 +275,6 @@
 
 //       setState(() {
 //         observationsList = fetchedObservations;
-//         // for (var obs in observationsList) {
-//         //   print(
-//         //       'Observation: ${obs.id}, ${obs.observationDescription}, ${obs.issueTypeID}');
-//         // }
 //         selectedObservation = null;
 //         if (observationsList.isNotEmpty) {
 //           selectedIssueTypeId = observationsList[0].issueTypeID;
@@ -304,7 +304,6 @@
 //         observationTypeList = fetchedObservationType;
 //         observationTypeList.forEach(
 //             (e) => print('observationTypeList268: ${e.id} - ${e.name}'));
-//         print("observationTypeList268:$observationTypeList");
 //       });
 //     } catch (e) {
 //       print('Error fetching ObservationType: $e');
@@ -448,21 +447,35 @@
 
 //       return uniqueUsers; // ✅ return the list instead of setting state
 //     } catch (e) {
-//       print('Error fetching User: $e');
 //       return [];
 //     }
 //   }
 
 //   void _submitForm({bool isDraft = false}) async {
-//     if (_formKey.currentState?.validate() ?? false || isDraft) {
+//     bool isFormValid = _formKey.currentState?.validate() ?? false;
+
+//     // ✅ Only validate user if dropdown is enabled
+//     bool isUserValidationRequired = isEditMode && isUserSelectionEnabled;
+//     bool isUserSelected = selectedUserObjects.isNotEmpty;
+
+//     if (isFormValid && (!isUserValidationRequired || isUserSelected)) {
 //       ScaffoldMessenger.of(context).showSnackBar(
 //         SnackBar(
 //             content: Text(isDraft ? 'Saving as Draft...' : 'Submitting...')),
 //       );
-//       await submitForm(isDraft: isDraft); // 👈 Forward flag
+
+//       await submitForm(isDraft: isDraft);
 //     } else {
+//       String errorMessage = '';
+
+//       if (!isFormValid) {
+//         errorMessage = 'Please fill all required fields correctly.';
+//       } else if (isUserValidationRequired && !isUserSelected) {
+//         errorMessage = 'Please select at least one user.';
+//       }
+
 //       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(content: Text('Please correct the errors')),
+//         SnackBar(content: Text(errorMessage)),
 //       );
 //     }
 //   }
@@ -516,7 +529,6 @@
 
 // // Fetch Observations
 //   Future<void> fetchSiteObservationsQuality(int projectId) async {
-//     // print("Fetching site observations for project ID: $projectId");
 //     setState(() => isLoading = true);
 //     try {
 //       final fetched =
@@ -724,10 +736,8 @@
 //             activityDTOList.any((dto) => dto.documentName == uploadedFileName);
 
 //     if (fileAlreadyExists) {
-//       print('File already exists, not adding again.');
 //       return;
 //     }
-
 //     // 🔵 Add to UI list
 //     final newActivity = SiteObservationActivity(
 //       id: 0,
@@ -758,10 +768,10 @@
 //       filePath: filePath,
 //       fromStatusID: statusIdToSend,
 //       toStatusID: statusIdToSend,
-//       assignedUserID: userID,
+//       assignedUserID: userID ?? 0,
 //       assignedUserName: null,
-//       createdBy: userID.toString(),
-//       createdByName: null,
+//       createdBy: userID,
+//       createdByName: userID.toString(),
 //       createdDate: DateTime.now(),
 //     );
 
@@ -771,145 +781,255 @@
 //       uploadedFiles.add(uploadedFileName);
 //       selectedFileName = uploadedFileName;
 //     });
-
-//     print('✅ Added file to activityDTOList: $uploadedFileName');
 //   }
 
 //   Future<void> submitForm({bool isDraft = false}) async {
-//     String observationDescription = observationDescriptionController.text;
-//     String actionToBeTaken = actionToBeTakenController.text;
+//     try {
+//       String observationDescription = observationDescriptionController.text;
+//       String actionToBeTaken = actionToBeTakenController.text;
 
-//     int? projectID = await SharedPrefsHelper.getProjectID();
-//     int? companyID = await SharedPrefsHelper.getCompanyId();
-//     int? userID = await SharedPrefsHelper.getUserId();
+//       int? projectID = await SharedPrefsHelper.getProjectID();
+//       int? companyID = await SharedPrefsHelper.getCompanyId();
+//       int? userID = await SharedPrefsHelper.getUserId();
 
-//     final selectedObservedBy = ObservationConstants.observedBy.firstWhere(
-//       (item) => item['id'] == observedById,
-//       orElse: () => {"id": 0, "observedBy": ""},
-//     )['id'] as int;
-
-//     final String? dueDateValue;
-
-//     int statusIdToSend = isDraft
-//         ? SiteObservationStatus.Draft
-//         : (selectedObservationTypeId == 1
-//             ? SiteObservationStatus.Closed
-//             : SiteObservationStatus.Open);
-
-//     if (isDueDateEnabled) {
-//       if (_dateDueDateController.text.isEmpty) {
+//       if (projectID == null || companyID == null || userID == null) {
 //         ScaffoldMessenger.of(context).showSnackBar(
-//           SnackBar(content: Text('❗ Please select a due date')),
+//           SnackBar(content: Text('❗ Missing user or project information')),
 //         );
 //         return;
 //       }
-//       dueDateValue = _dateDueDateController.text;
-//     } else {
-//       dueDateValue = null;
-//     }
 
-//     final observationIdToSend = selectedObservationId;
+//       final selectedObservedBy = ObservationConstants.observedBy.firstWhere(
+//         (item) => item['id'] == observedById,
+//         orElse: () => {"id": 0, "observedBy": ""},
+//       )['id'] as int;
 
-//     /// ➤ Add Created Activity if not already
-//     bool alreadyCreated = activityList.any((a) =>
-//         a.actionID == SiteObservationActions.Created &&
-//         a.assignedUserID == userID);
-//     if (!alreadyCreated) {
-//       activityList.add(
-//         SiteObservationActivity(
+//       final String? dueDateValue;
+
+//       if (isDueDateEnabled) {
+//         if (_dateDueDateController.text.isEmpty) {
+//           ScaffoldMessenger.of(context).showSnackBar(
+//             SnackBar(content: Text('❗ Please select a due date')),
+//           );
+//           return;
+//         }
+//         dueDateValue = _dateDueDateController.text;
+//       } else {
+//         dueDateValue = null;
+//       }
+
+//       final observationIdToSend = selectedObservationId;
+
+//       // int statusIdToSend = isDraft
+//       //     ? SiteObservationStatus.Draft
+//       //     : (selectedObservationTypeId == 1
+//       //         ? SiteObservationStatus.Closed
+//       //         : SiteObservationStatus.Open);
+
+//       int fromStatusID = isDraft
+//           ? SiteObservationStatus.Draft
+//           : (selectedObservationId != 0
+//               ? SiteObservationStatus.Draft
+//               : SiteObservationStatus.Open);
+
+//       int toStatusID = isDraft
+//           ? SiteObservationStatus.Draft
+//           : (((selectedObservationTypeId == 1) || (selectedUsers.isEmpty))
+//               ? SiteObservationStatus.Closed
+//               : SiteObservationStatus.Open);
+
+//       List<SiteObservationActivity> finalActivityList = [];
+
+//       // ✅ Step 1: Add OLD DocUploaded images
+//       // finalActivityList.addAll(activityList.where((a) =>
+//       //     a.actionID == SiteObservationActions.DocUploaded && a.id != 0));
+
+//       // // ✅ Step 2: Add NEW DocUploaded images
+//       // finalActivityList.addAll(activityList.where((a) =>
+//       //     a.actionID == SiteObservationActions.DocUploaded && a.id == 0));
+
+//       // ✅ Step 1: Add OLD DocUploaded images, override status for final submit
+//       finalActivityList.addAll(activityList
+//           .where((a) =>
+//               a.actionID == SiteObservationActions.DocUploaded && a.id != 0)
+//           .map((a) {
+//         return SiteObservationActivity(
+//           id: a.id,
+//           siteObservationID: a.siteObservationID,
+//           actionID: a.actionID,
+//           comments: a.comments,
+//           documentName: a.documentName,
+//           fileName: a.fileName,
+//           fileContentType: a.fileContentType,
+//           filePath: a.filePath,
+//           // override only if NOT draft
+//           fromStatusID: isDraft ? a.fromStatusID : fromStatusID,
+//           toStatusID: isDraft ? a.toStatusID : toStatusID,
+//           assignedUserID: a.assignedUserID,
+//           createdBy: a.createdBy,
+//           createdDate: a.createdDate,
+//         );
+//       }));
+
+// // ✅ Step 2: Add NEW DocUploaded images, override status for final submit
+//       finalActivityList.addAll(activityList
+//           .where((a) =>
+//               a.actionID == SiteObservationActions.DocUploaded && a.id == 0)
+//           .map((a) {
+//         return SiteObservationActivity(
+//           id: a.id,
+//           siteObservationID: a.siteObservationID,
+//           actionID: a.actionID,
+//           comments: a.comments,
+//           documentName: a.documentName,
+//           fileName: a.fileName,
+//           fileContentType: a.fileContentType,
+//           filePath: a.filePath,
+//           fromStatusID: isDraft ? a.fromStatusID : fromStatusID,
+//           toStatusID: isDraft ? a.toStatusID : toStatusID,
+//           assignedUserID: a.assignedUserID,
+//           createdBy: a.createdBy,
+//           createdDate: a.createdDate,
+//         );
+//       }));
+
+//       bool alreadyCreated = finalActivityList.any(
+//         (a) => a.actionID == SiteObservationActions.Created,
+//       );
+
+//       if (!alreadyCreated) {
+//         finalActivityList.add(SiteObservationActivity(
 //           id: 0,
-//           siteObservationID:
-//               observationIdToSend == 0 ? null : observationIdToSend,
+//           siteObservationID: observationIdToSend,
 //           actionID: SiteObservationActions.Created,
 //           comments: '',
-//           documentName: "",
-//           fromStatusID: statusIdToSend,
-//           toStatusID: statusIdToSend,
-//           assignedUserID: userID!,
-//           createdBy: userID,
+//           documentName: '',
+//           fromStatusID: fromStatusID,
+//           toStatusID: toStatusID,
+//           assignedUserID: userID ?? 0,
+//           createdBy: userID ?? 0,
 //           createdDate: formatDateForApi(DateTime.now()),
-//         ),
-//       );
-//     }
+//         ));
+//       }
 
-//     /// ➤ Add Assigned Activities for selected users
-//     for (var username in selectedUsers.toSet()) {
-//       final user = userList.firstWhere((u) => u.userName == username);
+//       for (var username in selectedUsers.toSet()) {
+//         final user = userList.firstWhere((u) => u.userName == username);
+//         bool alreadyAssigned = finalActivityList.any(
+//           (a) =>
+//               a.actionID == SiteObservationActions.Assigned &&
+//               a.assignedUserID == user.id,
+//         );
 
-//       bool alreadyAssigned = activityList.any((a) =>
-//           a.actionID == SiteObservationActions.Assigned &&
-//           a.assignedUserID == user.id);
-
-//       if (!alreadyAssigned) {
-//         activityList.add(
-//           SiteObservationActivity(
+//         if (!alreadyAssigned) {
+//           finalActivityList.add(SiteObservationActivity(
 //             id: 0,
-//             siteObservationID:
-//                 observationIdToSend == 0 ? null : observationIdToSend,
+//             siteObservationID: observationIdToSend,
 //             actionID: SiteObservationActions.Assigned,
 //             comments: '',
 //             documentName: '',
-//             fromStatusID: statusIdToSend,
-//             toStatusID: statusIdToSend,
+//             fromStatusID: fromStatusID,
+//             toStatusID: toStatusID,
 //             assignedUserID: user.id,
-//             createdBy: userID!,
+//             createdBy: userID ?? 0,
+//             createdDate: formatDateForApi(DateTime.now()),
+//           ));
+//         }
+//       }
+
+//       // ✅ Step 3: Add Created action if not already submitted
+//       if (!activityList.any(
+//           (a) => a.id != 0 && a.actionID == SiteObservationActions.Created)) {
+//         final created = activityList.firstWhere(
+//           (a) => a.actionID == SiteObservationActions.Created,
+//           orElse: () => SiteObservationActivity(
+//             id: -1,
+//             actionID: SiteObservationActions.Created,
+//             comments: '',
+//             documentName: '',
+//             fromStatusID: fromStatusID,
+//             toStatusID: toStatusID,
+//             assignedUserID: userID ?? 0,
+//             createdBy: userID ?? 0,
 //             createdDate: formatDateForApi(DateTime.now()),
 //           ),
 //         );
+//         if (created.id == 0 &&
+//             created.actionID == SiteObservationActions.Created) {
+//           finalActivityList.add(created);
+//         }
 //       }
-//     }
 
-//     bool success = false;
-//     String getActionName(int? actionID) {
-//       switch (actionID) {
-//         case SiteObservationActions.Created:
-//           return 'Created';
-//         case SiteObservationActions.Assigned:
-//           return 'Assigned';
-//         case SiteObservationActions.DocUploaded: // ✅ Yaha add karo
-//           return 'Document Uploaded';
-//         case SiteObservationActions.Commented:
-//           return 'Commented';
-//         case SiteObservationActions.Closed:
-//           return 'Closed';
-//         case SiteObservationActions.ReOpened:
-//           return 'Reopened';
-//         default:
-//           return 'Unknown';
+//       // ✅ Step 4: Add Assigned action if not already submitted
+//       if (!activityList.any(
+//           (a) => a.id != 0 && a.actionID == SiteObservationActions.Assigned)) {
+//         final assigned = activityList.firstWhere(
+//           (a) => a.actionID == SiteObservationActions.Assigned,
+//           orElse: () => SiteObservationActivity(
+//             id: -1,
+//             actionID: SiteObservationActions.Assigned,
+//             comments: '',
+//             documentName: '',
+//             fromStatusID: fromStatusID,
+//             toStatusID: toStatusID,
+//             assignedUserID: userID ?? 0,
+//             createdBy: userID ?? 0,
+//             createdDate: formatDateForApi(DateTime.now()),
+//           ),
+//         );
+//         if (assigned.id == 0 &&
+//             assigned.actionID == SiteObservationActions.Assigned) {
+//           finalActivityList.add(assigned);
+//         }
 //       }
-//     }
+//       // ✅ Step 5: Remove invalid entries
+//       finalActivityList.removeWhere((a) =>
+//           a.actionID == 0 ||
+//           a.fromStatusID == null ||
+//           a.toStatusID == null ||
+//           a.createdBy == null);
 
-//     SiteObservationUpdateDraftModel mapToUpdateDraft(
-//         SiteObservationModel so, List<ActivityDTO> currentActivityDTOList) {
-//       return SiteObservationUpdateDraftModel(
-//         id: so.id,
-//         dueDate: so.dueDate,
-//         observationDescription: so.observationDescription,
-//         complianceRequired: so.complianceRequired,
-//         escalationRequired: so.escalationRequired,
-//         actionToBeTaken: so.actionToBeTaken,
-//         activityID: so.activityID,
-//         sectionID: so.sectionID,
-//         floorID: so.floorID,
-//         partID: so.partID,
-//         elementID: so.elementID,
-//         contractorID: so.contractorID,
-//         observedBy: so.observedBy,
-//         statusID: so.statusID,
-//         lastModifiedBy: so.lastModifiedBy,
-//         lastModifiedDate: so.lastModifiedDate,
-//         activityDTO: currentActivityDTOList, // use the updated list here
-//       );
-//     }
+//       // ✅ Step 6: Log for debugging
+//       debugPrint(
+//           "📦 Final activityList to send (Draft/Submit): ${finalActivityList.length}");
 
-//     print("activityList891: $activityList");
-//     try {
-//       final commonFields = SiteObservationModel(
+//       activityDTOList = finalActivityList.map((activity) {
+//         return ActivityDTO(
+//           id: activity.id,
+//           siteObservationID: activity.siteObservationID,
+//           actionID: activity.actionID,
+//           actionName: getActionNameFromID(activity.actionID),
+//           comments: activity.comments,
+//           documentName: activity.documentName,
+//           fileName: activity.fileName,
+//           fileContentType: activity.fileContentType,
+//           filePath: activity.filePath,
+//           fromStatusID:
+//               (activity.fromStatusID != 0 && activity.fromStatusID != null)
+//                   ? activity.fromStatusID
+//                   : fromStatusID,
+//           toStatusID: (activity.toStatusID != 0 && activity.toStatusID != null)
+//               ? activity.toStatusID
+//               : toStatusID,
+//           assignedUserID: activity.assignedUserID != 0
+//               ? activity.assignedUserID
+//               : userID ?? 0,
+//           assignedUserName: activity.assignedUserName,
+//           createdBy: activity.createdBy != 0 ? activity.createdBy : userID ?? 0,
+//           createdByName: activity.createdByName,
+//           createdDate: DateTime.parse(activity.createdDate),
+//         );
+//       }).toList();
+//       for (var dto in activityDTOList) {
+//         print(
+//             "📝 Draft Activity -> actionID: ${dto.actionID}, id: ${dto.id}, doc: ${dto.documentName}");
+//       }
+
+//       SiteObservationModel commonFields = SiteObservationModel(
 //         uniqueID: const Uuid().v4(),
 //         id: selectedObservationId,
 //         siteObservationCode: "",
 //         trancationDate: formatDateForApi(DateTime.now().toUtc()),
-//         observationRaisedBy: userID!,
+//         observationRaisedBy: userID,
 //         observationID: observationsList
 //             .firstWhere((o) => o.observationDescription == selectedObservation)
 //             .id,
@@ -928,8 +1048,8 @@
 //         complianceRequired: isComplianceRequired,
 //         escalationRequired: isEscalationRequired,
 //         actionToBeTaken: actionToBeTaken,
-//         companyID: companyID!,
-//         projectID: projectID!,
+//         companyID: companyID,
+//         projectID: projectID,
 //         functionID: ScreenTypes.Quality,
 //         activityID: activitieList
 //             .firstWhere((a) => a.activityName == selectedActivities)
@@ -952,30 +1072,72 @@
 //         rootCauseID: 0,
 //         corretiveActionToBeTaken: 'Corrective action here',
 //         preventiveActionTaken: 'Preventive action here',
-//         statusID: statusIdToSend,
+//         statusID: toStatusID,
 //         isActive: true,
 //         createdBy: userID,
 //         createdDate: formatDateForApi(DateTime.now().toUtc()),
 //         lastModifiedBy: userID,
 //         lastModifiedDate: formatDateForApi(DateTime.now().toUtc()),
-//         siteObservationActivity: activityList,
+//         siteObservationActivity: finalActivityList,
 //       );
+//       for (var dto in activityDTOList) {
+//         if (dto.actionID == SiteObservationActions.DocUploaded) {
+//           debugPrint("📁 DocUploaded => "
+//               "id: ${dto.id}, "
+//               "doc: ${dto.documentName}, "
+//               "fromStatusID: ${dto.fromStatusID}, "
+//               "toStatusID: ${dto.toStatusID}");
+//         }
+//       }
+//       bool success = false;
 
 //       if (selectedObservationId == 0) {
-//         print("📝 Creating new observation (Draft: $isDraft)");
-//         // return;
+//         debugPrint("commonFields: ${commonFields.toJson()}");
+//         debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
+//         // return; // Debugging line, remove when ready
 //         success = await widget._siteObservationService
 //             .submitSiteObservation(commonFields);
 //       } else {
-//         print("🛠 Updating existing observation ID: $selectedObservationId");
-//         print("🔍 SiteObservationUpdateDraftModel Payload:");
-
 //         SiteObservationUpdateDraftModel updateModel =
-//             mapToUpdateDraft(commonFields, activityDTOList);
-//         print("🔍 SiteObservationUpdateDraftModel JSON Payload:");
-//         debugPrint(
-//             const JsonEncoder.withIndent('  ').convert(updateModel.toJson()));
+//             SiteObservationUpdateDraftModel(
+//           id: commonFields.id,
+//           dueDate: commonFields.dueDate,
+//           observationDescription: commonFields.observationDescription,
+//           complianceRequired: commonFields.complianceRequired,
+//           escalationRequired: commonFields.escalationRequired,
+//           actionToBeTaken: commonFields.actionToBeTaken,
+//           activityID: commonFields.activityID,
+//           sectionID: commonFields.sectionID,
+//           floorID: commonFields.floorID,
+//           partID: commonFields.partID,
+//           elementID: commonFields.elementID,
+//           contractorID: commonFields.contractorID,
+//           observedBy: commonFields.observedBy,
+//           statusID: commonFields.statusID,
+//           lastModifiedBy: commonFields.lastModifiedBy,
+//           lastModifiedDate: commonFields.lastModifiedDate,
+//           activityDTO: activityDTOList,
+//         );
 
+//         Map<int, String> actionNames = {
+//           1: "Created",
+//           2: "Assigned",
+//           3: "DocUploaded",
+//         };
+
+//         for (var dto in activityDTOList) {
+//           final name = actionNames[dto.actionID] ?? 'Unknown';
+//           debugPrint("📝 $name => "
+//               "id: ${dto.id}, "
+//               "doc: ${dto.documentName}, "
+//               "assignedUserID: ${dto.assignedUserID}, "
+//               "fromStatusID: ${dto.fromStatusID}, "
+//               "toStatusID: ${dto.toStatusID}, "
+//               "createdBy: ${dto.createdBy}, "
+//               "createdDate: ${dto.createdDate}");
+//         }
+//         debugPrint("updateModel: $updateModel.toJson()");
+//         debugPrint(const JsonEncoder.withIndent('  ').convert(updateModel));
 //         // return;
 //         success = await widget._siteObservationService
 //             .updateSiteObservationDraft(updateModel);
@@ -986,7 +1148,7 @@
 //         setState(() {
 //           showObservations = true;
 //         });
-//         await fetchSiteObservationsQuality(projectID!);
+//         await fetchSiteObservationsQuality(projectID);
 //         ScaffoldMessenger.of(context).showSnackBar(
 //           SnackBar(content: Text('✅ Operation Successful')),
 //         );
@@ -1000,6 +1162,261 @@
 //         SnackBar(content: Text('❌ Error: ${e.toString().replaceAll('"', '')}')),
 //       );
 //     }
+//   }
+
+// // Helper function for actionName
+//   String getActionNameFromID(int actionID) {
+//     switch (actionID) {
+//       case SiteObservationActions.Created:
+//         return 'Created';
+//       case SiteObservationActions.Assigned:
+//         return 'Assigned';
+//       case SiteObservationActions.DocUploaded:
+//         return 'DocUploaded';
+//       default:
+//         return 'Unknown';
+//     }
+//   }
+
+//   Future<void> _loadObservationFromServer(int observationId) async {
+//     try {
+//       final observationList = await widget._siteObservationService
+//           .fetchGetSiteObservationMasterById(observationId);
+
+//       if (observationList.isNotEmpty) {
+//         final observation = observationList.first;
+
+//         if (observation.trancationDate != null) {
+//           // 👇 Convert UTC to Local + Use T format
+//           final localDate = observation.trancationDate.toLocal();
+//           _dateController.text =
+//               DateFormat('yyyy-MM-dd HH:mm').format(localDate);
+//         }
+
+//         setState(() {
+//           showObservations = false;
+//         });
+
+//         _loadDataAndObservation(observation);
+//       } else {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(content: Text('❌ Observation not found')),
+//         );
+//       }
+//     } catch (e) {
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(content: Text('❌ Failed to load observation: $e')),
+//       );
+//     }
+//   }
+
+//   Future<void> _loadDataAndObservation(
+//       GetSiteObservationMasterById observation) async {
+//     print("Loading observation: $observation - ${observation.description}");
+
+//     selectedObservationType = observation.observationType;
+//     selectedObservationTypeId = observation.observationTypeID;
+//     selectedIssueType = observation.issueType ?? '';
+//     isDraftObservation = observation.statusID == SiteObservationStatus.Draft;
+
+//     await fetchIssueTypes();
+
+//     final foundIssue = issueTypes.firstWhere(
+//       (e) => e.name == selectedIssueType,
+//       orElse: () => IssueType(id: 0, name: '', observationTypeID: 0),
+//     );
+//     selectedIssueTypeId = foundIssue.id;
+//     selectedIssueType = foundIssue.name;
+
+//     setState(() {});
+
+//     if (selectedIssueTypeId != 0) {
+//       await fetchObservations();
+//     } else {
+//       observationsList = [];
+//       selectedObservation = null;
+//       setState(() {});
+//       return;
+//     }
+
+//     final foundObs = observationsList.firstWhere(
+//       (o) => o.observationDescription == observation.description,
+//       orElse: () => Observation(
+//         id: 0,
+//         observationTypeID: 0,
+//         issueTypeID: 0,
+//         observationDescription: '',
+//         complianceRequired: false,
+//         escalationRequired: false,
+//         dueTimeInHrs: 0,
+//         actionToBeTaken: '',
+//         lastModifiedBy: '',
+//         lastModifiedDate: DateTime.now().toIso8601String(),
+//       ),
+//     );
+
+//     if (isDraftObservation) {
+//       selectedObservation = observation.description;
+//       observationDescriptionController.text = observation.description;
+//       isComplianceRequired = observation.complianceRequired ?? false;
+//       isEscalationRequired = observation.escalationRequired ?? false;
+//       actionToBeTakenController.text = observation.actionToBeTaken ?? '';
+//     } else if (foundObs.id != 0) {
+//       selectedObservation = foundObs.observationDescription;
+//       observationDescriptionController.text = foundObs.observationDescription;
+//       isComplianceRequired = foundObs.complianceRequired;
+//       isEscalationRequired = foundObs.escalationRequired;
+//       actionToBeTakenController.text = foundObs.actionToBeTaken ?? '';
+//     }
+
+//     // ✅ Due Date Calculation Fix
+//     try {
+//       DateTime startDate;
+
+//       if (_dateController.text.isNotEmpty) {
+//         startDate = DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+//       } else {
+//         final createdDate = observation.activityDTO.isNotEmpty
+//             ? observation.activityDTO.last.createdDate
+//             : null;
+
+//         startDate =
+//             (createdDate ?? DateTime.now()).toLocal(); // ✅ Convert to local
+//         _dateController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDate);
+//       }
+
+//       int? hoursToAdd;
+
+//       if (isDraftObservation) {
+//         if (observation.dueDate != null) {
+//           DateTime dueDate =
+//               observation.dueDate!.toLocal(); // ✅ Convert to local
+//           _dateDueDateController.text =
+//               DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+
+//           hoursToAdd = dueDate.difference(startDate).inHours;
+//         } else {
+//           hoursToAdd = foundObs.dueTimeInHrs;
+//         }
+//       } else {
+//         hoursToAdd = foundObs.dueTimeInHrs;
+//       }
+
+//       if (observation.dueDate == null &&
+//           hoursToAdd != null &&
+//           hoursToAdd != 0) {
+//         final dueDate = startDate.add(Duration(hours: hoursToAdd));
+//         _dateDueDateController.text =
+//             DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
+//       }
+//     } catch (e) {
+//       print("⚠️ Date calculation error: $e");
+//       _dateDueDateController.text = '';
+//     }
+
+//     print("Due Date: ${_dateDueDateController.text}");
+
+//     final isGoodPractice =
+//         foundObs.observationTypeID == goodPracticeObservationTypeId;
+
+//     if (isGoodPractice) {
+//       _dateDueDateController.text = '';
+//     }
+
+//     selectedActivities = observation.activityName;
+
+//     final observedName = observation.observedByName ?? '';
+//     final matchedObservedBy = ObservationConstants.observedBy.firstWhere(
+//       (item) =>
+//           (item['observedBy'] as String).toLowerCase() ==
+//           observedName.toLowerCase(),
+//       orElse: () => const {"id": 0, "observedBy": ""},
+//     );
+//     observedById =
+//         matchedObservedBy['id'] is int ? matchedObservedBy['id'] as int : 0;
+
+//     selectedArea = observation.sectionName;
+//     selectedFloor = observation.floorName;
+//     selectedPart = observation.partName;
+//     selectedElement = observation.elementName;
+//     selectedContractor = observation.contractorName;
+
+//     final fetchedUsers = await fetchUserList();
+//     userList = fetchedUsers;
+//     final assignedUsernames = observation.assignmentStatusDTO
+//         .map((e) => e.assignedUserName?.trim().toLowerCase())
+//         .where((name) => name != null && name.isNotEmpty)
+//         .toSet();
+
+//     selectedUserObjects = userList.where((user) {
+//       final userName = user.userName.trim().toLowerCase();
+//       return assignedUsernames.contains(userName);
+//     }).toList();
+//     selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
+
+//     uploadedFiles = observation.activityDTO
+//         .where((a) => a.documentName != null && a.documentName!.isNotEmpty)
+//         .map((a) => a.documentName!)
+//         .toList();
+//     if (uploadedFiles.isNotEmpty) {
+//       selectedFileName = uploadedFiles.first;
+//     }
+
+//     activityDTOList = observation.activityDTO;
+//     debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
+//     populateActivityListFromDTO(activityDTOList);
+
+//     setState(() {
+//       // selectedObservationId = observation.id;
+//       // // isUserSelectionEnabled = observation.observationTypeID != 1;
+//       // if (selectedIssueType == 'NCR' || selectedIssueType == 'Observation') {
+//       //   isUserSelectionEnabled = isComplianceRequired;
+//       //   actionToBeTakenEnabled = isComplianceRequired;
+//       // } else {
+//       //   isUserSelectionEnabled = true; // baaki cases me default enable
+//       //   actionToBeTakenEnabled = true;
+//       // }
+//       selectedObservationId = observation.id;
+
+//       // Agar Good Practice type (id = 1), toh force disable
+//       if (selectedObservationTypeId == 1) {
+//         isUserSelectionEnabled = false;
+//         actionToBeTakenEnabled = false;
+//       }
+//       // Agar NCR / Observation, toh compliance flag ke hisaab se
+//       else if (selectedIssueType == 'NCR' ||
+//           selectedIssueType == 'Observation') {
+//         isUserSelectionEnabled = isComplianceRequired;
+//         actionToBeTakenEnabled = isComplianceRequired;
+//       }
+//       // Baaki sab default enable
+//       else {
+//         isUserSelectionEnabled = true;
+//         actionToBeTakenEnabled = true;
+//       }
+//     });
+//   }
+
+//   void populateActivityListFromDTO(List<ActivityDTO> dtoList) {
+//     activityList = dtoList.map((dto) {
+//       return SiteObservationActivity(
+//         id: dto.id ?? 0,
+//         siteObservationID: dto.siteObservationID,
+//         actionID: dto.actionID ?? 0,
+//         comments: dto.comments,
+//         documentName: dto.documentName ?? '',
+//         fileName: dto.fileName,
+//         fileContentType: dto.fileContentType,
+//         filePath: dto.filePath,
+//         fromStatusID: dto.fromStatusID ?? 0,
+//         toStatusID: dto.toStatusID ?? 0,
+//         assignedUserID: dto.assignedUserID ?? 0,
+//         assignedUserName: dto.assignedUserName,
+//         createdBy: dto.createdBy ?? 0,
+//         createdByName: dto.createdByName,
+//         createdDate: dto.createdDate.toIso8601String(),
+//       );
+//     }).toList();
 //   }
 
 //   void _resetForm() {
@@ -1033,157 +1450,6 @@
 //       selectedUserObjects.clear();
 //       activityList = [];
 //       // isEditMode = false;
-//     });
-//   }
-
-//   Future<void> _loadObservationFromServer(int observationId) async {
-//     try {
-//       final observationList = await widget._siteObservationService
-//           .fetchGetSiteObservationMasterById(observationId);
-//       // print("observationList: $observationList");
-//       if (observationList.isNotEmpty) {
-//         final observation = observationList.first;
-
-//         setState(() {
-//           showObservations = false;
-//         });
-
-//         _loadDataAndObservation(observation); // ✅ Now pass a single object
-//       } else {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           SnackBar(content: Text('❌ Observation not found')),
-//         );
-//       }
-//     } catch (e) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(content: Text('❌ Failed to load observation: $e')),
-//       );
-//     }
-//   }
-
-//   Future<void> _loadDataAndObservation(
-//       GetSiteObservationMasterById observation) async {
-//     print("observation1126:$observation");
-
-//     // Step 1: Set observationType and observationTypeId
-//     selectedObservationType = observation.observationType;
-//     selectedObservationTypeId = observation.observationTypeID;
-
-//     selectedIssueType = observation.issueType ?? '';
-
-//     await fetchIssueTypes();
-
-//     final foundIssue = issueTypes.firstWhere(
-//       (e) => e.name == selectedIssueType,
-//       orElse: () => IssueType(id: 0, name: '', observationTypeID: 0),
-//     );
-
-//     selectedIssueTypeId = foundIssue.id;
-//     selectedIssueType = foundIssue.name;
-
-//     setState(() {});
-
-//     if (selectedIssueTypeId != 0) {
-//       await fetchObservations();
-//     } else {
-//       observationsList = [];
-//       selectedObservation = null;
-//       setState(() {});
-//       return;
-//     }
-
-//     final foundObs = observationsList.firstWhere(
-//       (o) => o.observationDescription == observation.description,
-//       orElse: () => Observation(
-//         id: 0,
-//         observationTypeID: 0,
-//         issueTypeID: 0,
-//         observationDescription: '',
-//         complianceRequired: false,
-//         escalationRequired: false,
-//         dueTimeInHrs: 0,
-//         actionToBeTaken: '',
-//         lastModifiedBy: '',
-//         lastModifiedDate: DateTime.now().toIso8601String(),
-//       ),
-//     );
-
-//     if (foundObs.id != 0) {
-//       selectedObservation = foundObs.observationDescription;
-
-//       observationDescriptionController.text = foundObs.observationDescription;
-//       isComplianceRequired = foundObs.complianceRequired;
-//       isEscalationRequired = foundObs.escalationRequired;
-//       actionToBeTakenController.text = foundObs.actionToBeTaken ?? '';
-
-//       if (_dateController.text.isNotEmpty &&
-//           foundObs.dueTimeInHrs != null &&
-//           foundObs.dueTimeInHrs != 0) {
-//         try {
-//           DateTime startDate =
-//               DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
-//           DateTime dueDate =
-//               startDate.add(Duration(hours: foundObs.dueTimeInHrs.floor()));
-
-//           String formattedDueDate =
-//               DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
-//           _dateDueDateController.text = formattedDueDate;
-//         } catch (e) {
-//           print("Date calculation error: $e");
-//           _dateDueDateController.text = '';
-//         }
-//       } else {
-//         _dateDueDateController.text = '';
-//       }
-//     } else {
-//       selectedObservation = null;
-//     }
-//     selectedActivities = observation.activityName;
-//     final observedName = observation.observedByName ?? '';
-
-//     final matchedObservedBy = ObservationConstants.observedBy.firstWhere(
-//       (item) =>
-//           (item['observedBy'] as String).toLowerCase() ==
-//           observedName.toLowerCase(),
-//       orElse: () => const {"id": 0, "observedBy": ""},
-//     );
-
-//     observedById =
-//         matchedObservedBy['id'] is int ? matchedObservedBy['id'] as int : 0;
-
-//     selectedArea = observation.sectionName;
-//     selectedFloor = observation.floorName;
-//     selectedPart = observation.partName;
-//     selectedElement = observation.elementName;
-//     selectedContractor = observation.contractorName;
-//     // 🔸 Extract all assigned usernames from the assignment DTO
-//     final fetchedUsers = await fetchUserList(); // ✅ returns list
-//     userList = fetchedUsers;
-
-//     final assignedUsernames = observation.assignmentStatusDTO
-//         .map((e) => e.assignedUserName?.trim().toLowerCase())
-//         .where((name) => name != null && name.isNotEmpty)
-//         .toSet();
-
-//     selectedUserObjects = userList.where((user) {
-//       final userName = user.userName.trim().toLowerCase();
-//       return assignedUsernames.contains(userName);
-//     }).toList();
-//     selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
-
-//     uploadedFiles = observation.activityDTO
-//         .where((a) => a.documentName != null && a.documentName!.isNotEmpty)
-//         .map((a) => a.documentName!)
-//         .toList();
-//     if (uploadedFiles.isNotEmpty) {
-//       selectedFileName = uploadedFiles.first;
-//     }
-//     activityDTOList = observation.activityDTO;
-//     debugPrint("Current Observation: $activityDTOList");
-//     debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
-//     // populateActivityListFromDTO(observation);
-//     setState(() {
-//       selectedObservationId = observation.id;
 //     });
 //   }
 
@@ -1234,6 +1500,91 @@
 //   //     }
 //   //   });
 //   // }
+// // 🔧 1. Switch Row: Ek label aur switch
+//   Widget _buildToggleRow(
+//       String label, bool value, ValueChanged<bool> onChanged) {
+//     print("isToggleEnabled = $isToggleEnabled");
+//     return Padding(
+//       padding: const EdgeInsets.symmetric(vertical: 6.0),
+//       child: Row(
+//         mainAxisAlignment: MainAxisAlignment.start,
+//         children: [
+//           Text(label),
+//           const SizedBox(width: 8),
+//           Switch(
+//             value: value,
+//             onChanged:
+//                 isToggleEnabled ? (newValue) => onChanged(newValue) : null,
+
+//             // onChanged: (selectedIssueType == 'NCR') ? null : onChanged,
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+// // 🔧 2. Responsive Layout (mobile/tablet)
+//   Widget _buildToggleSwitches(BuildContext context) {
+//     final screenWidth = MediaQuery.of(context).size.width;
+//     final isMobile = screenWidth < 600;
+
+//     void _onComplianceToggle(bool value) {
+//       setState(() {
+//         isComplianceRequired = value;
+
+//         if (selectedIssueType == 'NCR') {
+//           // NCR → Compliance ke hisaab se users enable/disable
+//           isUserSelectionEnabled = value;
+//         } else if (selectedIssueType == 'Observation') {
+//           // Observation → toggle ke hisaab se
+//           isUserSelectionEnabled = value;
+//           actionToBeTakenEnabled = value;
+//         }
+
+//         print("🟢 Compliance Toggle → "
+//             "IssueType: $selectedIssueType, "
+//             "Compliance: $isComplianceRequired, "
+//             "UsersEnabled: $isUserSelectionEnabled, "
+//             "ActionEnabled: $actionToBeTakenEnabled, "
+//             "Mode: ${selectedObservationId == null ? "ADD" : "EDIT"}");
+//       });
+//     }
+
+//     if (isMobile) {
+//       // 📱 Mobile view: stacked
+//       return Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           _buildToggleRow(
+//               "Compliance Required", isComplianceRequired, _onComplianceToggle),
+//           _buildToggleRow("Escalation Required", isEscalationRequired, (value) {
+//             setState(() {
+//               isEscalationRequired = value;
+//             });
+//           }),
+//         ],
+//       );
+//     } else {
+//       // 💻 Tablet view: side-by-side
+//       return Row(
+//         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//         children: [
+//           Expanded(
+//             child: _buildToggleRow("Compliance Required", isComplianceRequired,
+//                 _onComplianceToggle),
+//           ),
+//           Expanded(
+//             child: _buildToggleRow("Escalation Required", isEscalationRequired,
+//                 (value) {
+//               setState(() {
+//                 isEscalationRequired = value;
+//               });
+//             }),
+//           ),
+//         ],
+//       );
+//     }
+//   }
 
 //   @override
 //   Widget build(BuildContext context) {
@@ -1293,9 +1644,6 @@
 //                       await fetchFloorList(newProject.id);
 //                       await fetchPartList(newProject.id);
 //                       await fetchElementList(newProject.id);
-//                       // print(
-//                       //   "Selected Project: ${newProject.name} (ID: ${newProject.id})",
-//                       // );
 //                     }
 //                     setState(() {
 //                       isFormReady = true;
@@ -1623,7 +1971,8 @@
 //                                                           selectedObservationType)
 //                                                   ? selectedObservationType
 //                                                   : null,
-//                                               onChanged: isEditMode
+//                                               onChanged: (!isDraftObservation &&
+//                                                       isEditMode)
 //                                                   ? (String? newValue) {
 //                                                       setState(() {
 //                                                         selectedObservationType =
@@ -1697,64 +2046,90 @@
 //                                             ),
 
 //                                             SizedBox(height: 20),
-//                                             // Dropdown for Select Issue Type
-//                                             // DropdownButtonFormField<String>(
-//                                             //   value: issueTypes.any((e) =>
-//                                             //           e.name ==
-//                                             //           selectedIssueType)
-//                                             //       ? selectedIssueType
-//                                             //       : null,
-//                                             //   onChanged: (String? newValue) {
-//                                             //     setState(() {
-//                                             //       selectedIssueType = newValue;
 
-//                                             //       try {
-//                                             //         final selectedIssue =
-//                                             //             issueTypes
-//                                             //                 .firstWhere((e) =>
-//                                             //                     e.name ==
-//                                             //                     newValue);
-//                                             //         selectedIssueTypeId =
-//                                             //             selectedIssue.id;
-//                                             //         fetchObservations();
-//                                             //       } catch (e) {
-//                                             //         selectedIssueTypeId = 0;
-//                                             //         observationsList = [];
-//                                             //         selectedObservation = null;
-//                                             //       }
-//                                             //     });
-//                                             //   },
-//                                             //   decoration: InputDecoration(
-//                                             //     labelText: 'Issue Type',
-//                                             //     border: OutlineInputBorder(),
-//                                             //   ),
-//                                             //   items: issueTypes.isEmpty
-//                                             //       ? [
-//                                             //           const DropdownMenuItem(
-//                                             //             value: null,
-//                                             //             child: Text(
-//                                             //                 "Loading...",
-//                                             //                 style: TextStyle(
-//                                             //                     color: Colors
-//                                             //                         .grey)),
-//                                             //           )
-//                                             //         ]
-//                                             //       : issueTypes.map((issueType) {
-//                                             //           return DropdownMenuItem<
-//                                             //               String>(
-//                                             //             value: issueType.name,
-//                                             //             child: Text(
-//                                             //                 issueType.name),
-//                                             //           );
-//                                             //         }).toList(),
-//                                             // ),
+// //                                             DropdownButtonFormField<String>(
+// //                                               value: issueTypes.any((e) =>
+// //                                                       e.name ==
+// //                                                       selectedIssueType)
+// //                                                   ? selectedIssueType
+// //                                                   : null,
+// //                                               onChanged: (!isDraftObservation &&
+// //                                                       isEditMode)
+// //                                                   ? (String? newValue) {
+// //                                                       setState(() {
+// //                                                         selectedIssueType =
+// //                                                             newValue;
+
+// //                                                         try {
+// //                                                           final selectedIssue =
+// //                                                               issueTypes
+// //                                                                   .firstWhere(
+// //                                                             (element) =>
+// //                                                                 element.name ==
+// //                                                                 newValue,
+// //                                                           );
+// //                                                           selectedIssueTypeId =
+// //                                                               selectedIssue.id;
+
+// // // new
+// //                                                           // if (selectedIssue
+// //                                                           //         .name ==
+// //                                                           //     'NCR') {
+// //                                                           //   // NCR case → sab disable
+// //                                                           //   isComplianceRequired =
+// //                                                           //       false;
+// //                                                           //   isUserSelectionEnabled =
+// //                                                           //       false;
+// //                                                           //   actionToBeTakenEnabled =
+// //                                                           //       false;
+// //                                                           // } else if (selectedIssue
+// //                                                           //         .name ==
+// //                                                           //     'Observation') {
+// //                                                           //   // Observation → compliance toggle ke hisaab se enable/disable
+// //                                                           //   isComplianceRequired =
+// //                                                           //       false; // default OFF
+// //                                                           //   isUserSelectionEnabled =
+// //                                                           //       false;
+// //                                                           //   actionToBeTakenEnabled =
+// //                                                           //       false;
+// //                                                           // }
+// //                                                           // print(
+// //                                                           //     "Dropdown Changed → "
+// //                                                           //     "Compliance: $isComplianceRequired, "
+// //                                                           //     "UsersEnabled: $isUserSelectionEnabled, "
+// //                                                           //     "ActionEnabled: $actionToBeTakenEnabled");
+// // // end
+// //                                                           fetchObservations();
+// //                                                         } catch (e) {
+// //                                                           selectedIssueTypeId =
+// //                                                               0;
+// //                                                           observationsList = [];
+// //                                                           selectedObservation =
+// //                                                               null;
+// //                                                         }
+// //                                                       });
+// //                                                     }
+// //                                                   : null,
+// //                                               decoration: InputDecoration(
+// //                                                 labelText: 'Issue Type',
+// //                                                 border: OutlineInputBorder(),
+// //                                               ),
+// //                                               items:
+// //                                                   issueTypes.map((issueType) {
+// //                                                 return DropdownMenuItem<String>(
+// //                                                   value: issueType.name,
+// //                                                   child: Text(issueType.name),
+// //                                                 );
+// //                                               }).toList(),
+// //                                             ),
 //                                             DropdownButtonFormField<String>(
 //                                               value: issueTypes.any((e) =>
 //                                                       e.name ==
 //                                                       selectedIssueType)
 //                                                   ? selectedIssueType
 //                                                   : null,
-//                                               onChanged: isEditMode
+//                                               onChanged: (!isDraftObservation &&
+//                                                       isEditMode)
 //                                                   ? (String? newValue) {
 //                                                       setState(() {
 //                                                         selectedIssueType =
@@ -1770,19 +2145,31 @@
 //                                                           );
 //                                                           selectedIssueTypeId =
 //                                                               selectedIssue.id;
-//                                                           // bool isNCRSelected =
-//                                                           //     selectedIssue
-//                                                           //                 .id ==
-//                                                           //             1 &&
-//                                                           //         selectedIssue
-//                                                           //                 .name ==
-//                                                           //             'NCR';
 
-//                                                           // // 🔁 Enable/Disable fields
-//                                                           // isDueDateEnabled =
-//                                                           //     !isNCRSelected;
-//                                                           // isToggleEnabled =
-//                                                           //     !isNCRSelected;
+//                                                           if (selectedIssueType ==
+//                                                                   'Observation' ||
+//                                                               selectedIssueType ==
+//                                                                   'NCR') {
+//                                                             if (isComplianceRequired) {
+//                                                               isUserSelectionEnabled =
+//                                                                   true;
+//                                                               actionToBeTakenEnabled =
+//                                                                   true;
+//                                                             } else {
+//                                                               isUserSelectionEnabled =
+//                                                                   false;
+//                                                               actionToBeTakenEnabled =
+//                                                                   false;
+//                                                             }
+//                                                           }
+
+//                                                           print(
+//                                                               "🔽 Dropdown Changed → "
+//                                                               "IssueType: ${selectedIssue.name}, "
+//                                                               "Compliance: $isComplianceRequired, "
+//                                                               "UsersEnabled: $isUserSelectionEnabled, "
+//                                                               "ActionEnabled: $actionToBeTakenEnabled");
+
 //                                                           fetchObservations();
 //                                                         } catch (e) {
 //                                                           selectedIssueTypeId =
@@ -1819,7 +2206,8 @@
 //                                                           selectedObservation))
 //                                                   ? selectedObservation
 //                                                   : null,
-//                                               onChanged: isEditMode
+//                                               onChanged: (!isDraftObservation &&
+//                                                       isEditMode)
 //                                                   ? (selectedIssueTypeId ==
 //                                                               null ||
 //                                                           selectedIssueTypeId ==
@@ -1873,7 +2261,15 @@
 //                                                                 .text = selected
 //                                                                     .actionToBeTaken ??
 //                                                                 '';
-
+//                                                             if (selectedIssueType ==
+//                                                                     'Observation' ||
+//                                                                 selectedIssueType ==
+//                                                                     'NCR') {
+//                                                               isUserSelectionEnabled =
+//                                                                   isComplianceRequired;
+//                                                               actionToBeTakenEnabled =
+//                                                                   isComplianceRequired;
+//                                                             }
 //                                                             // Due date calculation example
 //                                                             if (_dateController
 //                                                                     .text
@@ -1905,8 +2301,6 @@
 //                                                                         .text =
 //                                                                     formattedDueDate;
 //                                                               } catch (e) {
-//                                                                 print(
-//                                                                     "Date calculation error: $e");
 //                                                                 _dateDueDateController
 //                                                                     .text = '';
 //                                                               }
@@ -2000,62 +2394,63 @@
 //                                               // validator: _validateDueDate,
 //                                             ),
 //                                             SizedBox(height: 20),
-//                                             Row(
-//                                               mainAxisAlignment:
-//                                                   MainAxisAlignment
-//                                                       .spaceBetween,
-//                                               children: [
-//                                                 // **Compliance Required** Toggle Switch
-//                                                 Expanded(
-//                                                   child: Row(
-//                                                     mainAxisAlignment:
-//                                                         MainAxisAlignment.start,
-//                                                     children: [
-//                                                       Text(
-//                                                           "Compliance Required"),
-//                                                       Switch(
-//                                                         value:
-//                                                             isComplianceRequired,
-//                                                         onChanged: isToggleEnabled
-//                                                             ? (bool value) {
-//                                                                 setState(() {
-//                                                                   isComplianceRequired =
-//                                                                       value;
-//                                                                 });
-//                                                               }
-//                                                             : null, // disables switch when observation is selected
-//                                                       ),
-//                                                     ],
-//                                                   ),
-//                                                 ),
+//                                             // Row(
+//                                             //   mainAxisAlignment:
+//                                             //       MainAxisAlignment
+//                                             //           .spaceBetween,
+//                                             //   children: [
+//                                             //     // **Compliance Required** Toggle Switch
+//                                             //     Expanded(
+//                                             //       child: Row(
+//                                             //         mainAxisAlignment:
+//                                             //             MainAxisAlignment.start,
+//                                             //         children: [
+//                                             //           Text(
+//                                             //               "Compliance Required"),
+//                                             //           Switch(
+//                                             //             value:
+//                                             //                 isComplianceRequired,
+//                                             //             onChanged: isToggleEnabled
+//                                             //                 ? (bool value) {
+//                                             //                     setState(() {
+//                                             //                       isComplianceRequired =
+//                                             //                           value;
+//                                             //                     });
+//                                             //                   }
+//                                             //                 : null, // disables switch when observation is selected
+//                                             //           ),
+//                                             //         ],
+//                                             //       ),
+//                                             //     ),
 
-//                                                 // **Escalation Required** Toggle Switch
-//                                                 Expanded(
-//                                                   child: Row(
-//                                                     mainAxisAlignment:
-//                                                         MainAxisAlignment.start,
-//                                                     children: [
-//                                                       Text(
-//                                                           "Escalation Required"),
-//                                                       Switch(
-//                                                         value:
-//                                                             isEscalationRequired,
-//                                                         onChanged:
-//                                                             isToggleEnabled
-//                                                                 ? (bool value) {
-//                                                                     setState(
-//                                                                         () {
-//                                                                       isEscalationRequired =
-//                                                                           value;
-//                                                                     });
-//                                                                   }
-//                                                                 : null,
-//                                                       ),
-//                                                     ],
-//                                                   ),
-//                                                 ),
-//                                               ],
-//                                             ),
+//                                             //     // **Escalation Required** Toggle Switch
+//                                             //     Expanded(
+//                                             //       child: Row(
+//                                             //         mainAxisAlignment:
+//                                             //             MainAxisAlignment.start,
+//                                             //         children: [
+//                                             //           Text(
+//                                             //               "Escalation Required"),
+//                                             //           Switch(
+//                                             //             value:
+//                                             //                 isEscalationRequired,
+//                                             //             onChanged:
+//                                             //                 isToggleEnabled
+//                                             //                     ? (bool value) {
+//                                             //                         setState(
+//                                             //                             () {
+//                                             //                           isEscalationRequired =
+//                                             //                               value;
+//                                             //                         });
+//                                             //                       }
+//                                             //                     : null,
+//                                             //           ),
+//                                             //         ],
+//                                             //       ),
+//                                             //     ),
+//                                             //   ],
+//                                             // ),
+//                                             _buildToggleSwitches(context),
 
 //                                             SizedBox(height: 20),
 //                                             DropdownButtonFormField<String>(
@@ -2556,17 +2951,18 @@
 //                 child: FloatingActionButton(
 //                   onPressed: () {
 //                     setState(() {
-//                       // print("isEditMode: $isEditMode");
 //                       if (!showObservations) {
 //                         // We're on form, going back to list → reset the form
 //                         _resetForm();
 //                         isEditMode = false;
+//                         isDraftObservation = false;
 //                       } else {
 //                         isEditMode = true;
+//                         isDraftObservation = false;
+//                         _dateController.text = DateFormat('yyyy-MM-dd HH:mm')
+//                             .format(DateTime.now());
 //                       }
 //                       showObservations = !showObservations;
-//                       // print(
-//                       //     "After toggle: isEditMode = $isEditMode, showObservations = $showObservations");
 //                     });
 //                   },
 //                   child: Icon(showObservations ? Icons.add : Icons.list),

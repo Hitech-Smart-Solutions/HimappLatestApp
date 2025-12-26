@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:himappnew/constants.dart';
@@ -132,6 +131,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   }
 
   bool get isDueDateEnabled {
+    if (!isComplianceRequired) {
+      return false;
+    }
     if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
       return false;
     }
@@ -659,12 +661,25 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   // Function to show the date picker
   Future<void> _selectDate(
-      BuildContext context, TextEditingController controller) async {
+    BuildContext context,
+    TextEditingController controller, {
+    required bool allowFuture,
+  }) async {
+    final DateTime now = DateTime.now();
+
+    // RULES:
+    // allowFuture = false  → Start Date
+    // allowFuture = true   → Due Date
+
     final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
+      initialDate: now,
+      firstDate: allowFuture
+          ? now
+          : DateTime(2000), // Start Date = allow past, Due Date = block past
+      lastDate: allowFuture
+          ? DateTime(2101)
+          : now, // Start Date = block future, Due Date = allow future
     );
 
     if (pickedDate != null) {
@@ -685,6 +700,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         setState(() {
           controller.text =
               DateFormat('yyyy-MM-dd HH:mm').format(finalDateTime);
+          _recalculateDueDate();
         });
       }
     }
@@ -816,13 +832,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       }
 
       final observationIdToSend = selectedObservationId;
-
-      // int statusIdToSend = isDraft
-      //     ? SiteObservationStatus.Draft
-      //     : (selectedObservationTypeId == 1
-      //         ? SiteObservationStatus.Closed
-      //         : SiteObservationStatus.Open);
-
       int fromStatusID = isDraft
           ? SiteObservationStatus.Draft
           : (selectedObservationId != 0
@@ -831,19 +840,11 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
       int toStatusID = isDraft
           ? SiteObservationStatus.Draft
-          : (selectedObservationTypeId == 1
+          : (!isComplianceRequired
               ? SiteObservationStatus.Closed
               : SiteObservationStatus.Open);
 
       List<SiteObservationActivity> finalActivityList = [];
-
-      // ✅ Step 1: Add OLD DocUploaded images
-      // finalActivityList.addAll(activityList.where((a) =>
-      //     a.actionID == SiteObservationActions.DocUploaded && a.id != 0));
-
-      // // ✅ Step 2: Add NEW DocUploaded images
-      // finalActivityList.addAll(activityList.where((a) =>
-      //     a.actionID == SiteObservationActions.DocUploaded && a.id == 0));
 
       // ✅ Step 1: Add OLD DocUploaded images, override status for final submit
       finalActivityList.addAll(activityList
@@ -1086,6 +1087,16 @@ class _SiteObservationState extends State<SiteObservationQuality> {
               "toStatusID: ${dto.toStatusID}");
         }
       }
+
+      // print(
+      //     "📦 Final activityList to send (length = ${finalActivityList.length})");
+      // for (var act in finalActivityList) {
+      //   print(
+      //       "📝 Activity -> actionID: ${act.actionID}, id: ${act.id}, fromStatusID: ${act.fromStatusID}, toStatusID: ${act.toStatusID}, doc: ${act.documentName}");
+      // }
+
+      // print("📤 Payload being sent to API (commonFields):");
+      // print(const JsonEncoder.withIndent('  ').convert(commonFields.toJson()));
       bool success = false;
 
       if (selectedObservationId == 0) {
@@ -1094,6 +1105,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         // return; // Debugging line, remove when ready
         success = await widget._siteObservationService
             .submitSiteObservation(commonFields);
+        debugPrint("📌 Submit Success: $success");
       } else {
         SiteObservationUpdateDraftModel updateModel =
             SiteObservationUpdateDraftModel(
@@ -1265,49 +1277,24 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       isEscalationRequired = foundObs.escalationRequired;
       actionToBeTakenController.text = foundObs.actionToBeTaken ?? '';
     }
-
-    // ✅ Due Date Calculation Fix
-    try {
-      DateTime startDate;
-
+    if (foundObs.complianceRequired && foundObs.dueTimeInHrs != 0) {
+      // agar compliance required hai aur dueTimeInHrs diya hua hai
       if (_dateController.text.isNotEmpty) {
-        startDate = DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
-      } else {
-        final createdDate = observation.activityDTO.isNotEmpty
-            ? observation.activityDTO.last.createdDate
-            : null;
-
-        startDate =
-            (createdDate ?? DateTime.now()).toLocal(); // ✅ Convert to local
-        _dateController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDate);
-      }
-
-      int? hoursToAdd;
-
-      if (isDraftObservation) {
-        if (observation.dueDate != null) {
+        try {
+          DateTime startDate =
+              DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
           DateTime dueDate =
-              observation.dueDate!.toLocal(); // ✅ Convert to local
+              startDate.add(Duration(hours: foundObs.dueTimeInHrs));
           _dateDueDateController.text =
-              DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
-
-          hoursToAdd = dueDate.difference(startDate).inHours;
-        } else {
-          hoursToAdd = foundObs.dueTimeInHrs;
+              DateFormat('yyyy-MM-dd HH:mm').format(dueDate);
+        } catch (e) {
+          _dateDueDateController.text = '';
         }
       } else {
-        hoursToAdd = foundObs.dueTimeInHrs;
+        _dateDueDateController.text = '';
       }
-
-      if (observation.dueDate == null &&
-          hoursToAdd != null &&
-          hoursToAdd != 0) {
-        final dueDate = startDate.add(Duration(hours: hoursToAdd));
-        _dateDueDateController.text =
-            DateFormat("yyyy-MM-dd HH:mm").format(dueDate);
-      }
-    } catch (e) {
-      print("⚠️ Date calculation error: $e");
+    } else {
+      // agar compliance nahi hai ya dueTimeInHrs == 0 hai to blank
       _dateDueDateController.text = '';
     }
 
@@ -1425,53 +1412,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     });
   }
 
-  // void populateActivityListFromDTO(
-  //     GetSiteObservationMasterById observation) async {
-  //   int statusIdToSend = isDraft
-  //       ? SiteObservationStatus.Draft
-  //       : (selectedObservationTypeId == 1
-  //           ? SiteObservationStatus.Closed
-  //           : SiteObservationStatus.Open);
-  //   int? userID = await SharedPrefsHelper.getUserId();
-  //   if (userID == null || userID == 0) return;
-  //   final fileActivities = observation.activityDTO
-  //       .where((a) => a.documentName != null && a.documentName!.isNotEmpty)
-  //       .map((a) => SiteObservationActivity(
-  //             id: a.id ?? 0,
-  //             siteObservationID: a.siteObservationID,
-  //             actionID: a.actionID ?? 0,
-  //             comments: a.comments ?? '',
-  //             documentName: a.documentName ?? '',
-  //             fileName: a.fileName,
-  //             fileContentType: a.fileContentType,
-  //             filePath: a.filePath,
-  //             fromStatusID: statusIdToSend,
-  //             toStatusID: statusIdToSend,
-  //             assignedUserID: userID,
-  //             createdBy: int.tryParse(a.createdBy ?? '0') ?? 0,
-  //             createdDate: a.createdDate is DateTime
-  //                 ? formatDateForApi(a.createdDate as DateTime)
-  //                 : (a.createdDate != null ? a.createdDate.toString() : ''),
-  //           ))
-  //       .toList();
-  //   print("File Activities: ${observation.activityDTO}");
-  //   setState(() {
-  //     // ⛔️ Don’t clear, just merge without duplicating
-  //     for (var activity in fileActivities) {
-  //       if (!activityList.any((a) =>
-  //           a.id == activity.id && a.documentName == activity.documentName)) {
-  //         activityList.add(activity);
-  //       }
-  //     }
-  //     uploadedFiles = activityList
-  //         .where((e) => e.documentName.isNotEmpty)
-  //         .map((e) => e.documentName)
-  //         .toList();
-  //     if (uploadedFiles.isNotEmpty) {
-  //       selectedFileName = uploadedFiles.first;
-  //     }
-  //   });
-  // }
 // 🔧 1. Switch Row: Ek label aur switch
   Widget _buildToggleRow(
       String label, bool value, ValueChanged<bool> onChanged) {
@@ -1504,6 +1444,34 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           _buildToggleRow("Compliance Required", isComplianceRequired, (value) {
             setState(() {
               isComplianceRequired = value;
+              if (!isComplianceRequired) {
+                // disable + clear due date
+                _dateDueDateController.text = '';
+              } else {
+                // ✅ compliance ON → auto calculate if possible
+                final selected = observationsList.firstWhereOrNull(
+                  (obs) => obs.observationDescription == selectedObservation,
+                );
+
+                if (selected != null &&
+                    _dateController.text.isNotEmpty &&
+                    selected.dueTimeInHrs != 0) {
+                  try {
+                    DateTime startDate = DateFormat('yyyy-MM-dd HH:mm')
+                        .parse(_dateController.text);
+                    DateTime dueDate = startDate.add(
+                      Duration(hours: selected.dueTimeInHrs),
+                    );
+                    _dateDueDateController.text =
+                        DateFormat('yyyy-MM-dd HH:mm').format(dueDate);
+                  } catch (e) {
+                    _dateDueDateController.text = '';
+                  }
+                } else {
+                  // Agar condition match nahi hui toh blank rehne do
+                  _dateDueDateController.text = '';
+                }
+              }
             });
           }),
           _buildToggleRow("Escalation Required", isEscalationRequired, (value) {
@@ -1523,6 +1491,34 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                 (value) {
               setState(() {
                 isComplianceRequired = value;
+                if (!isComplianceRequired) {
+                  // disable + clear due date
+                  _dateDueDateController.text = '';
+                } else {
+                  // ✅ compliance ON → auto calculate if possible
+                  final selected = observationsList.firstWhereOrNull(
+                    (obs) => obs.observationDescription == selectedObservation,
+                  );
+
+                  if (selected != null &&
+                      _dateController.text.isNotEmpty &&
+                      selected.dueTimeInHrs != 0) {
+                    try {
+                      DateTime startDate = DateFormat('yyyy-MM-dd HH:mm')
+                          .parse(_dateController.text);
+                      DateTime dueDate = startDate.add(
+                        Duration(hours: selected.dueTimeInHrs),
+                      );
+                      _dateDueDateController.text =
+                          DateFormat('yyyy-MM-dd HH:mm').format(dueDate);
+                    } catch (e) {
+                      _dateDueDateController.text = '';
+                    }
+                  } else {
+                    // Agar condition match nahi hui toh blank rehne do
+                    _dateDueDateController.text = '';
+                  }
+                }
               });
             }),
           ),
@@ -1536,6 +1532,52 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           ),
         ],
       );
+    }
+  }
+
+//Due Date Logic
+  void _recalculateDueDate() {
+    if (!isComplianceRequired) {
+      _dateDueDateController.text = '';
+      return;
+    }
+
+    if (_dateController.text.isEmpty || selectedObservation == null) {
+      _dateDueDateController.text = '';
+      return;
+    }
+
+    final selected = observationsList.firstWhere(
+      (obs) => obs.observationDescription == selectedObservation,
+      orElse: () => Observation(
+        id: 0,
+        observationTypeID: 0,
+        issueTypeID: 0,
+        observationDescription: '',
+        complianceRequired: false,
+        escalationRequired: false,
+        dueTimeInHrs: 0,
+        actionToBeTaken: '',
+        lastModifiedBy: '',
+        lastModifiedDate: DateTime.now().toIso8601String(),
+      ),
+    );
+
+    if (selected.dueTimeInHrs == 0) {
+      _dateDueDateController.text = '';
+      return;
+    }
+
+    try {
+      DateTime startDate =
+          DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+
+      DateTime dueDate = startDate.add(Duration(hours: selected.dueTimeInHrs));
+
+      _dateDueDateController.text =
+          DateFormat('yyyy-MM-dd HH:mm').format(dueDate);
+    } catch (_) {
+      _dateDueDateController.text = '';
     }
   }
 
@@ -1708,7 +1750,53 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                               "Description",
                                                               observation
                                                                   .observationDescription),
+                                                          AlertDialog(
+                                                              title: Text(
+                                                                  'Root Cause (View Only)')),
                                                           // Aur bhi fields chahiye to add kar lo
+                                                          observation.rootCauseName
+                                                                      .isNotEmpty &&
+                                                                  observation
+                                                                          .rootCauseName !=
+                                                                      "N/A"
+                                                              ? _popupRow(
+                                                                  "Root CauseName",
+                                                                  observation
+                                                                      .rootCauseName)
+                                                              : SizedBox(),
+
+                                                          observation.reworkCost
+                                                                      .isNotEmpty &&
+                                                                  observation
+                                                                          .reworkCost !=
+                                                                      "0"
+                                                              ? _popupRow(
+                                                                  "Rework Cost",
+                                                                  observation
+                                                                      .reworkCost)
+                                                              : SizedBox(),
+
+                                                          observation.corretiveActionToBeTaken
+                                                                      .isNotEmpty &&
+                                                                  observation
+                                                                          .corretiveActionToBeTaken !=
+                                                                      "N/A"
+                                                              ? _popupRow(
+                                                                  "Corretive Action To Be Taken",
+                                                                  observation
+                                                                      .corretiveActionToBeTaken)
+                                                              : SizedBox(),
+
+                                                          observation.preventiveActionTaken
+                                                                      .isNotEmpty &&
+                                                                  observation
+                                                                          .preventiveActionTaken !=
+                                                                      "N/A"
+                                                              ? _popupRow(
+                                                                  "Preventive Action Taken",
+                                                                  observation
+                                                                      .preventiveActionTaken)
+                                                              : SizedBox(),
                                                         ],
                                                       ),
                                                     ),
@@ -1836,7 +1924,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                   onPressed: isEditMode
                                                       ? () {
                                                           _selectDate(context,
-                                                              _dateController); // Allow changing Start Date
+                                                              _dateController,
+                                                              allowFuture:
+                                                                  false);
                                                         }
                                                       : null,
                                                 ),
@@ -1845,78 +1935,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                             ),
 
                                             SizedBox(height: 20),
-                                            // Dropdown for Select observation
-                                            // DropdownButtonFormField<String>(
-                                            //   value: selectedObservationType,
-                                            //   onChanged: isEditMode
-                                            //       ? null
-                                            //       : (String? newValue) {
-                                            //           setState(() {
-                                            //             selectedObservationType =
-                                            //                 newValue;
-                                            //             final selected =
-                                            //                 observationTypeList
-                                            //                     .firstWhereOrNull(
-                                            //                         (e) =>
-                                            //                             e.name ==
-                                            //                             newValue);
-                                            //             if (selected != null) {
-                                            //               selectedObservationTypeId =
-                                            //                   selected.id;
-                                            //               if (selected.id ==
-                                            //                   1) {
-                                            //                 isUserSelectionEnabled =
-                                            //                     false;
-                                            //                 actionToBeTakenEnabled =
-                                            //                     false;
-                                            //                 selectedUsers
-                                            //                     .clear(); // Optionally clear users
-                                            //               } else {
-                                            //                 isUserSelectionEnabled =
-                                            //                     true;
-                                            //                 actionToBeTakenEnabled =
-                                            //                     true;
-                                            //               }
-                                            //               fetchIssueTypes();
-                                            //             } else {
-                                            //               selectedObservationTypeId =
-                                            //                   0;
-                                            //               issueTypes = [];
-                                            //             }
-                                            //             selectedIssueType =
-                                            //                 null;
-                                            //             selectedIssueTypeId = 0;
-                                            //             selectedObservation =
-                                            //                 null;
-                                            //             observationsList = [];
-                                            //             issueTypes = [];
-                                            //             observationDescriptionController
-                                            //                 .text = '';
-                                            //             _dateDueDateController
-                                            //                 .text = '';
-                                            //             isComplianceRequired =
-                                            //                 false;
-                                            //             isEscalationRequired =
-                                            //                 false;
-                                            //             actionToBeTakenController
-                                            //                 .text = '';
-                                            //           });
-                                            //         },
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'Observation Type',
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   validator:
-                                            //       _validateObservationType,
-                                            //   items: observationTypeList
-                                            //       .map((observationType) {
-                                            //     return DropdownMenuItem<String>(
-                                            //       value: observationType.name,
-                                            //       child: Text(
-                                            //           observationType.name),
-                                            //     );
-                                            //   }).toList(),
-                                            // ),
                                             DropdownButtonFormField<String>(
                                               value: observationTypeList.any(
                                                       (e) =>
@@ -1940,22 +1958,26 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                         if (selected != null) {
                                                           selectedObservationTypeId =
                                                               selected.id;
-                                                          if (isEditMode) {
-                                                            if (selected.id ==
-                                                                1) {
-                                                              isUserSelectionEnabled =
-                                                                  false;
-                                                              actionToBeTakenEnabled =
-                                                                  false;
-                                                              selectedUsers
-                                                                  .clear();
-                                                            } else {
-                                                              isUserSelectionEnabled =
-                                                                  true;
-                                                              actionToBeTakenEnabled =
-                                                                  true;
-                                                            }
-                                                          }
+                                                          // if (isEditMode) {
+                                                          //   if (selected.id ==
+                                                          //       1) {
+                                                          //     isUserSelectionEnabled =
+                                                          //         false;
+                                                          //     actionToBeTakenEnabled =
+                                                          //         false;
+                                                          //     selectedUsers
+                                                          //         .clear();
+                                                          //   } else {
+                                                          //     isUserSelectionEnabled =
+                                                          //         true;
+                                                          //     actionToBeTakenEnabled =
+                                                          //         true;
+                                                          //   }
+                                                          // }
+                                                          isUserSelectionEnabled =
+                                                              true;
+                                                          actionToBeTakenEnabled =
+                                                              true;
                                                           fetchIssueTypes();
                                                         } else {
                                                           selectedObservationTypeId =
@@ -2062,6 +2084,160 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
                                             SizedBox(height: 20),
                                             // Dropdown for Select Observation
+                                            // DropdownButtonFormField<String>(
+                                            //   value: (selectedObservation !=
+                                            //               null &&
+                                            //           selectedObservation!
+                                            //               .isNotEmpty &&
+                                            //           observationsList.any((obs) =>
+                                            //               obs.observationDescription ==
+                                            //               selectedObservation))
+                                            //       ? selectedObservation
+                                            //       : null,
+                                            //   onChanged: (!isDraftObservation &&
+                                            //           isEditMode)
+                                            //       ? (selectedIssueTypeId ==
+                                            //                   null ||
+                                            //               selectedIssueTypeId ==
+                                            //                   0)
+                                            //           ? null
+                                            //           : (String? newValue) {
+                                            //               setState(() {
+                                            //                 selectedObservation =
+                                            //                     newValue ?? '';
+
+                                            //                 final selected =
+                                            //                     observationsList
+                                            //                         .firstWhere(
+                                            //                   (obs) =>
+                                            //                       obs.observationDescription ==
+                                            //                       selectedObservation,
+                                            //                   orElse: () =>
+                                            //                       Observation(
+                                            //                     id: 0,
+                                            //                     observationTypeID:
+                                            //                         0,
+                                            //                     issueTypeID: 0,
+                                            //                     observationDescription:
+                                            //                         '',
+                                            //                     complianceRequired:
+                                            //                         false,
+                                            //                     escalationRequired:
+                                            //                         false,
+                                            //                     dueTimeInHrs: 0,
+                                            //                     actionToBeTaken:
+                                            //                         '',
+                                            //                     lastModifiedBy:
+                                            //                         '',
+                                            //                     lastModifiedDate:
+                                            //                         DateTime.now()
+                                            //                             .toIso8601String(),
+                                            //                   ),
+                                            //                 );
+
+                                            //                 // Existing assignments
+                                            //                 observationDescriptionController
+                                            //                         .text =
+                                            //                     selected
+                                            //                         .observationDescription;
+                                            //                 isComplianceRequired =
+                                            //                     selected
+                                            //                         .complianceRequired;
+                                            //                 isEscalationRequired =
+                                            //                     selected
+                                            //                         .escalationRequired;
+                                            //                 actionToBeTakenController
+                                            //                     .text = selected
+                                            //                         .actionToBeTaken ??
+                                            //                     '';
+
+                                            //                 // ✅ New logic (due date handle with compliance)
+                                            //                 if (!isComplianceRequired) {
+                                            //                   _dateDueDateController
+                                            //                       .text = '';
+                                            //                 } else {
+                                            //                   if (_dateController
+                                            //                           .text
+                                            //                           .isNotEmpty &&
+                                            //                       selected.dueTimeInHrs !=
+                                            //                           0) {
+                                            //                     try {
+                                            //                       DateTime
+                                            //                           startDate =
+                                            //                           DateFormat(
+                                            //                                   'yyyy-MM-dd HH:mm')
+                                            //                               .parse(
+                                            //                                   _dateController.text);
+                                            //                       DateTime
+                                            //                           dueDate =
+                                            //                           startDate.add(Duration(
+                                            //                               hours:
+                                            //                                   selected.dueTimeInHrs));
+                                            //                       _dateDueDateController
+                                            //                           .text = DateFormat(
+                                            //                               'yyyy-MM-dd HH:mm')
+                                            //                           .format(
+                                            //                               dueDate);
+                                            //                     } catch (e) {
+                                            //                       _dateDueDateController
+                                            //                           .text = '';
+                                            //                     }
+                                            //                   } else {
+                                            //                     _dateDueDateController
+                                            //                         .text = '';
+                                            //                   }
+                                            //                 }
+                                            //               });
+                                            //             }
+                                            //       : null,
+                                            //   decoration: const InputDecoration(
+                                            //     labelText: 'Select Observation',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   validator: (value) {
+                                            //     if ((selectedIssueTypeId ==
+                                            //                 null ||
+                                            //             selectedIssueTypeId ==
+                                            //                 0) ||
+                                            //         value == null ||
+                                            //         value.isEmpty) {
+                                            //       return 'Please select an observation';
+                                            //     }
+                                            //     return null;
+                                            //   },
+                                            //   items: (selectedIssueTypeId ==
+                                            //               null ||
+                                            //           selectedIssueTypeId == 0)
+                                            //       ? []
+                                            //       : [
+                                            //           const DropdownMenuItem<
+                                            //               String>(
+                                            //             value: '',
+                                            //             child: Text(
+                                            //               'Select Observation',
+                                            //               style: TextStyle(
+                                            //                   color:
+                                            //                       Colors.grey),
+                                            //             ),
+                                            //           ),
+                                            //           ...observationsList
+                                            //               .map((observation) {
+                                            //             return DropdownMenuItem<
+                                            //                 String>(
+                                            //               value: observation
+                                            //                   .observationDescription,
+                                            //               child: Text(
+                                            //                 observation
+                                            //                     .observationDescription,
+                                            //                 overflow:
+                                            //                     TextOverflow
+                                            //                         .ellipsis,
+                                            //               ),
+                                            //             );
+                                            //           }).toList(),
+                                            //         ],
+                                            // ),
+
                                             DropdownButtonFormField<String>(
                                               value: (selectedObservation !=
                                                           null &&
@@ -2113,59 +2289,27 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                               ),
                                                             );
 
+                                                            // EXISTING ASSIGNMENTS (UNCHANGED)
                                                             observationDescriptionController
                                                                     .text =
                                                                 selected
                                                                     .observationDescription;
+
                                                             isComplianceRequired =
                                                                 selected
                                                                     .complianceRequired;
+
                                                             isEscalationRequired =
                                                                 selected
                                                                     .escalationRequired;
+
                                                             actionToBeTakenController
                                                                 .text = selected
                                                                     .actionToBeTaken ??
                                                                 '';
 
-                                                            // Due date calculation example
-                                                            if (_dateController
-                                                                    .text
-                                                                    .isNotEmpty &&
-                                                                selected.dueTimeInHrs !=
-                                                                    null &&
-                                                                selected.dueTimeInHrs !=
-                                                                    0) {
-                                                              try {
-                                                                DateTime
-                                                                    startDate =
-                                                                    DateFormat(
-                                                                            'yyyy-MM-dd HH:mm')
-                                                                        .parse(_dateController
-                                                                            .text);
-                                                                DateTime
-                                                                    dueDate =
-                                                                    startDate.add(Duration(
-                                                                        hours: selected
-                                                                            .dueTimeInHrs
-                                                                            .floor()));
-                                                                String
-                                                                    formattedDueDate =
-                                                                    DateFormat(
-                                                                            'yyyy-MM-dd HH:mm')
-                                                                        .format(
-                                                                            dueDate);
-                                                                _dateDueDateController
-                                                                        .text =
-                                                                    formattedDueDate;
-                                                              } catch (e) {
-                                                                _dateDueDateController
-                                                                    .text = '';
-                                                              }
-                                                            } else {
-                                                              _dateDueDateController
-                                                                  .text = '';
-                                                            }
+                                                            // 🔥 ONLY ADD THIS LINE
+                                                            _recalculateDueDate();
                                                           });
                                                         }
                                                   : null,
@@ -2173,49 +2317,26 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                 labelText: 'Select Observation',
                                                 border: OutlineInputBorder(),
                                               ),
-                                              validator: (value) {
-                                                if ((selectedIssueTypeId ==
-                                                            null ||
-                                                        selectedIssueTypeId ==
-                                                            0) ||
-                                                    value == null ||
-                                                    value.isEmpty) {
-                                                  return 'Please select an observation';
-                                                }
-                                                return null;
-                                              },
                                               items: (selectedIssueTypeId ==
                                                           null ||
                                                       selectedIssueTypeId == 0)
                                                   ? []
-                                                  : [
-                                                      const DropdownMenuItem<
+                                                  : observationsList
+                                                      .map((observation) {
+                                                      return DropdownMenuItem<
                                                           String>(
-                                                        value: '',
+                                                        value: observation
+                                                            .observationDescription,
                                                         child: Text(
-                                                          'Select Observation',
-                                                          style: TextStyle(
-                                                              color:
-                                                                  Colors.grey),
-                                                        ),
-                                                      ),
-                                                      ...observationsList
-                                                          .map((observation) {
-                                                        return DropdownMenuItem<
-                                                            String>(
-                                                          value: observation
+                                                          observation
                                                               .observationDescription,
-                                                          child: Text(
-                                                            observation
-                                                                .observationDescription,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
-                                                        );
-                                                      }).toList(),
-                                                    ],
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      );
+                                                    }).toList(),
                                             ),
+
                                             SizedBox(height: 20),
                                             TextFormField(
                                               controller:
@@ -2244,7 +2365,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       Icons.calendar_today),
                                                   onPressed: () {
                                                     _selectDate(context,
-                                                        _dateDueDateController);
+                                                        _dateDueDateController,
+                                                        allowFuture: true);
                                                   },
                                                 ),
                                               ),
@@ -2397,6 +2519,31 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
                                             SizedBox(height: 20),
                                             // Dropdown for Select Floor
+                                            // DropdownButtonFormField<String>(
+                                            //   value: selectedFloor,
+                                            //   onChanged: (String? newValue) {
+                                            //     setState(() {
+                                            //       selectedFloor = newValue;
+                                            //     });
+                                            //   },
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Choose Floor',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   validator: _validateFloor,
+                                            //   items: List.generate(
+                                            //       floorList.length, (index) {
+                                            //     final floor = floorList[index];
+
+                                            //     return DropdownMenuItem<String>(
+                                            //       value:
+                                            //           '${floor.id}-$index', // 🔥 FLUTTER SAFE UNIQUE VALUE
+                                            //       child: Text(floor
+                                            //           .floorName), // 👀 USER KO NORMAL NAME DIKHEGA
+                                            //     );
+                                            //   }).toList(),
+                                            // ),
+
                                             DropdownButtonFormField<String>(
                                               value: selectedFloor,
                                               onChanged: (String? newValue) {

@@ -52,7 +52,7 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
           }
 
           final observations = snapshot.data!;
-          print("Observations: ${snapshot.data!}");
+          // print("Observations: ${snapshot.data!}");
           return ListView.builder(
             itemCount: observations.length,
             itemBuilder: (context, index) {
@@ -188,7 +188,7 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
               );
             } else {
               final detail = snapshot.data!.first;
-              print("🔍 Raw Detail: $detail");
+              // print("🔍 Raw Detail: $detail");
 
               return ObservationQCDetailDialog(
                 detail: detail,

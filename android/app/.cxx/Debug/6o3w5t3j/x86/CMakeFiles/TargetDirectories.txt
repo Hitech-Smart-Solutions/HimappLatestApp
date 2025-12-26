@@ -1,0 +1,2 @@
+C:/Users/hardik.solanki/Desktop/BookHitech/android/app/.cxx/Debug/6o3w5t3j/x86/CMakeFiles/edit_cache.dir
+C:/Users/hardik.solanki/Desktop/BookHitech/android/app/.cxx/Debug/6o3w5t3j/x86/CMakeFiles/rebuild_cache.dir

@@ -187,7 +187,7 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
               );
             } else {
               final detail = snapshot.data!.first;
-              print("🔍 Raw Detail: $detail");
+              // print("🔍 Raw Detail: $detail");
 
               return ObservationQCDetailDialog(
                 detail: detail,

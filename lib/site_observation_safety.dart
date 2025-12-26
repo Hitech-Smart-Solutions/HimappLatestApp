@@ -720,13 +720,27 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   }
 
   // Function to show the date picker
+  // Function to show the date picker
   Future<void> _selectDate(
-      BuildContext context, TextEditingController controller) async {
+    BuildContext context,
+    TextEditingController controller, {
+    required bool allowFuture,
+  }) async {
+    final DateTime now = DateTime.now();
+
+    // RULES:
+    // allowFuture = false  → Start Date
+    // allowFuture = true   → Due Date
+
     final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
+      initialDate: now,
+      firstDate: allowFuture
+          ? now
+          : DateTime(2000), // Start Date = allow past, Due Date = block past
+      lastDate: allowFuture
+          ? DateTime(2101)
+          : now, // Start Date = block future, Due Date = allow future
     );
 
     if (pickedDate != null) {
@@ -2082,7 +2096,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                   onPressed: isEditMode
                                                       ? () {
                                                           _selectDate(context,
-                                                              _dateController); // Allow changing Start Date
+                                                              _dateController,
+                                                              allowFuture:
+                                                                  false);
                                                         }
                                                       : null,
                                                 ),
@@ -2516,7 +2532,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                       Icons.calendar_today),
                                                   onPressed: () {
                                                     _selectDate(context,
-                                                        _dateDueDateController);
+                                                        _dateDueDateController,
+                                                        allowFuture: true);
                                                   },
                                                 ),
                                               ),

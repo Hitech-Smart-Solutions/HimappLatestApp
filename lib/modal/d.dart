@@ -1046,7 +1046,7 @@ class GetSiteObservationMasterById {
   });
 
   factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
-    print('GetSiteObservationMasterById.fromJson: $json');
+    // print('GetSiteObservationMasterById.fromJson: $json');
     return GetSiteObservationMasterById(
       id: json['id'] ?? 0,
       observationCode: json['siteObservationCode'] ?? '',

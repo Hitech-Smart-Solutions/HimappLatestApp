@@ -13,6 +13,10 @@ import 'package:intl/intl.dart';
 import 'package:flutter_portal/flutter_portal.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 class ObservationQCDetailDialog extends StatefulWidget {
   final GetSiteObservationMasterById detail;
   final SiteObservationService siteObservationService;
@@ -46,9 +50,12 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   bool isStatusEnabled = false;
   bool isEditingRootCause = false;
   bool isButtonDisabled = false;
+  bool canEditRootCause = false;
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController rootCauseController = TextEditingController();
+  final TextEditingController materialCostController = TextEditingController();
+  final TextEditingController labourCostController = TextEditingController();
   final TextEditingController reworkCostController = TextEditingController();
   final TextEditingController preventiveActionController =
       TextEditingController();
@@ -58,6 +65,11 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       TextEditingController();
   final GlobalKey<FlutterMentionsState> mentionsKey =
       GlobalKey<FlutterMentionsState>();
+
+  final TextEditingController reopenRemarksController = TextEditingController();
+  final TextEditingController closeRemarksController = TextEditingController();
+  final TextEditingController inProgessRemarksController =
+      TextEditingController();
 
   String? selectedFileName;
   List<String> uploadedFiles = [];
@@ -79,6 +91,17 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   String? floorLabel;
   String? elementLabel;
   bool isSending = false;
+
+  bool isReopenAction = false;
+  bool isCloseAction = false;
+
+  bool isRootCauseFileUpdateEnable =
+      false; // 👈 Angular ka isRootCauseFileUpdateEnable
+
+  bool isReopenRemarksVisible = false;
+  bool isCloseRemarksVisible = false;
+  bool inProgessRemarksVisible = false;
+  bool isUpdateBtnVisible = false;
   @override
   void initState() {
     super.initState();
@@ -87,6 +110,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     loadSection();
     loadFloor();
     loadElement();
+    // print("created Status 92: ${widget.detail.createdBy}");
+    // print('166: ${widget.detail}');
   }
 
   Future<void> _setupPage() async {
@@ -112,6 +137,21 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
     editingUserId = widget.siteObservationId;
     await initData(); // optionally await this if it’s async
+
+    materialCostController.addListener(_updateReworkCost);
+    labourCostController.addListener(_updateReworkCost);
+    // setState(() {
+    //   isRootCauseFileUpdateEnable = false;
+    // });
+  }
+
+  void _updateReworkCost() {
+    double material = double.tryParse(materialCostController.text) ?? 0;
+    double labour = double.tryParse(labourCostController.text) ?? 0;
+
+    double total = material + labour;
+
+    reworkCostController.text = total.toStringAsFixed(2);
   }
 
   Future<void> initData() async {
@@ -137,8 +177,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       } catch (e) {
         selectedRootCause = null;
       }
-
-      reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
+      materialCostController.text = widget.detail.materialCost.toString();
+      labourCostController.text = widget.detail.labourCost.toString();
+      reworkCostController.text = widget.detail.reworkCost.toString();
       preventiveActionController.text =
           widget.detail.preventiveActionTaken ?? '';
       correctiveActionController.text =
@@ -146,6 +187,20 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
     if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
         selectedStatus == SiteObservationStatus.Closed.toString()) {
+      // try {
+      //   if (widget.detail.rootCauseID != null &&
+      //       widget.detail.rootCauseID != 0) {
+      //     selectedRootCause = rootCauses.firstWhere(
+      //       (rc) => rc.id == widget.detail.rootCauseID,
+      //     );
+      //   } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
+      //     selectedRootCause = rootCauses.first;
+      //   } else {
+      //     selectedRootCause = null;
+      //   }
+      // } catch (e) {
+      //   selectedRootCause = null;
+      // }
       try {
         if (widget.detail.rootCauseID != null &&
             widget.detail.rootCauseID != 0) {
@@ -160,15 +215,40 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       } catch (e) {
         selectedRootCause = null;
       }
-
-      reworkCostController.text = widget.detail.reworkCost != null
-          ? widget.detail.reworkCost!.toStringAsFixed(2)
-          : '';
+      materialCostController.text = widget.detail.materialCost.toString();
+      labourCostController.text = widget.detail.labourCost.toString();
+      reworkCostController.text = widget.detail.reworkCost.toString();
       preventiveActionController.text =
           widget.detail.preventiveActionTaken ?? '';
       correctiveActionController.text =
           widget.detail.corretiveActionToBeTaken ?? '';
     }
+    int rootCauseIDs = widget.detail.rootCauseID ?? 0;
+
+    print("Initializing form for observation ID: $rootCauseIDs");
+
+    // ---------- Root Cause selection ----------
+    if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
+      try {
+        selectedRootCause = rootCauses.firstWhere(
+          (rc) => rc.id == rootCauseIDs, // ✅ correct field
+        );
+      } catch (e) {
+        selectedRootCause = null;
+      }
+    } else if (rootCauseIDs == 0 && rootCauses.isNotEmpty) {
+      selectedRootCause = rootCauses.first;
+    } else {
+      selectedRootCause = null;
+    }
+
+    // ---------- Text fields ----------
+    materialCostController.text = widget.detail.materialCost?.toString() ?? '';
+    labourCostController.text = widget.detail.labourCost?.toString() ?? '';
+    reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
+    preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
+    correctiveActionController.text =
+        widget.detail.corretiveActionToBeTaken ?? '';
   }
 
   Future<void> _loadRootCauses() async {
@@ -194,12 +274,17 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     int id = widget.detail.id;
     int rootCauseID = selectedRootCause?.id ?? 0;
 
+    String? reopenRemarks;
+    String? closeRemarks;
+
     List<ActivityDTO> activities = [];
     int selectedStatusId =
         int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
-    if (selectedStatusId == SiteObservationStatus.ReadyToInspect ||
-        selectedStatusId == SiteObservationStatus.InProgress ||
-        selectedStatusId == SiteObservationStatus.Closed) {
+    // if (selectedStatusId == SiteObservationStatus.ReadyToInspect ||
+    //     selectedStatusId == SiteObservationStatus.InProgress ||
+    //     selectedStatusId == SiteObservationStatus.Closed) {
+
+    if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
       activities.add(
         ActivityDTO(
           id: 0,
@@ -219,7 +304,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     } else if (selectedStatusId == SiteObservationStatus.Reopen) {
       final assignedUsers =
           await SiteObservationService().fetchGetassignedusersforReopen(id);
-      // String currentUserId = userId!.toString();
+
       // Add an activity for each assigned user
       for (var user in assignedUsers) {
         activities.add(
@@ -260,17 +345,48 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       );
     }
 
+    if (selectedStatusId == SiteObservationStatus.Reopen) {
+      reopenRemarks = reopenRemarksController.text;
+    }
+
+    if (selectedStatusId == SiteObservationStatus.Closed) {
+      closeRemarks = closeRemarksController.text;
+    }
+
+    if (selectedStatusId == SiteObservationStatus.InProgress) {
+      inProgessRemarksController.text;
+    }
+
     return UpdateSiteObservation(
       id: id,
       rootCauseID: rootCauseID,
       corretiveActionToBeTaken: correctiveActionController.text,
       preventiveActionTaken: preventiveActionController.text,
+      materialCost: double.tryParse(materialCostController.text) ?? 0.0,
+      labourCost: double.tryParse(labourCostController.text) ?? 0.0,
       reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
       statusID: selectedStatusId,
+      reopenRemarks: reopenRemarks,
+      closeRemarks: closeRemarks,
       lastModifiedBy: userId!,
       lastModifiedDate: DateTime.now(),
       activityDTO: activities,
     );
+  }
+
+  String getAttachmentStatusName(ActivityDTO activity) {
+    final relatedActivities = widget.detail.activityDTO
+        .where((a) => a.documentName == activity.documentName)
+        .toList();
+
+    if (relatedActivities.isEmpty) return 'Unknown';
+
+    // Latest activity (createdDate ke basis pe)
+    relatedActivities.sort((a, b) => b.createdDate.compareTo(a.createdDate));
+    final latestActivity = relatedActivities.first;
+
+    // Web jaise approach
+    return latestActivity.toStatusName ?? 'Unknown';
   }
 
   String getStatusNameFromId(String id) {
@@ -279,97 +395,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       orElse: () => {'name': 'Unknown'},
     );
     return status['name'] ?? 'Unknown';
-  }
-
-  Future<void> setObservationStatusDropdown(
-      int statusId, int? createdBy, GetSiteObservationMasterById detail) async {
-    int? userID = await SharedPrefsHelper.getUserId();
-    var isAssign = detail.activityDTO
-        .where((activity) => activity.assignedUserID == userID)
-        .toList();
-
-    List<Map<String, String>> newStatusList = [];
-    String? newSelectedStatus;
-    bool newStatusEnabled = true;
-
-    switch (statusId) {
-      case SiteObservationStatus.Closed:
-        newStatusList = [
-          {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"}
-        ];
-        newSelectedStatus = SiteObservationStatus.Closed.toString();
-        newStatusEnabled = false;
-        break;
-
-      case SiteObservationStatus.ReadyToInspect:
-        if (createdBy == userID) {
-          newStatusList = [
-            {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"},
-            {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"},
-            {
-              "id": SiteObservationStatus.ReadyToInspect.toString(),
-              "name": "Ready To Inspect"
-            }
-          ];
-        } else if (isAssign.isEmpty && createdBy != userID) {
-          newStatusList = [
-            {
-              "id": SiteObservationStatus.ReadyToInspect.toString(),
-              "name": "Ready To Inspect"
-            }
-          ];
-          newStatusEnabled = false;
-        }
-        newSelectedStatus = SiteObservationStatus.ReadyToInspect.toString();
-        break;
-
-      case SiteObservationStatus.Open:
-        newStatusList = [
-          {"id": SiteObservationStatus.Open.toString(), "name": "Open"},
-          {
-            "id": SiteObservationStatus.InProgress.toString(),
-            "name": "In Progress"
-          },
-          {
-            "id": SiteObservationStatus.ReadyToInspect.toString(),
-            "name": "Ready To Inspect"
-          },
-        ];
-        newSelectedStatus = SiteObservationStatus.Open.toString();
-        break;
-
-      default:
-        newStatusList = [
-          {
-            "id": SiteObservationStatus.InProgress.toString(),
-            "name": "In Progress"
-          },
-          {
-            "id": SiteObservationStatus.ReadyToInspect.toString(),
-            "name": "Ready To Inspect"
-          },
-        ];
-        newSelectedStatus = statusId.toString();
-        break;
-    }
-    if (!newStatusList.any((s) => s['id'] == statusId.toString())) {
-      newStatusList.add({
-        "id": statusId.toString(),
-        "name": SiteObservationStatus.idToName[statusId] ?? "Reopen"
-      });
-    }
-    setState(() {
-      observationStatus = newStatusList;
-      // print("Observation Status: $observationStatus");
-      final statusExists =
-          newStatusList.any((item) => item['id'] == newSelectedStatus);
-      selectedStatus = statusExists ? newSelectedStatus : null;
-      isStatusEnabled = newStatusEnabled;
-      if (!statusExists) {
-        print(
-            '⚠️ selectedStatus "$newSelectedStatus" not found in dropdown list');
-      }
-    });
   }
 
   Future<void> _sendActivityComment() async {
@@ -395,6 +420,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         //   (user) => user.id == userId,
         //   orElse: () => User(id: 0, userName: ''),
         // );
+
         final matchedUser = allUsers.firstWhere(
           (user) => user.id == userId,
           orElse: () => User(
@@ -541,8 +567,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
   }
 
-  // List<Map<String, String>> userList = [];
-
   fetchUsers() async {
     setState(() {
       isLoading = true;
@@ -552,7 +576,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       int projectID = widget.projectID;
       int? currentUserId =
           await SharedPrefsHelper.getUserId(); // 👈 Get logged-in user ID
-
+      int? creatorId = widget.detail.createdBy; // 👈 Observation creator ID
+      // print("CreatorID: $creatorId  Logged-in: $currentUserId");
       final response = await SiteObservationService().fetchUsersForList(
         projectId: projectID,
       );
@@ -560,12 +585,14 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       setState(() {
         userList = response
             .where((u) => u.id != currentUserId) // 👈 Exclude current user
+            .where((u) => currentUserId == creatorId || u.id != creatorId)
             .map((u) => {
                   'id': u.id.toString(),
                   'display': u.userName,
                   'full_name': '${u.firstName} ${u.lastName}',
                 })
             .toList();
+        // print('userlist606: $userList');
       });
     } catch (e) {
       print('Error fetching users: $e');
@@ -627,6 +654,113 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
   }
 
+  Future<void> setObservationStatusDropdown(
+    int statusId,
+    int? createdBy,
+    GetSiteObservationMasterById detail,
+  ) async {
+    int? userID = await SharedPrefsHelper.getUserId();
+
+    final isAssign =
+        detail.activityDTO.where((e) => e.assignedUserID == userID).toList();
+
+    fromStatus = statusId == 0 ? SiteObservationStatus.Open : statusId;
+
+    toStatus = fromStatus;
+
+    List<Map<String, String>> newStatusList = [];
+    bool newStatusEnabled = true;
+
+    // 🔹 DEFAULT ROOT CAUSE PERMISSION
+    canEditRootCause = fromStatus == SiteObservationStatus.ReadyToInspect ||
+        fromStatus == SiteObservationStatus.Closed;
+
+    // -------------------------------
+    // 🔥 STATUS RULES
+    // -------------------------------
+
+    // ✅ FIRST TIME OPEN
+    if (fromStatus == SiteObservationStatus.Open) {
+      newStatusList = [
+        {"id": SiteObservationStatus.Open.toString(), "name": "Open"},
+        {
+          "id": SiteObservationStatus.InProgress.toString(),
+          "name": "In Progress"
+        },
+        {
+          "id": SiteObservationStatus.ReadyToInspect.toString(),
+          "name": "Ready To Inspect"
+        },
+      ];
+    }
+
+    // ✅ READY TO INSPECT – CREATOR
+    else if (fromStatus == SiteObservationStatus.ReadyToInspect &&
+        createdBy == userID) {
+      newStatusList = [
+        {
+          "id": SiteObservationStatus.ReadyToInspect.toString(),
+          "name": "Ready To Inspect"
+        },
+        {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"},
+        {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"},
+      ];
+      // isRootCauseFileUpdateEnable = true;
+    }
+
+    // ✅ READY TO INSPECT – OTHERS
+    else if (fromStatus == SiteObservationStatus.ReadyToInspect) {
+      newStatusList = [
+        {
+          "id": SiteObservationStatus.ReadyToInspect.toString(),
+          "name": "Ready To Inspect"
+        }
+      ];
+      newStatusEnabled = false;
+    }
+
+    // ✅ CLOSED
+    else if (fromStatus == SiteObservationStatus.Closed) {
+      newStatusList = [
+        {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"}
+      ];
+      newStatusEnabled = false;
+      canEditRootCause = true;
+    }
+
+    // ✅ DEFAULT FLOW
+    else {
+      newStatusList = [
+        {
+          "id": SiteObservationStatus.InProgress.toString(),
+          "name": "In Progress"
+        },
+        {
+          "id": SiteObservationStatus.ReadyToInspect.toString(),
+          "name": "Ready To Inspect"
+        }
+      ];
+      // inProgessRemarksVisible = true;
+    }
+
+    // -------------------------------
+    // 🔐 FINAL SAFETY
+    // -------------------------------
+
+    if (!newStatusList.any((e) => e['id'] == fromStatus.toString())) {
+      newStatusList.insert(0, {
+        "id": fromStatus.toString(),
+        "name": SiteObservationStatus.idToName[fromStatus] ?? "Unknown"
+      });
+    }
+
+    setState(() {
+      observationStatus = newStatusList;
+      selectedStatus = fromStatus.toString();
+      isStatusEnabled = newStatusEnabled;
+    });
+  }
+
   @override
   @override
   Widget build(BuildContext context) {
@@ -678,14 +812,61 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                           }).toList(),
                           onChanged: isStatusEnabled
                               ? (newValue) {
-                                  if (newValue != null) {
-                                    final int newStatus = int.parse(newValue);
-                                    setState(() {
-                                      fromStatus = toStatus;
-                                      toStatus = newStatus;
-                                      selectedStatus = newValue;
-                                    });
-                                  }
+                                  if (newValue == null) return;
+
+                                  final int selectedStatusInt =
+                                      int.parse(newValue);
+
+                                  setState(() {
+                                    // ✅ THIS IS IMPORTANT
+                                    selectedStatus = newValue;
+
+                                    fromStatus = toStatus;
+                                    toStatus = selectedStatusInt;
+
+                                    isUpdateBtnVisible = true;
+
+                                    if (fromStatus != selectedStatusInt) {
+                                      isUpdateBtnVisible = true;
+                                      isRootCauseFileUpdateEnable = true;
+                                    } else {
+                                      isUpdateBtnVisible = false;
+                                      isRootCauseFileUpdateEnable = false;
+                                    }
+
+                                    if (selectedStatusInt ==
+                                        SiteObservationStatus.Reopen) {
+                                      isReopenRemarksVisible = true;
+                                      isCloseRemarksVisible = false;
+                                      inProgessRemarksVisible = false;
+                                    } else if (selectedStatusInt ==
+                                        SiteObservationStatus.Closed) {
+                                      isReopenRemarksVisible = false;
+                                      isCloseRemarksVisible = true;
+                                      inProgessRemarksVisible = false;
+                                    } else if (selectedStatusInt ==
+                                        SiteObservationStatus.InProgress) {
+                                      print("In Progress Selected");
+                                      inProgessRemarksVisible = true;
+                                      isReopenRemarksVisible = false;
+                                      isCloseRemarksVisible = false;
+                                    } else {
+                                      isReopenRemarksVisible = false;
+                                      isCloseRemarksVisible = false;
+                                      inProgessRemarksVisible = false;
+                                    }
+
+                                    if (selectedStatusInt ==
+                                            SiteObservationStatus
+                                                .ReadyToInspect ||
+                                        selectedStatusInt ==
+                                            SiteObservationStatus.Closed) {
+                                      canEditRootCause = true;
+                                      isRootCauseFileUpdateEnable = true;
+                                    } else {
+                                      canEditRootCause = false;
+                                    }
+                                  });
                                 }
                               : null,
                           validator: (value) {
@@ -728,18 +909,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                     ),
                   ),
                 ),
-
-                // Actions
-                // Padding(
-                //   padding: const EdgeInsets.all(16),
-                //   child: Align(
-                //     alignment: Alignment.centerRight,
-                //     child: TextButton(
-                //       child: const Text("Close"),
-                //       onPressed: () => Navigator.of(context).pop(),
-                //     ),
-                //   ),
-                // ),
               ],
             ),
           );
@@ -761,6 +930,20 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(
+                widget.detail.closeRemarks ?? 'N/A',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              Text(
+                widget.detail.reopenRemarks ?? 'N/A',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
               Text(
                 widget.detail.description ?? 'N/A',
                 style: const TextStyle(
@@ -786,7 +969,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               _buildResponsiveRow(
                   context,
                   "Created By :",
-                  widget.detail.createdByName ?? 'N/A',
+                  widget.detail.observationRaisedBy ?? 'N/A',
                   "Due Date :",
                   _formatDate(widget.detail.dueDate)),
               _buildResponsiveRow(
@@ -814,6 +997,23 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   "Escalation Required :",
                   widget.detail.escalationRequired ? 'True' : 'False'),
 
+              // ⭐ NEW FIELDS — 2-per-row with condition
+              buildPairRow(
+                context,
+                "Root Cause :",
+                widget.detail.rootCauseName,
+                "Rework Cost :",
+                widget.detail.reworkCost?.toStringAsFixed(2),
+              ),
+
+              buildPairRow(
+                context,
+                "Preventive Action To Be Taken :",
+                widget.detail.preventiveActionTaken,
+                "Corrective Action To Be Taken :",
+                widget.detail.corretiveActionToBeTaken,
+              ),
+
               const SizedBox(height: 24),
 
               // ✅ Your existing form
@@ -822,6 +1022,35 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget buildPairRow(
+    BuildContext context,
+    String label1,
+    String? value1,
+    String label2,
+    String? value2,
+  ) {
+    bool show1 = value1 != null && value1.trim().isNotEmpty;
+    bool show2 = value2 != null && value2.trim().isNotEmpty;
+
+    if (!show1 && !show2) return const SizedBox.shrink();
+
+    if (show1 && !show2) {
+      return _buildResponsiveRow(context, label1, value1!, "", "");
+    }
+
+    if (!show1 && show2) {
+      return _buildResponsiveRow(context, label2, value2!, "", "");
+    }
+
+    return _buildResponsiveRow(
+      context,
+      label1,
+      value1!,
+      label2,
+      value2!,
     );
   }
 
@@ -874,55 +1103,48 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     );
   }
 
-  // TableRow _buildAlignedRow(
-  //     String label1, String value1, String label2, String value2) {
-  //   return TableRow(
-  //     children: [
-  //       _buildLabelValue(label1, value1),
-  //       _buildLabelValue(label2, value2),
-  //     ],
-  //   );
-  // }
-
-  // Widget _buildLabelValue(String label, String value) {
-  //   return Padding(
-  //     padding: const EdgeInsets.symmetric(vertical: 8),
-  //     child: Row(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Text(
-  //           label,
-  //           style: const TextStyle(fontWeight: FontWeight.w600),
-  //         ),
-  //         const SizedBox(width: 4),
-  //         Expanded(
-  //           child: Text(
-  //             value,
-  //             overflow: TextOverflow.ellipsis,
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   String _formatDate(DateTime? date) {
     return date != null
         ? DateFormat('dd/MM/yyyy hh:mm').format(date.toLocal())
         : 'N/A';
   }
 
+  Widget _buildTripleRow(BuildContext context, Widget a, Widget b, Widget c) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    if (isMobile) {
+      return Column(
+        children: [
+          a,
+          const SizedBox(height: 10),
+          b,
+          const SizedBox(height: 10),
+          c,
+          const SizedBox(height: 10),
+        ],
+      );
+    } else {
+      return Row(
+        children: [
+          Expanded(child: a),
+          const SizedBox(width: 12),
+          Expanded(child: b),
+          const SizedBox(width: 12),
+          Expanded(child: c),
+        ],
+      );
+    }
+  }
+
   Widget _buildRootCauseForm() {
     return Form(
-      key: _formKey, // <-- Form key yahan lagao
+      key: _formKey,
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Existing form fields (Dropdown, TextFormFields)
-            if (selectedStatus ==
-                    SiteObservationStatus.ReadyToInspect.toString() ||
-                selectedStatus == SiteObservationStatus.Closed.toString()) ...[
+            // ================= ROOT CAUSE SECTION (UNCHANGED) =================
+            if (isRootCauseFileUpdateEnable && canEditRootCause) ...[
               DropdownButtonFormField<RootCause>(
                 value: selectedRootCause,
                 decoration: const InputDecoration(
@@ -940,33 +1162,40 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                     selectedRootCause = newValue;
                   });
                 },
-                validator: (value) {
-                  if (value == null) return 'Root Cause is required';
-                  return null;
-                },
+                validator: (value) =>
+                    value == null ? 'Root Cause is required' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: reworkCostController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Rework Cost',
-                  border: OutlineInputBorder(),
+              _buildTripleRow(
+                context,
+                TextFormField(
+                  controller: materialCostController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: "Material Cost",
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      v == null || v.isEmpty ? "Material cost required" : null,
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Rework Cost is required';
-                  }
-                  final numValue = num.tryParse(value);
-                  if (numValue == null) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
+                TextFormField(
+                  controller: labourCostController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: "Labour Cost",
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      v == null || v.isEmpty ? "Labour cost required" : null,
+                ),
+                TextFormField(
+                  controller: reworkCostController,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: "Total Rework Cost",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -975,12 +1204,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   labelText: 'Preventive Action To Be Taken',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Preventive Action To Be Taken is required';
-                  }
-                  return null;
-                },
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -989,84 +1213,110 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   labelText: 'Corrective Action To Be Taken',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Corrective Action To Be Taken is required';
-                  }
-                  return null;
-                },
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
-            ],
 
-            // File upload section
-            if (selectedStatus ==
-                    SiteObservationStatus.ReadyToInspect.toString() ||
-                selectedStatus == SiteObservationStatus.Closed.toString() ||
-                selectedStatus == SiteObservationStatus.Reopen.toString()) ...[
-              const Text(
-                "Upload File",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  FilePickerResult? result =
-                      await FilePicker.platform.pickFiles(
-                    allowMultiple: false,
-                    withData: true,
-                  );
+              // ================= FILE UPLOAD (UNCHANGED) =================
+              if (isRootCauseFileUpdateEnable) ...[
+                const SizedBox(height: 16),
+                const Text("Upload File",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                ElevatedButton(
+                  onPressed: () async {
+                    FilePickerResult? result =
+                        await FilePicker.platform.pickFiles(
+                      allowMultiple: false,
+                      withData: true,
+                    );
 
-                  if (result != null && result.files.isNotEmpty) {
-                    final file = result.files.first;
+                    if (result != null && result.files.isNotEmpty) {
+                      final file = result.files.first;
 
-                    setState(() {
-                      selectedFileName = file.name;
-                    });
-
-                    final uploadedFileName = await SiteObservationService()
-                        .uploadFileAndGetFileName(file.name, file.bytes!);
-
-                    if (uploadedFileName != null) {
                       setState(() {
-                        uploadedFiles.add(uploadedFileName);
+                        selectedFileName = file.name;
                       });
+
+                      final uploadedFileName = await SiteObservationService()
+                          .uploadFileAndGetFileName(file.name, file.bytes!);
+
+                      if (uploadedFileName != null) {
+                        setState(() {
+                          uploadedFiles.add(uploadedFileName);
+                        });
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("File upload failed")),
+                        );
+                      }
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("File upload failed")),
-                      );
+                      print("No file selected");
                     }
-                  } else {
-                    print("No file selected");
-                  }
-                },
-                child: const Text("Choose File"),
-              ),
-              if (selectedFileName != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  "Selected file: $selectedFileName",
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  },
+                  child: const Text("Choose File"),
                 ),
+                if (selectedFileName != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    "Selected file: $selectedFileName",
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
+                const SizedBox(height: 16),
               ],
-              const SizedBox(height: 16),
             ],
 
-            // Message if form is hidden (adjust condition as per your logic)
-            if (selectedStatus !=
-                    SiteObservationStatus.ReadyToInspect.toString() &&
-                selectedStatus != SiteObservationStatus.InProgress.toString() &&
-                selectedStatus == SiteObservationStatus.Closed.toString() &&
-                selectedStatus == SiteObservationStatus.Reopen.toString())
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  "Root Cause Details are hidden for the current status.",
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
+            // ================= 🔥 REMARKS (FIXED – ROOT CAUSE SEPARATE) =================
 
-            // Update Button with validation
-            if (selectedStatus != SiteObservationStatus.Open.toString())
+            if (isReopenRemarksVisible) ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: reopenRemarksController,
+                decoration: const InputDecoration(
+                  labelText: 'Reopen Remarks',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Reopen Remarks required' : null,
+              ),
+            ],
+
+            if (isCloseRemarksVisible) ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: closeRemarksController,
+                decoration: const InputDecoration(
+                  labelText: 'Close Remarks',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Close Remarks required' : null,
+              ),
+            ],
+            if (inProgessRemarksVisible) ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: inProgessRemarksController,
+                decoration: const InputDecoration(
+                  labelText: 'In Progress Remarks',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'In Progress required' : null,
+              ),
+            ],
+
+            // ================= UPDATE BUTTON (UNCHANGED) =================
+            if (isRootCauseFileUpdateEnable && isUpdateBtnVisible)
+              // ElevatedButton(
+              //   onPressed: isButtonDisabled
+              //       ? null
+              //       : () async {
+              //           if (_formKey.currentState!.validate()) {
+              //             // existing update logic untouched
+              //           }
+              //         },
+              //   child: const Text('Update'),
+              // ),
               ElevatedButton(
                 onPressed: isButtonDisabled
                     ? null
@@ -1169,6 +1419,52 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
   }
 
+  Future<bool> requestMediaPermission() async {
+    if (!Platform.isAndroid) return true;
+
+    // Android 13+ (READ_MEDIA_IMAGES)
+    if (await Permission.photos.isGranted ||
+        await Permission.photos.request().isGranted) {
+      return true;
+    }
+
+    // Android 10–12 (WRITE_EXTERNAL_STORAGE)
+    if (await Permission.storage.isGranted ||
+        await Permission.storage.request().isGranted) {
+      return true;
+    }
+
+    return false;
+  }
+
+  Future<void> downloadImage(String fileName) async {
+    try {
+      final granted = await requestMediaPermission();
+      if (!granted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Permission denied")),
+        );
+        return;
+      }
+
+      final dio = Dio();
+      final dir = await getExternalStorageDirectory();
+      final savePath = "${dir!.path}/$fileName";
+
+      await dio.download("$url/$fileName", savePath);
+      print("Saved at: $savePath");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Image downloaded successfully"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      debugPrint("Download error: $e");
+    }
+  }
+
   Widget _buildAttachmentTab() {
     // return Portal(
     return SingleChildScrollView(
@@ -1201,7 +1497,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                     fileName,
                     fileBytes,
                   );
-
+                  // final int effectiveStatus = widget.detail.statusID ?? 0;
                   if (uploadedFileName != null) {
                     uploadedFiles.add(uploadedFileName);
                     setState(() {
@@ -1296,33 +1592,71 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold)),
                             const SizedBox(height: 6),
+                            Text(
+                              "Uploaded By: ${activity.createdByName}",
+                              style: const TextStyle(
+                                  fontSize: 13, color: Colors.black54),
+                            ),
+                            Text(
+                              "Status: ${getAttachmentStatusName(activity)}",
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.blueGrey,
+                              ),
+                            ),
+                            SizedBox(height: 6),
                             GestureDetector(
                               onTap: () {
-                                openImageModal(activity.documentName);
+                                openImageModal(
+                                    activity.documentName); // preview
                               },
-                              child: Container(
-                                height: 150,
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.network(
-                                    isImage(activity.documentName)
-                                        ? "$url/${activity.documentName}"
-                                        : "assets/default-image.png",
-                                    fit: BoxFit.cover,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    height: 150,
+                                    width: 150,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                        width: 2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.network(
+                                        isImage(activity.documentName)
+                                            ? "$url/${activity.documentName}"
+                                            : "assets/default-image.png",
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
                                             const Icon(Icons.broken_image,
                                                 size: 50),
+                                      ),
+                                    ),
                                   ),
-                                ),
+
+                                  /// 🔽 Download Icon Overlay
+                                  Positioned(
+                                    right: 6,
+                                    bottom: 6,
+                                    child: InkWell(
+                                      onTap: () {
+                                        downloadImage(activity.documentName);
+                                      },
+                                      child: CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: Colors.black54,
+                                        child: const Icon(
+                                          Icons.download,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

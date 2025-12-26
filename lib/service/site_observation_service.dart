@@ -49,7 +49,7 @@ class SiteObservationService {
     required int projectId,
     String sortColumn = 'ID desc',
     int pageIndex = 0,
-    int pageSize = 10,
+    int pageSize = 100,
     bool isActive = true,
   }) async {
     final uri = Uri.https(
@@ -675,7 +675,7 @@ class SiteObservationService {
     required int projectId,
     String sortColumn = 'ID desc',
     int pageIndex = 0,
-    int pageSize = 10,
+    int pageSize = 100,
     bool isActive = true,
   }) async {
     final uri = Uri.https(

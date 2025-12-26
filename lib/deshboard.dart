@@ -602,6 +602,23 @@ class _DashboardPageState extends State<DashboardPage> {
                   );
                 },
               ),
+              ListTile(
+                leading:
+                    const Icon(Icons.home_repair_service, color: Colors.purple),
+                title: const Text('P & M Service Request'),
+                // onTap: () {
+                //   Navigator.pop(context);
+                //   Navigator.push(
+                //     context,
+                //     MaterialPageRoute(
+                //       builder: (_) => PMServiceRequestPage(
+                //         companyName: widget.companyName,
+                //         projectService: widget.projectService,
+                //       ),
+                //     ),
+                //   );
+                // },
+              ),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
