@@ -63,6 +63,7 @@ class SiteObservationService {
         'IsActive': isActive.toString(),
       },
     );
+    print(projectId);
     String? token = await SharedPrefsHelper.getToken();
     final response = await http.get(
       uri,

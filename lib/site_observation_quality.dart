@@ -115,7 +115,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
     // Find selected Observation from the list
     final selectedObs = observationsList.firstWhereOrNull(
-      (obs) => obs.observationDescription == selectedObservation,
+      (obs) => obs.observationDisplayText == selectedObservation,
     );
     if (selectedObs == null) return true;
 
@@ -135,14 +135,15 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       return false;
     }
     if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
-      return false;
+      // return false;
+      return selectedObservation != null && selectedObservation!.isNotEmpty;
     }
     if (selectedObservation == null || selectedObservation!.isEmpty) {
       return true; // enable by default
     }
 
     final selectedObs = observationsList.firstWhereOrNull(
-      (obs) => obs.observationDescription == selectedObservation,
+      (obs) => obs.observationDisplayText == selectedObservation,
     );
     if (selectedObs == null) return true;
 
@@ -1029,7 +1030,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         trancationDate: formatDateForApi(DateTime.now().toUtc()),
         observationRaisedBy: userID,
         observationID: observationsList
-            .firstWhere((o) => o.observationDescription == selectedObservation)
+            .firstWhere((o) => o.observationDisplayText == selectedObservation)
             .id,
         observationTypeID: observationTypeList
             .firstWhere(
@@ -1040,7 +1041,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
             .id,
         dueDate: (dueDateValue != null && dueDateValue.isNotEmpty)
             ? dueDateValue
-            : formatDateForApi(DateTime.now().toUtc()),
+            : null,
+        // dueDate: (isDueDateEnabled &&
+        //         dueDateValue != null &&
+        //         dueDateValue.isNotEmpty)
+        //     ? dueDateValue
+        //     : null,
         observationDescription: observationDescription,
         userDescription: '',
         complianceRequired: isComplianceRequired,
@@ -1068,8 +1074,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         reworkCost: 0,
         comments: 'string',
         rootCauseID: 0,
-        corretiveActionToBeTaken: 'Corrective action here',
-        preventiveActionTaken: 'Preventive action here',
+        corretiveActionToBeTaken: '',
+        preventiveActionTaken: '',
         statusID: toStatusID,
         isActive: true,
         createdBy: userID,
@@ -1255,6 +1261,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         observationTypeID: 0,
         issueTypeID: 0,
         observationDescription: '',
+        observationDisplayText: '',
         complianceRequired: false,
         escalationRequired: false,
         dueTimeInHrs: 0,
@@ -1450,7 +1457,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
               } else {
                 // ✅ compliance ON → auto calculate if possible
                 final selected = observationsList.firstWhereOrNull(
-                  (obs) => obs.observationDescription == selectedObservation,
+                  (obs) => obs.observationDisplayText == selectedObservation,
                 );
 
                 if (selected != null &&
@@ -1497,7 +1504,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                 } else {
                   // ✅ compliance ON → auto calculate if possible
                   final selected = observationsList.firstWhereOrNull(
-                    (obs) => obs.observationDescription == selectedObservation,
+                    (obs) => obs.observationDisplayText == selectedObservation,
                   );
 
                   if (selected != null &&
@@ -1548,12 +1555,13 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     }
 
     final selected = observationsList.firstWhere(
-      (obs) => obs.observationDescription == selectedObservation,
+      (obs) => obs.observationDisplayText == selectedObservation,
       orElse: () => Observation(
         id: 0,
         observationTypeID: 0,
         issueTypeID: 0,
         observationDescription: '',
+        observationDisplayText: '',
         complianceRequired: false,
         escalationRequired: false,
         dueTimeInHrs: 0,
@@ -1579,6 +1587,54 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     } catch (_) {
       _dateDueDateController.text = '';
     }
+  }
+
+  Widget _popupRowIfValid(String label, String? value) {
+    if (value == null) return const SizedBox.shrink();
+
+    final v = value.trim();
+    if (v.isEmpty || v == 'N/A' || v == '0' || v == '0.0') {
+      return const SizedBox.shrink();
+    }
+
+    return _popupRow(label, v);
+  }
+
+  Widget _rootCauseSection(SiteObservation observation) {
+    print(observation);
+    final rows = [
+      _popupRowIfValid("Root Cause Name", observation.rootCauseName),
+      _popupRowIfValid("Rework Cost", observation.reworkCost),
+      _popupRowIfValid(
+          "Root Cause Description", observation.rootcauseDescription),
+      _popupRowIfValid(
+        "Corrective Action To Be Taken",
+        observation.corretiveActionToBeTaken,
+      ),
+      _popupRowIfValid(
+        "Preventive Action Taken",
+        observation.preventiveActionTaken,
+      ),
+      _popupRowIfValid("Closure Remarks", observation.closeRemarks)
+    ].where((w) => w is! SizedBox).toList();
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(),
+          const Text(
+            'Root Cause (View Only)',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          ...rows,
+        ],
+      ),
+    );
   }
 
   @override
@@ -1677,6 +1733,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               if (observation.observationStatus
                                                       .toLowerCase() ==
                                                   'draft') {
+                                                print(observation);
                                                 // 🟢 Open editable form
                                                 setState(() {
                                                   showObservations = false;
@@ -1727,13 +1784,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                                   .toString()
                                                                   .split(
                                                                       " ")[0]),
-                                                          _popupRow(
-                                                              "Due Date",
-                                                              observation
-                                                                  .dueDate
-                                                                  .toString()
-                                                                  .split(
-                                                                      " ")[0]),
+                                                          _popupDateRowIfValid(
+                                                            "Due Date",
+                                                            observation.dueDate,
+                                                          ),
                                                           _popupRow(
                                                               "Compliance Required",
                                                               observation
@@ -1750,53 +1804,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                               "Description",
                                                               observation
                                                                   .observationDescription),
-                                                          AlertDialog(
-                                                              title: Text(
-                                                                  'Root Cause (View Only)')),
-                                                          // Aur bhi fields chahiye to add kar lo
-                                                          observation.rootCauseName
-                                                                      .isNotEmpty &&
-                                                                  observation
-                                                                          .rootCauseName !=
-                                                                      "N/A"
-                                                              ? _popupRow(
-                                                                  "Root CauseName",
-                                                                  observation
-                                                                      .rootCauseName)
-                                                              : SizedBox(),
-
-                                                          observation.reworkCost
-                                                                      .isNotEmpty &&
-                                                                  observation
-                                                                          .reworkCost !=
-                                                                      "0"
-                                                              ? _popupRow(
-                                                                  "Rework Cost",
-                                                                  observation
-                                                                      .reworkCost)
-                                                              : SizedBox(),
-
-                                                          observation.corretiveActionToBeTaken
-                                                                      .isNotEmpty &&
-                                                                  observation
-                                                                          .corretiveActionToBeTaken !=
-                                                                      "N/A"
-                                                              ? _popupRow(
-                                                                  "Corretive Action To Be Taken",
-                                                                  observation
-                                                                      .corretiveActionToBeTaken)
-                                                              : SizedBox(),
-
-                                                          observation.preventiveActionTaken
-                                                                      .isNotEmpty &&
-                                                                  observation
-                                                                          .preventiveActionTaken !=
-                                                                      "N/A"
-                                                              ? _popupRow(
-                                                                  "Preventive Action Taken",
-                                                                  observation
-                                                                      .preventiveActionTaken)
-                                                              : SizedBox(),
+                                                          _rootCauseSection(
+                                                              observation),
                                                         ],
                                                       ),
                                                     ),
@@ -2244,7 +2253,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       selectedObservation!
                                                           .isNotEmpty &&
                                                       observationsList.any((obs) =>
-                                                          obs.observationDescription ==
+                                                          obs.observationDisplayText ==
                                                           selectedObservation))
                                                   ? selectedObservation
                                                   : null,
@@ -2264,7 +2273,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                                 observationsList
                                                                     .firstWhere(
                                                               (obs) =>
-                                                                  obs.observationDescription ==
+                                                                  obs.observationDisplayText ==
                                                                   selectedObservation,
                                                               orElse: () =>
                                                                   Observation(
@@ -2273,6 +2282,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                                     0,
                                                                 issueTypeID: 0,
                                                                 observationDescription:
+                                                                    '',
+                                                                observationDisplayText:
                                                                     '',
                                                                 complianceRequired:
                                                                     false,
@@ -2326,10 +2337,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       return DropdownMenuItem<
                                                           String>(
                                                         value: observation
-                                                            .observationDescription,
+                                                            .observationDisplayText,
                                                         child: Text(
                                                           observation
-                                                              .observationDescription,
+                                                              .observationDisplayText,
                                                           overflow: TextOverflow
                                                               .ellipsis,
                                                         ),
@@ -3009,13 +3020,37 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
 Widget _popupRow(String label, String value) {
   return Padding(
-    padding: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.only(bottom: 10),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("$label: ", style: TextStyle(fontWeight: FontWeight.bold)),
-        Expanded(child: Text(value)),
+        SizedBox(
+          width: 140, // 👈 consistent label width
+          child: Text(
+            '$label:',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            softWrap: true,
+          ),
+        ),
       ],
     ),
   );
+}
+
+Widget _popupDateRowIfValid(String label, DateTime? date) {
+  if (date == null) return const SizedBox.shrink();
+
+  // ❌ backend ke fake / default dates
+  if (date.year <= 2000) return const SizedBox.shrink();
+
+  final formatted = date.toLocal().toString().split(' ')[0];
+
+  return _popupRow(label, formatted);
 }

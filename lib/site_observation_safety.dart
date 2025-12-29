@@ -1457,6 +1457,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         observationTypeID: 0,
         issueTypeID: 0,
         observationDescription: '',
+        observationDisplayText: '',
         complianceRequired: false,
         escalationRequired: false,
         dueTimeInHrs: 0,
@@ -1622,6 +1623,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         observationTypeID: 0,
         issueTypeID: 0,
         observationDescription: '',
+        observationDisplayText: '',
         complianceRequired: false,
         escalationRequired: false,
         dueTimeInHrs: 0,
@@ -2393,6 +2395,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                                 0,
                                                             issueTypeID: 0,
                                                             observationDescription:
+                                                                '',
+                                                            observationDisplayText:
                                                                 '',
                                                             complianceRequired:
                                                                 false,

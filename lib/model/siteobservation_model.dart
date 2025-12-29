@@ -13,10 +13,13 @@ class SiteObservation {
   final DateTime dueDate;
   final bool compliancerequired;
   final bool escalationrequired;
+  final int rootCauseID;
   final String rootCauseName;
   final String reworkCost;
+  final String rootcauseDescription;
   final String corretiveActionToBeTaken;
   final String preventiveActionTaken;
+  final String closeRemarks;
 
   SiteObservation({
     required this.id,
@@ -33,10 +36,13 @@ class SiteObservation {
     required this.dueDate,
     required this.compliancerequired,
     required this.escalationrequired,
+    required this.rootCauseID,
     required this.rootCauseName,
     required this.reworkCost,
+    required this.rootcauseDescription,
     required this.corretiveActionToBeTaken,
     required this.preventiveActionTaken,
+    required this.closeRemarks,
   });
 
   factory SiteObservation.fromJson(Map<String, dynamic> json) {
@@ -57,10 +63,14 @@ class SiteObservation {
       dueDate: _parseDate(json['DueDate']),
       compliancerequired: json['ComplianceRequired'] ?? false,
       escalationrequired: json['EscalationRequired'] ?? false,
+      rootCauseID: (json['rootCauseID'] ?? 0) as int,
       rootCauseName: json['RootCauseName'] ?? 'N/A',
-      reworkCost: json['ReworkCost']?.toString() ?? '0',
-      corretiveActionToBeTaken: json['CorretiveActionToBeTaken'] ?? 'N/A',
-      preventiveActionTaken: json['PreventiveActionTaken'] ?? 'N/A',
+      reworkCost: (json['ReworkCost'] ?? '').toString(),
+      rootcauseDescription: (json['rootcauseDescription'] ?? '').toString(),
+      corretiveActionToBeTaken:
+          (json['CorretiveActionToBeTaken'] ?? '').toString(),
+      preventiveActionTaken: (json['PreventiveActionTaken'] ?? '').toString(),
+      closeRemarks: (json['closeRemarks'] ?? '').toString(),
     );
   }
 
@@ -133,7 +143,7 @@ class Observation {
   final int observationTypeID;
   final int issueTypeID;
   final String observationDescription;
-  // final String observationDisplayText;
+  final String observationDisplayText;
   final bool complianceRequired;
   final bool escalationRequired;
   final int dueTimeInHrs;
@@ -146,7 +156,7 @@ class Observation {
     required this.observationTypeID,
     required this.issueTypeID,
     required this.observationDescription,
-    // required this.observationDisplayText,
+    required this.observationDisplayText,
     required this.complianceRequired,
     required this.escalationRequired,
     required this.dueTimeInHrs,
@@ -162,7 +172,7 @@ class Observation {
       observationTypeID: (json['observationTypeID'] as num).toInt(),
       issueTypeID: (json['issueTypeID'] as num).toInt(),
       observationDescription: json['observationDescription'] ?? '',
-      // observationDisplayText: json['observationDisplayText'] ?? '',
+      observationDisplayText: json['observationDisplayText'] ?? '',
       complianceRequired: json['complianceRequired'] ?? false,
       escalationRequired: json['escalationRequired'] ?? false,
       dueTimeInHrs: (json['dueTimeInHrs'] as num).toInt(),
