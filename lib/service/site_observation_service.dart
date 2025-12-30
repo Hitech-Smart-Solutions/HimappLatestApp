@@ -891,6 +891,34 @@ Future<List<FloorModel>> getFloorByProjectID(int projectID) async {
   }
 }
 
+Future<List<PourModel>> getPourByProjectID(int projectID) async {
+  String? token = await SharedPrefsHelper.getToken();
+  final response = await http.get(
+    Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/ProjectPartMapping/GetPartsByProjectID/$projectID'),
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    // print('Floor API response: ${response.body}');
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is List) {
+      return decoded.map((json) => PourModel.fromJson(json)).toList();
+    } else if (decoded is Map && decoded.containsKey('value')) {
+      List<dynamic> data = decoded['value'];
+      return data.map((json) => PourModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Unexpected response format for floor');
+    }
+  } else {
+    throw Exception('Failed to load floors');
+  }
+}
+
 Future<List<ElementModel>> getElementByProjectID(int projectID) async {
   String? token = await SharedPrefsHelper.getToken();
   final response = await http.get(

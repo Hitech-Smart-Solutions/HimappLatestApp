@@ -54,6 +54,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController rootCauseController = TextEditingController();
+  final TextEditingController rootcauseDescriptionController =
+      TextEditingController();
   final TextEditingController materialCostController = TextEditingController();
   final TextEditingController labourCostController = TextEditingController();
   final TextEditingController reworkCostController = TextEditingController();
@@ -89,6 +91,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   int toStatus = SiteObservationStatus.Open;
   String? areaLabel;
   String? floorLabel;
+  String? pourLabel;
   String? elementLabel;
   bool isSending = false;
 
@@ -109,6 +112,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     _setupPage();
     loadSection();
     loadFloor();
+    loadPour();
     loadElement();
     // print("created Status 92: ${widget.detail.createdBy}");
     // print('166: ${widget.detail}');
@@ -177,6 +181,10 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       } catch (e) {
         selectedRootCause = null;
       }
+      print(
+          'widget.detail.rootcauseDescription 185: ${widget.detail.rootcauseDescription}');
+      rootcauseDescriptionController.text =
+          widget.detail.rootcauseDescription ?? '';
       materialCostController.text = widget.detail.materialCost.toString();
       labourCostController.text = widget.detail.labourCost.toString();
       reworkCostController.text = widget.detail.reworkCost.toString();
@@ -215,6 +223,10 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       } catch (e) {
         selectedRootCause = null;
       }
+      print(
+          'widget.detail.rootcauseDescription 225: ${widget.detail.rootcauseDescription}');
+      rootcauseDescriptionController.text =
+          widget.detail.rootcauseDescription ?? '';
       materialCostController.text = widget.detail.materialCost.toString();
       labourCostController.text = widget.detail.labourCost.toString();
       reworkCostController.text = widget.detail.reworkCost.toString();
@@ -243,6 +255,10 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
 
     // ---------- Text fields ----------
+    print(
+        'widget.detail.rootcauseDescription 259: ${widget.detail.rootcauseDescription}');
+    rootcauseDescriptionController.text =
+        widget.detail.rootcauseDescription ?? '';
     materialCostController.text = widget.detail.materialCost?.toString() ?? '';
     labourCostController.text = widget.detail.labourCost?.toString() ?? '';
     reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
@@ -360,6 +376,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     return UpdateSiteObservation(
       id: id,
       rootCauseID: rootCauseID,
+      rootcauseDescription: rootcauseDescriptionController.text,
       corretiveActionToBeTaken: correctiveActionController.text,
       preventiveActionTaken: preventiveActionController.text,
       materialCost: double.tryParse(materialCostController.text) ?? 0.0,
@@ -633,6 +650,24 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         }
       } catch (e) {
         print('Error fetching floors: $e');
+      }
+    }
+  }
+
+  Future<void> loadPour() async {
+    int projectID = widget.projectID;
+    // print("Saved at: $projectID");
+    if (projectID != null) {
+      try {
+        List<PourModel> pours = await getPourByProjectID(projectID);
+        if (pours.isNotEmpty) {
+          setState(() {
+            pourLabel = pours[0].labelName; // ✅ now it shows the label
+            // pourName = pours[0].partName;   // optional: store the actual pour name
+          });
+        }
+      } catch (e) {
+        print('Error fetching pours: $e');
       }
     }
   }
@@ -982,7 +1017,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   context,
                   "$floorLabel :",
                   widget.detail.floorName ?? 'N/A',
-                  "Part :",
+                  "$pourLabel :",
                   widget.detail.partName ?? 'N/A'),
               _buildResponsiveRow(
                   context,
@@ -1003,7 +1038,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 "Root Cause :",
                 widget.detail.rootCauseName,
                 "Rework Cost :",
-                widget.detail.reworkCost?.toStringAsFixed(2),
+                widget.detail.reworkCost,
               ),
 
               buildPairRow(
@@ -1165,6 +1200,17 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 validator: (value) =>
                     value == null ? 'Root Cause is required' : null,
               ),
+
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: rootcauseDescriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Root Cause Description',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+              ),
+
               const SizedBox(height: 12),
               _buildTripleRow(
                 context,

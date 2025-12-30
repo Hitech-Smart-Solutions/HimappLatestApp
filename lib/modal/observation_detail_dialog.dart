@@ -163,9 +163,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
         selectedRootCause = null;
       }
 
-      reworkCostController.text = widget.detail.reworkCost != null
-          ? widget.detail.reworkCost!.toStringAsFixed(2)
-          : '';
+      reworkCostController.text =
+          widget.detail.reworkCost != null ? widget.detail.reworkCost! : '';
       preventiveActionController.text =
           widget.detail.preventiveActionTaken ?? '';
       correctiveActionController.text =

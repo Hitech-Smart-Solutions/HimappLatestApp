@@ -1197,7 +1197,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     try {
       final observationList = await widget._siteObservationService
           .fetchGetSiteObservationMasterById(observationId);
-
+      print(observationList);
       if (observationList.isNotEmpty) {
         final observation = observationList.first;
 
@@ -1589,49 +1589,295 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     }
   }
 
+  Future<void> _openObservationDetailPopup(int observationId) async {
+    try {
+      final observationList = await widget._siteObservationService
+          .fetchGetSiteObservationMasterById(observationId);
+
+      if (observationList.isEmpty || !mounted) return;
+
+      final detail = observationList.first;
+
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          insetPadding: const EdgeInsets.all(16), // screen margins
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 1000, // max width for web/tablet
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            child: IntrinsicHeight(
+              // dynamically adjust height
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 🔹 HEADER
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Observation Details (View Only)',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        )
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+
+                  // 🔹 BODY (scrollable)
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Table(
+                            columnWidths: const {
+                              0: FlexColumnWidth(1),
+                              1: FlexColumnWidth(1),
+                            },
+                            defaultVerticalAlignment:
+                                TableCellVerticalAlignment.top,
+                            children: [
+                              _tableRow(
+                                _popupRow(
+                                    detail.description, detail.description,
+                                    hideLabel: true),
+                                const SizedBox.shrink(),
+                              ),
+                              _tableRow(
+                                _popupRow("Status", detail.statusName),
+                                _popupRow(
+                                    "Observation Code", detail.observationCode),
+                              ),
+                              _tableRow(
+                                _popupDateRowIfValid(
+                                    "Observation Date", detail.trancationDate),
+                                _popupDateRowIfValid(
+                                    "Created Date", detail.createdDate),
+                              ),
+                              _tableRow(
+                                _popupRow(
+                                    "Observation Type", detail.observationType),
+                                _popupRow("Issue Type", detail.issueType),
+                              ),
+                              _tableRow(
+                                _popupRow("Activity", detail.activityName),
+                                _popupRow("Area", detail.sectionName),
+                              ),
+                              _tableRow(
+                                _popupRow("Floor", detail.floorName),
+                                _popupRow("Pour", detail.partName),
+                              ),
+                              _tableRow(
+                                _popupRow("Element", detail.elementName),
+                                _popupRow("Contractor", detail.contractorName),
+                              ),
+                              _tableRow(
+                                _popupRow(
+                                  "Compliance Required",
+                                  detail.complianceRequired ? 'Yes' : 'No',
+                                ),
+                                _popupRow(
+                                  "Escalation Required",
+                                  detail.escalationRequired ? 'Yes' : 'No',
+                                ),
+                              ),
+                              _tableRow(
+                                _popupRow("Action To Be Taken",
+                                    detail.actionToBeTaken),
+                                const SizedBox.shrink(),
+                              ),
+                              _tableRow(
+                                _popupRow(
+                                    "Assigned Users", detail.assignedUsersName),
+                                const SizedBox.shrink(),
+                              ),
+                            ],
+                          ),
+
+                          // 🔹 ROOT CAUSE SECTION (agar data hai)
+                          _rootCauseSection(detail),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ Failed to load details')),
+      );
+    }
+  }
+
+// Popup row for date (if valid)
+  Widget _popupDateRowIfValid(String label, DateTime? date) {
+    if (date == null) return const SizedBox.shrink();
+    return _popupRow(label, "${date.toLocal()}".split(' ')[0]);
+  }
+
+  Widget _rootCauseSection(GetSiteObservationMasterById observation) {
+    // Prepare valid cells
+    final rootCauseName =
+        _popupRowIfValid("Root Cause Name", observation.rootCauseName);
+    final reworkCost = _popupRowIfValid("Rework Cost", observation.reworkCost);
+
+    final rootCauseDesc = _popupRowIfValid(
+        "Root Cause Description", observation.rootcauseDescription);
+    final correctiveAction = _popupRowIfValid(
+        "Corrective Action To Be Taken", observation.corretiveActionToBeTaken);
+
+    final preventiveAction = _popupRowIfValid(
+        "Preventive Action Taken", observation.preventiveActionTaken);
+    // final reopenRemarks =
+    //     _popupRowIfValid("Reopen Remarks", observation.reopenRemarks);
+
+    final reopenRemarks = observation.reopenRemarks != null &&
+            observation.reopenRemarks!.trim().isNotEmpty
+        ? RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: "Reopen Remarks: ", // label normal color
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black, // label ka color
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(
+                  text: observation.reopenRemarks, // value
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.red, // 🔴 value ka color
+                  ),
+                ),
+              ],
+            ),
+          )
+        : const SizedBox.shrink();
+
+    final closureRemarks =
+        _popupRowIfValid("Closure Remarks", observation.closeRemarks);
+
+    // Create TableRows only if at least one cell has valid data
+    final rows = <TableRow>[];
+    if (rootCauseName is! SizedBox || reworkCost is! SizedBox) {
+      rows.add(_tableRow(rootCauseName, reworkCost));
+    }
+    if (rootCauseDesc is! SizedBox || correctiveAction is! SizedBox) {
+      rows.add(_tableRow(rootCauseDesc, correctiveAction));
+    }
+    if (preventiveAction is! SizedBox || closureRemarks is! SizedBox) {
+      rows.add(_tableRow(preventiveAction, closureRemarks));
+    }
+    if (reopenRemarks is! SizedBox) {
+      rows.add(_tableRow(reopenRemarks, const SizedBox.shrink()));
+    }
+
+    // Agar rows empty → pura section hide
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(thickness: 1),
+          const Text(
+            'Root Cause (View Only)',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(1),
+              1: FlexColumnWidth(1),
+            },
+            defaultVerticalAlignment: TableCellVerticalAlignment.top,
+            children: rows,
+          ),
+        ],
+      ),
+    );
+  }
+
+// TableRow helper
+  TableRow _tableRow(Widget left, Widget right) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8, bottom: 12),
+          child: left,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 12),
+          child: right,
+        ),
+      ],
+    );
+  }
+
+// PopupRowIfValid helper
   Widget _popupRowIfValid(String label, String? value) {
     if (value == null) return const SizedBox.shrink();
-
     final v = value.trim();
     if (v.isEmpty || v == 'N/A' || v == '0' || v == '0.0') {
       return const SizedBox.shrink();
     }
-
     return _popupRow(label, v);
   }
 
-  Widget _rootCauseSection(SiteObservation observation) {
-    print(observation);
-    final rows = [
-      _popupRowIfValid("Root Cause Name", observation.rootCauseName),
-      _popupRowIfValid("Rework Cost", observation.reworkCost),
-      _popupRowIfValid(
-          "Root Cause Description", observation.rootcauseDescription),
-      _popupRowIfValid(
-        "Corrective Action To Be Taken",
-        observation.corretiveActionToBeTaken,
-      ),
-      _popupRowIfValid(
-        "Preventive Action Taken",
-        observation.preventiveActionTaken,
-      ),
-      _popupRowIfValid("Closure Remarks", observation.closeRemarks)
-    ].where((w) => w is! SizedBox).toList();
-
-    if (rows.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+// PopupRow helper
+  Widget _popupRow(String label, String value, {bool hideLabel = false}) {
+    if (hideLabel) {
+      // Sirf value dikhaye
+      return Text(
+        value,
+        softWrap: true,
+        overflow: TextOverflow.visible,
+        style: const TextStyle(fontSize: 14),
+      );
+    }
+    return RichText(
+      text: TextSpan(
         children: [
-          const Divider(),
-          const Text(
-            'Root Cause (View Only)',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          TextSpan(
+            text: "$label: ",
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.black, // header look
+            ),
           ),
-          const SizedBox(height: 8),
-          ...rows,
+          TextSpan(
+            text: value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.normal,
+              color: Colors.black87, // value style
+            ),
+          ),
         ],
       ),
     );
@@ -1743,83 +1989,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       null;
                                                 });
                                               } else {
-                                                // 🔴 Show read-only data inside popup
-                                                showDialog(
-                                                  context: context,
-                                                  builder: (context) =>
-                                                      AlertDialog(
-                                                    title: Text(
-                                                        'Observation Details (View Only)'),
-                                                    content:
-                                                        SingleChildScrollView(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          _popupRow(
-                                                              "Observation Code",
-                                                              observation
-                                                                  .siteObservationCode),
-                                                          _popupRow(
-                                                              "Observation Type",
-                                                              observation
-                                                                  .observationType),
-                                                          _popupRow(
-                                                              "Issue Type",
-                                                              observation
-                                                                  .issueType),
-                                                          _popupRow(
-                                                              "Status",
-                                                              observation
-                                                                  .observationStatus),
-                                                          _popupRow(
-                                                              "Project",
-                                                              observation
-                                                                  .projectName),
-                                                          _popupRow(
-                                                              "Date",
-                                                              observation
-                                                                  .transactionDate
-                                                                  .toString()
-                                                                  .split(
-                                                                      " ")[0]),
-                                                          _popupDateRowIfValid(
-                                                            "Due Date",
-                                                            observation.dueDate,
-                                                          ),
-                                                          _popupRow(
-                                                              "Compliance Required",
-                                                              observation
-                                                                      .compliancerequired
-                                                                  ? 'Yes'
-                                                                  : 'No'),
-                                                          _popupRow(
-                                                              "Escalation Required",
-                                                              observation
-                                                                      .escalationrequired
-                                                                  ? 'Yes'
-                                                                  : 'No'),
-                                                          _popupRow(
-                                                              "Description",
-                                                              observation
-                                                                  .observationDescription),
-                                                          _rootCauseSection(
-                                                              observation),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.of(
-                                                                    context)
-                                                                .pop(),
-                                                        child: Text('Close'),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
+                                                _openObservationDetailPopup(
+                                                    observation.id);
                                               }
                                             },
                                             child: Card(
@@ -1967,22 +2138,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                         if (selected != null) {
                                                           selectedObservationTypeId =
                                                               selected.id;
-                                                          // if (isEditMode) {
-                                                          //   if (selected.id ==
-                                                          //       1) {
-                                                          //     isUserSelectionEnabled =
-                                                          //         false;
-                                                          //     actionToBeTakenEnabled =
-                                                          //         false;
-                                                          //     selectedUsers
-                                                          //         .clear();
-                                                          //   } else {
-                                                          //     isUserSelectionEnabled =
-                                                          //         true;
-                                                          //     actionToBeTakenEnabled =
-                                                          //         true;
-                                                          //   }
-                                                          // }
                                                           isUserSelectionEnabled =
                                                               true;
                                                           actionToBeTakenEnabled =
@@ -2054,19 +2209,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                           );
                                                           selectedIssueTypeId =
                                                               selectedIssue.id;
-                                                          // bool isNCRSelected =
-                                                          //     selectedIssue
-                                                          //                 .id ==
-                                                          //             1 &&
-                                                          //         selectedIssue
-                                                          //                 .name ==
-                                                          //             'NCR';
-
-                                                          // // 🔁 Enable/Disable fields
-                                                          // isDueDateEnabled =
-                                                          //     !isNCRSelected;
-                                                          // isToggleEnabled =
-                                                          //     !isNCRSelected;
                                                           fetchObservations();
                                                         } catch (e) {
                                                           selectedIssueTypeId =
@@ -2092,161 +2234,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                             ),
 
                                             SizedBox(height: 20),
-                                            // Dropdown for Select Observation
-                                            // DropdownButtonFormField<String>(
-                                            //   value: (selectedObservation !=
-                                            //               null &&
-                                            //           selectedObservation!
-                                            //               .isNotEmpty &&
-                                            //           observationsList.any((obs) =>
-                                            //               obs.observationDescription ==
-                                            //               selectedObservation))
-                                            //       ? selectedObservation
-                                            //       : null,
-                                            //   onChanged: (!isDraftObservation &&
-                                            //           isEditMode)
-                                            //       ? (selectedIssueTypeId ==
-                                            //                   null ||
-                                            //               selectedIssueTypeId ==
-                                            //                   0)
-                                            //           ? null
-                                            //           : (String? newValue) {
-                                            //               setState(() {
-                                            //                 selectedObservation =
-                                            //                     newValue ?? '';
-
-                                            //                 final selected =
-                                            //                     observationsList
-                                            //                         .firstWhere(
-                                            //                   (obs) =>
-                                            //                       obs.observationDescription ==
-                                            //                       selectedObservation,
-                                            //                   orElse: () =>
-                                            //                       Observation(
-                                            //                     id: 0,
-                                            //                     observationTypeID:
-                                            //                         0,
-                                            //                     issueTypeID: 0,
-                                            //                     observationDescription:
-                                            //                         '',
-                                            //                     complianceRequired:
-                                            //                         false,
-                                            //                     escalationRequired:
-                                            //                         false,
-                                            //                     dueTimeInHrs: 0,
-                                            //                     actionToBeTaken:
-                                            //                         '',
-                                            //                     lastModifiedBy:
-                                            //                         '',
-                                            //                     lastModifiedDate:
-                                            //                         DateTime.now()
-                                            //                             .toIso8601String(),
-                                            //                   ),
-                                            //                 );
-
-                                            //                 // Existing assignments
-                                            //                 observationDescriptionController
-                                            //                         .text =
-                                            //                     selected
-                                            //                         .observationDescription;
-                                            //                 isComplianceRequired =
-                                            //                     selected
-                                            //                         .complianceRequired;
-                                            //                 isEscalationRequired =
-                                            //                     selected
-                                            //                         .escalationRequired;
-                                            //                 actionToBeTakenController
-                                            //                     .text = selected
-                                            //                         .actionToBeTaken ??
-                                            //                     '';
-
-                                            //                 // ✅ New logic (due date handle with compliance)
-                                            //                 if (!isComplianceRequired) {
-                                            //                   _dateDueDateController
-                                            //                       .text = '';
-                                            //                 } else {
-                                            //                   if (_dateController
-                                            //                           .text
-                                            //                           .isNotEmpty &&
-                                            //                       selected.dueTimeInHrs !=
-                                            //                           0) {
-                                            //                     try {
-                                            //                       DateTime
-                                            //                           startDate =
-                                            //                           DateFormat(
-                                            //                                   'yyyy-MM-dd HH:mm')
-                                            //                               .parse(
-                                            //                                   _dateController.text);
-                                            //                       DateTime
-                                            //                           dueDate =
-                                            //                           startDate.add(Duration(
-                                            //                               hours:
-                                            //                                   selected.dueTimeInHrs));
-                                            //                       _dateDueDateController
-                                            //                           .text = DateFormat(
-                                            //                               'yyyy-MM-dd HH:mm')
-                                            //                           .format(
-                                            //                               dueDate);
-                                            //                     } catch (e) {
-                                            //                       _dateDueDateController
-                                            //                           .text = '';
-                                            //                     }
-                                            //                   } else {
-                                            //                     _dateDueDateController
-                                            //                         .text = '';
-                                            //                   }
-                                            //                 }
-                                            //               });
-                                            //             }
-                                            //       : null,
-                                            //   decoration: const InputDecoration(
-                                            //     labelText: 'Select Observation',
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   validator: (value) {
-                                            //     if ((selectedIssueTypeId ==
-                                            //                 null ||
-                                            //             selectedIssueTypeId ==
-                                            //                 0) ||
-                                            //         value == null ||
-                                            //         value.isEmpty) {
-                                            //       return 'Please select an observation';
-                                            //     }
-                                            //     return null;
-                                            //   },
-                                            //   items: (selectedIssueTypeId ==
-                                            //               null ||
-                                            //           selectedIssueTypeId == 0)
-                                            //       ? []
-                                            //       : [
-                                            //           const DropdownMenuItem<
-                                            //               String>(
-                                            //             value: '',
-                                            //             child: Text(
-                                            //               'Select Observation',
-                                            //               style: TextStyle(
-                                            //                   color:
-                                            //                       Colors.grey),
-                                            //             ),
-                                            //           ),
-                                            //           ...observationsList
-                                            //               .map((observation) {
-                                            //             return DropdownMenuItem<
-                                            //                 String>(
-                                            //               value: observation
-                                            //                   .observationDescription,
-                                            //               child: Text(
-                                            //                 observation
-                                            //                     .observationDescription,
-                                            //                 overflow:
-                                            //                     TextOverflow
-                                            //                         .ellipsis,
-                                            //               ),
-                                            //             );
-                                            //           }).toList(),
-                                            //         ],
-                                            // ),
-
                                             DropdownButtonFormField<String>(
                                               value: (selectedObservation !=
                                                           null &&
@@ -2385,62 +2372,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               // validator: _validateDueDate,
                                             ),
                                             SizedBox(height: 20),
-                                            // Row(
-                                            //   mainAxisAlignment:
-                                            //       MainAxisAlignment
-                                            //           .spaceBetween,
-                                            //   children: [
-                                            //     // **Compliance Required** Toggle Switch
-                                            //     Expanded(
-                                            //       child: Row(
-                                            //         mainAxisAlignment:
-                                            //             MainAxisAlignment.start,
-                                            //         children: [
-                                            //           Text(
-                                            //               "Compliance Required"),
-                                            //           Switch(
-                                            //             value:
-                                            //                 isComplianceRequired,
-                                            //             onChanged: isToggleEnabled
-                                            //                 ? (bool value) {
-                                            //                     setState(() {
-                                            //                       isComplianceRequired =
-                                            //                           value;
-                                            //                     });
-                                            //                   }
-                                            //                 : null, // disables switch when observation is selected
-                                            //           ),
-                                            //         ],
-                                            //       ),
-                                            //     ),
 
-                                            //     // **Escalation Required** Toggle Switch
-                                            //     Expanded(
-                                            //       child: Row(
-                                            //         mainAxisAlignment:
-                                            //             MainAxisAlignment.start,
-                                            //         children: [
-                                            //           Text(
-                                            //               "Escalation Required"),
-                                            //           Switch(
-                                            //             value:
-                                            //                 isEscalationRequired,
-                                            //             onChanged:
-                                            //                 isToggleEnabled
-                                            //                     ? (bool value) {
-                                            //                         setState(
-                                            //                             () {
-                                            //                           isEscalationRequired =
-                                            //                               value;
-                                            //                         });
-                                            //                       }
-                                            //                     : null,
-                                            //           ),
-                                            //         ],
-                                            //       ),
-                                            //     ),
-                                            //   ],
-                                            // ),
                                             _buildToggleSwitches(context),
 
                                             SizedBox(height: 20),
@@ -2491,20 +2423,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               },
                                             ),
 
-                                            // SizedBox(height: 20),
-                                            // TextFormField(
-                                            //   controller:
-                                            //       userDescriptionController,
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'User Description',
-                                            //     border: OutlineInputBorder(
-                                            //       borderRadius:
-                                            //           BorderRadius.circular(8),
-                                            //     ),
-                                            //   ),
-                                            //   validator: _validateUser,
-                                            // ),
-
                                             SizedBox(height: 20),
                                             DropdownButtonFormField<String>(
                                               value: selectedArea,
@@ -2529,31 +2447,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                             ),
 
                                             SizedBox(height: 20),
-                                            // Dropdown for Select Floor
-                                            // DropdownButtonFormField<String>(
-                                            //   value: selectedFloor,
-                                            //   onChanged: (String? newValue) {
-                                            //     setState(() {
-                                            //       selectedFloor = newValue;
-                                            //     });
-                                            //   },
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'Choose Floor',
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   validator: _validateFloor,
-                                            //   items: List.generate(
-                                            //       floorList.length, (index) {
-                                            //     final floor = floorList[index];
-
-                                            //     return DropdownMenuItem<String>(
-                                            //       value:
-                                            //           '${floor.id}-$index', // 🔥 FLUTTER SAFE UNIQUE VALUE
-                                            //       child: Text(floor
-                                            //           .floorName), // 👀 USER KO NORMAL NAME DIKHEGA
-                                            //     );
-                                            //   }).toList(),
-                                            // ),
 
                                             DropdownButtonFormField<String>(
                                               value: selectedFloor,
@@ -2716,47 +2609,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                 ),
                                               ),
                                             ),
-                                            // MultiSelectDialogField<User>(
-                                            //   items: userList
-                                            //       .map((user) =>
-                                            //           MultiSelectItem<User>(
-                                            //               user, user.userName))
-                                            //       .toList(),
-
-                                            //   // ✅ prefill selection here
-                                            //   initialValue: selectedUserObjects,
-
-                                            //   title: Text("Assigned To"),
-                                            //   searchable: true,
-                                            //   buttonText: Text("Select Users"),
-                                            //   onConfirm: (List<User> selected) {
-                                            //     setState(() {
-                                            //       selectedUserObjects =
-                                            //           selected;
-                                            //       selectedUsers = selected
-                                            //           .map((u) => u.userName)
-                                            //           .toList();
-                                            //     });
-                                            //   },
-                                            //   chipDisplay:
-                                            //       MultiSelectChipDisplay(
-                                            //     onTap: (user) {
-                                            //       setState(() {
-                                            //         selectedUserObjects
-                                            //             .remove(user);
-                                            //         selectedUsers
-                                            //             .remove(user.userName);
-                                            //       });
-                                            //     },
-                                            //   ),
-                                            //   decoration: BoxDecoration(
-                                            //     border: Border.all(
-                                            //         color: Colors.grey),
-                                            //     borderRadius:
-                                            //         BorderRadius.circular(4),
-                                            //   ),
-                                            // ),
-
                                             SizedBox(height: 10),
                                             TextFormField(
                                               controller:
@@ -3016,41 +2868,4 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       ),
     );
   }
-}
-
-Widget _popupRow(String label, String value) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 140, // 👈 consistent label width
-          child: Text(
-            '$label:',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            softWrap: true,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _popupDateRowIfValid(String label, DateTime? date) {
-  if (date == null) return const SizedBox.shrink();
-
-  // ❌ backend ke fake / default dates
-  if (date.year <= 2000) return const SizedBox.shrink();
-
-  final formatted = date.toLocal().toString().split(' ')[0];
-
-  return _popupRow(label, formatted);
 }

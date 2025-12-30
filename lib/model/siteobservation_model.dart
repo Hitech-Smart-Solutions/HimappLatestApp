@@ -1025,12 +1025,13 @@ class GetSiteObservationMasterById {
   final String? observationRaisedBy;
   final String observationType;
   final int? observationTypeID;
-  final String? issueType;
-  final String? contractorName;
-  final String? actionToBeTaken;
+  final String issueType;
+  final String contractorName;
+  final String actionToBeTaken;
   final double materialCost;
   final double labourCost;
-  final double reworkCost;
+  final String reworkCost;
+  final String? rootcauseDescription;
   final int? rootCauseID;
   final String? rootCauseName;
   final String? corretiveActionToBeTaken;
@@ -1052,11 +1053,12 @@ class GetSiteObservationMasterById {
   final String? createdByName; // Assuming createdByName is a String
   final int? activityID; // Assuming activityId is an int
   final int projectID; // Assuming projectId is a String
-  final String? observedByName;
+  final String observedByName;
   final int? violationTypeID;
   final String violationTypeName;
   final String closeRemarks;
   final String reopenRemarks;
+  final String assignedUsersName;
 
   final List<ActivityDTO> activityDTO;
   final List<AssignmentStatusDTO> assignmentStatusDTO;
@@ -1068,12 +1070,13 @@ class GetSiteObservationMasterById {
     this.observationRaisedBy,
     required this.observationType,
     this.observationTypeID,
-    this.issueType,
-    this.contractorName,
-    this.actionToBeTaken,
+    required this.issueType,
+    required this.contractorName,
+    required this.actionToBeTaken,
     required this.materialCost,
     required this.labourCost,
     required this.reworkCost,
+    this.rootcauseDescription,
     this.rootCauseID,
     this.rootCauseName,
     this.corretiveActionToBeTaken,
@@ -1095,13 +1098,14 @@ class GetSiteObservationMasterById {
     required this.createdByName,
     required this.activityID,
     required this.projectID,
-    this.observedByName,
+    required this.observedByName,
     this.violationTypeID,
     this.violationTypeName = '',
     required this.activityDTO,
     required this.assignmentStatusDTO,
     required this.closeRemarks,
     required this.reopenRemarks,
+    required this.assignedUsersName,
   });
 
   factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
@@ -1118,7 +1122,8 @@ class GetSiteObservationMasterById {
       actionToBeTaken: json['actionToBeTaken'],
       materialCost: (json['materialCost'] ?? 0).toDouble(),
       labourCost: double.tryParse(json['labourCost']?.toString() ?? '0') ?? 0,
-      reworkCost: (json['reworkCost'] ?? 0).toDouble(),
+      reworkCost: (json['reworkCost'] ?? 0).toString(),
+      rootcauseDescription: json['rootcauseDescription'],
       rootCauseID: json['rootCauseID'] as int?,
       rootCauseName: json['rootCauseName'],
       corretiveActionToBeTaken: json['corretiveActionToBeTaken'],
@@ -1143,7 +1148,7 @@ class GetSiteObservationMasterById {
       activityID: json['activityID'] as int?,
       // projectID: json['projectID'] as int,
       projectID: json['projectID'] != null ? json['projectID'] as int : 0,
-      observedByName: json["observedByName"]?.toString(),
+      observedByName: json["observedByName"],
       violationTypeID: json['violationTypeID'] as int?,
       violationTypeName: json['violationTypeName'] ?? '',
       activityDTO: (json['activityDTO'] as List<dynamic>?)
@@ -1156,6 +1161,7 @@ class GetSiteObservationMasterById {
           [],
       closeRemarks: json['closeRemarks'] ?? '',
       reopenRemarks: json['reopenRemarks'] ?? '',
+      assignedUsersName: json['assignedUsersName'] ?? '',
     );
   }
 
@@ -1376,6 +1382,7 @@ class AssignmentStatusDTO {
 class UpdateSiteObservation {
   int id;
   int? rootCauseID; // ✅ Made nullable
+  String? rootcauseDescription;
   String? corretiveActionToBeTaken; // ✅ Nullable if API allows
   String? preventiveActionTaken; // ✅ Nullable if API allows
   double materialCost;
@@ -1391,6 +1398,7 @@ class UpdateSiteObservation {
   UpdateSiteObservation({
     required this.id,
     this.rootCauseID,
+    this.rootcauseDescription,
     this.corretiveActionToBeTaken,
     this.preventiveActionTaken,
     required this.materialCost,
@@ -1408,6 +1416,7 @@ class UpdateSiteObservation {
     return {
       'id': id,
       'rootCauseID': rootCauseID,
+      'rootcauseDescription': rootcauseDescription,
       'corretiveActionToBeTaken': corretiveActionToBeTaken,
       'preventiveActionTaken': preventiveActionTaken,
       'materialCost': materialCost,
@@ -1553,6 +1562,20 @@ class FloorModel {
     // print('Parsing Floor JSON: $json');
     return FloorModel(
       floorName: json['floorName'] ?? '',
+    );
+  }
+}
+
+class PourModel {
+  final String partName;
+  final String labelName;
+
+  PourModel({required this.partName, required this.labelName});
+
+  factory PourModel.fromJson(Map<String, dynamic> json) {
+    return PourModel(
+      partName: json['partName'] ?? '',
+      labelName: json['labelName'] ?? '',
     );
   }
 }
