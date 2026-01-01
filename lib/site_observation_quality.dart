@@ -105,6 +105,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   int? selectedObservationTypeId;
   int? selectedIssueTypeId;
 
+  bool _isSubmitting = false;
+
   bool get isToggleEnabled {
     if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
       return false;
@@ -713,7 +715,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
     if (projectID != null) {
       try {
-        List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        // List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        List<SectionModel> sections = await widget._siteObservationService
+            .getSectionsByProjectID(projectID);
+
         if (sections.isNotEmpty) {
           setState(() {
             areaLabel = sections[0].labelName;
@@ -798,6 +803,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   }
 
   Future<void> submitForm({bool isDraft = false}) async {
+    if (_isSubmitting) return;
+    setState(() {
+      _isSubmitting = true;
+    });
     try {
       String observationDescription = observationDescriptionController.text;
       String actionToBeTaken = actionToBeTakenController.text;
@@ -1176,6 +1185,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Error: ${e.toString().replaceAll('"', '')}')),
       );
+    } finally {
+      setState(() {
+        _isSubmitting = false;
+      });
     }
   }
 
@@ -2755,14 +2768,18 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               children: [
                                                 Expanded(
                                                   child: ElevatedButton(
-                                                    onPressed: () {
-                                                      if (_formKey.currentState
-                                                              ?.validate() ??
-                                                          false) {
-                                                        _submitForm(
-                                                            isDraft: true);
-                                                      }
-                                                    },
+                                                    onPressed: _isSubmitting
+                                                        ? null
+                                                        : () {
+                                                            if (_formKey
+                                                                    .currentState
+                                                                    ?.validate() ??
+                                                                false) {
+                                                              _submitForm(
+                                                                  isDraft:
+                                                                      true);
+                                                            }
+                                                          },
                                                     style: ElevatedButton
                                                         .styleFrom(
                                                       backgroundColor:
@@ -2774,21 +2791,36 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                                 .circular(8),
                                                       ),
                                                     ),
-                                                    child:
-                                                        Text('Save as Draft'),
+                                                    child: _isSubmitting
+                                                        ? const SizedBox(
+                                                            height: 20,
+                                                            width: 20,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
+                                                          )
+                                                        : const Text(
+                                                            'Save as Draft'),
                                                   ),
                                                 ),
-                                                SizedBox(width: 12),
+                                                const SizedBox(width: 12),
                                                 Expanded(
                                                   child: ElevatedButton(
-                                                    onPressed: () {
-                                                      if (_formKey.currentState
-                                                              ?.validate() ??
-                                                          false) {
-                                                        _submitForm(
-                                                            isDraft: false);
-                                                      }
-                                                    },
+                                                    onPressed: _isSubmitting
+                                                        ? null
+                                                        : () {
+                                                            if (_formKey
+                                                                    .currentState
+                                                                    ?.validate() ??
+                                                                false) {
+                                                              _submitForm(
+                                                                  isDraft:
+                                                                      false);
+                                                            }
+                                                          },
                                                     style: ElevatedButton
                                                         .styleFrom(
                                                       backgroundColor:
@@ -2800,11 +2832,22 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                                 .circular(8),
                                                       ),
                                                     ),
-                                                    child: Text('Submit'),
+                                                    child: _isSubmitting
+                                                        ? const SizedBox(
+                                                            height: 20,
+                                                            width: 20,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
+                                                          )
+                                                        : const Text('Submit'),
                                                   ),
                                                 ),
                                               ],
-                                            )
+                                            ),
                                           ],
                                         ),
                                       ),

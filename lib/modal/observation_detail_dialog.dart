@@ -272,6 +272,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
       statusID: selectedStatusId,
       reopenRemarks: null,
       closeRemarks: null,
+      inprogressRemarks: '',
+      readytoinspectRemarks: '',
       lastModifiedBy: userId!,
       lastModifiedDate: DateTime.now(),
       activityDTO: activities,
@@ -587,7 +589,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     int projectID = widget.projectID;
     if (projectID != null) {
       try {
-        List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        List<SectionModel> sections = await widget.siteObservationService
+            .getSectionsByProjectID(projectID);
         if (sections.isNotEmpty) {
           setState(() {
             areaLabel = sections[0].labelName;
@@ -603,7 +606,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
     int projectID = widget.projectID;
     if (projectID != null) {
       try {
-        List<FloorModel> floors = await getFloorByProjectID(projectID);
+        List<FloorModel> floors =
+            await widget.siteObservationService.getFloorByProjectID(projectID);
         if (floors.isNotEmpty) {
           setState(() {
             floorLabel = floors[0].floorName;
@@ -620,7 +624,8 @@ class _ObservationDetailDialogState extends State<ObservationDetailDialog> {
 
     if (projectID != null) {
       try {
-        List<ElementModel> elements = await getElementByProjectID(projectID);
+        List<ElementModel> elements = await widget.siteObservationService
+            .getElementByProjectID(projectID);
         if (elements.isNotEmpty) {
           setState(() {
             elementLabel = elements[0].labelName;

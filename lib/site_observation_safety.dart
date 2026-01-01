@@ -772,7 +772,10 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
     if (projectID != null) {
       try {
-        List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        // List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        List<SectionModel> sections = await widget._siteObservationService
+            .getSectionsByProjectID(projectID);
+
         if (sections.isNotEmpty) {
           setState(() {
             areaLabel = sections[0].labelName;

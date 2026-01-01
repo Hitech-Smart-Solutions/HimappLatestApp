@@ -93,8 +93,11 @@ class _DashboardPageState extends State<DashboardPage> {
     int? userId = await SharedPrefsHelper.getUserId();
     if (userId == null) return;
 
+    // List<NotificationModel> notifications =
+    //     await getNotificationsByUserID(userId);
+
     List<NotificationModel> notifications =
-        await getNotificationsByUserID(userId);
+        await widget.siteObservationService.getNotificationsByUserID(userId!);
 
     final unread = notifications.where((n) => n.isMobileRead == false).toList();
 
@@ -117,8 +120,11 @@ class _DashboardPageState extends State<DashboardPage> {
                 icon: Icon(Icons.notifications),
                 onPressed: () async {
                   int? userId = await SharedPrefsHelper.getUserId();
-                  List<NotificationModel> notifications =
-                      await getNotificationsByUserID(userId!);
+                  // List<NotificationModel> notifications =
+                  //     await getNotificationsByUserID(userId!);
+                  List<NotificationModel> notifications = await widget
+                      .siteObservationService
+                      .getNotificationsByUserID(userId!);
 
                   setState(() {
                     _unreadCount = 0; // Mark as read in UI
@@ -172,13 +178,14 @@ class _DashboardPageState extends State<DashboardPage> {
                                             print("userId: $userId");
                                             print(
                                                 "Device ID: ${AppSettings.DEVICEID['Mobile']}");
-                                            bool success =
-                                                await deleteNotification(
+                                            bool success = await widget
+                                                .siteObservationService
+                                                .deleteNotification(
                                               notificationId
                                                   .toString(), // Convert to String if needed
                                               userId,
                                               AppSettings.DEVICEID[
-                                                  'Mobile']!, // Assuming this is the device type
+                                                  'Mobile']!, // Device type
                                             );
 
                                             if (success) {

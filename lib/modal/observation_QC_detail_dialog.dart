@@ -51,6 +51,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   bool isEditingRootCause = false;
   bool isButtonDisabled = false;
   bool canEditRootCause = false;
+  // bool collapsed = false;
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController rootCauseController = TextEditingController();
@@ -71,6 +72,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   final TextEditingController reopenRemarksController = TextEditingController();
   final TextEditingController closeRemarksController = TextEditingController();
   final TextEditingController inProgessRemarksController =
+      TextEditingController();
+  final TextEditingController inReadyToInspectRemarksController =
       TextEditingController();
 
   String? selectedFileName;
@@ -104,7 +107,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   bool isReopenRemarksVisible = false;
   bool isCloseRemarksVisible = false;
   bool inProgessRemarksVisible = false;
+  bool inReadyToInspectRemarksVisible = false;
   bool isUpdateBtnVisible = false;
+  bool collapsed = false;
   @override
   void initState() {
     super.initState();
@@ -181,8 +186,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       } catch (e) {
         selectedRootCause = null;
       }
-      print(
-          'widget.detail.rootcauseDescription 185: ${widget.detail.rootcauseDescription}');
+      // print(
+      //     'widget.detail.rootcauseDescription 185: ${widget.detail.rootcauseDescription}');
       rootcauseDescriptionController.text =
           widget.detail.rootcauseDescription ?? '';
       materialCostController.text = widget.detail.materialCost.toString();
@@ -237,7 +242,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
     int rootCauseIDs = widget.detail.rootCauseID ?? 0;
 
-    print("Initializing form for observation ID: $rootCauseIDs");
+    // print("Initializing form for observation ID: $rootCauseIDs");
 
     // ---------- Root Cause selection ----------
     if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
@@ -255,8 +260,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
 
     // ---------- Text fields ----------
-    print(
-        'widget.detail.rootcauseDescription 259: ${widget.detail.rootcauseDescription}');
+    // print(
+    // 'widget.detail.rootcauseDescription 259: ${widget.detail.rootcauseDescription}');
     rootcauseDescriptionController.text =
         widget.detail.rootcauseDescription ?? '';
     materialCostController.text = widget.detail.materialCost?.toString() ?? '';
@@ -292,6 +297,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
     String? reopenRemarks;
     String? closeRemarks;
+    String? inprogressRemarks;
+    String? readytoinspectRemarks;
 
     List<ActivityDTO> activities = [];
     int selectedStatusId =
@@ -370,7 +377,11 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
 
     if (selectedStatusId == SiteObservationStatus.InProgress) {
-      inProgessRemarksController.text;
+      inprogressRemarks = inProgessRemarksController.text;
+    }
+
+    if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
+      readytoinspectRemarks = inReadyToInspectRemarksController.text;
     }
 
     return UpdateSiteObservation(
@@ -385,6 +396,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       statusID: selectedStatusId,
       reopenRemarks: reopenRemarks,
       closeRemarks: closeRemarks,
+      inprogressRemarks: inprogressRemarks,
+      readytoinspectRemarks: readytoinspectRemarks,
       lastModifiedBy: userId!,
       lastModifiedDate: DateTime.now(),
       activityDTO: activities,
@@ -626,7 +639,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     int projectID = widget.projectID;
     if (projectID != null) {
       try {
-        List<SectionModel> sections = await getSectionsByProjectID(projectID);
+        List<SectionModel> sections = await widget.siteObservationService
+            .getSectionsByProjectID(projectID);
         if (sections.isNotEmpty) {
           setState(() {
             areaLabel = sections[0].labelName;
@@ -642,7 +656,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     int projectID = widget.projectID;
     if (projectID != null) {
       try {
-        List<FloorModel> floors = await getFloorByProjectID(projectID);
+        List<FloorModel> floors =
+            await widget.siteObservationService.getFloorByProjectID(projectID);
         if (floors.isNotEmpty) {
           setState(() {
             floorLabel = floors[0].floorName;
@@ -659,7 +674,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     // print("Saved at: $projectID");
     if (projectID != null) {
       try {
-        List<PourModel> pours = await getPourByProjectID(projectID);
+        List<PourModel> pours =
+            await widget.siteObservationService.getPourByProjectID(projectID);
         if (pours.isNotEmpty) {
           setState(() {
             pourLabel = pours[0].labelName; // ✅ now it shows the label
@@ -677,7 +693,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
     if (projectID != null) {
       try {
-        List<ElementModel> elements = await getElementByProjectID(projectID);
+        List<ElementModel> elements = await widget.siteObservationService
+            .getElementByProjectID(projectID);
         if (elements.isNotEmpty) {
           setState(() {
             elementLabel = elements[0].labelName;
@@ -709,7 +726,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     // 🔹 DEFAULT ROOT CAUSE PERMISSION
     canEditRootCause = fromStatus == SiteObservationStatus.ReadyToInspect ||
         fromStatus == SiteObservationStatus.Closed;
-
+    print("canEditRootCause, $canEditRootCause");
     // -------------------------------
     // 🔥 STATUS RULES
     // -------------------------------
@@ -854,17 +871,23 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
                                   setState(() {
                                     // ✅ THIS IS IMPORTANT
+                                    // print('newValue861: $newValue');
                                     selectedStatus = newValue;
 
-                                    fromStatus = toStatus;
+                                    // fromStatus = toStatus;
                                     toStatus = selectedStatusInt;
 
                                     isUpdateBtnVisible = true;
+                                    collapsed = false;
+                                    // print('fromStatus868: $fromStatus');
+                                    // print('toStatus869: $toStatus');
 
                                     if (fromStatus != selectedStatusInt) {
+                                      print("in");
                                       isUpdateBtnVisible = true;
                                       isRootCauseFileUpdateEnable = true;
                                     } else {
+                                      print("out");
                                       isUpdateBtnVisible = false;
                                       isRootCauseFileUpdateEnable = false;
                                     }
@@ -874,21 +897,32 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                       isReopenRemarksVisible = true;
                                       isCloseRemarksVisible = false;
                                       inProgessRemarksVisible = false;
+                                      inReadyToInspectRemarksVisible = false;
                                     } else if (selectedStatusInt ==
                                         SiteObservationStatus.Closed) {
                                       isReopenRemarksVisible = false;
                                       isCloseRemarksVisible = true;
                                       inProgessRemarksVisible = false;
+                                      inReadyToInspectRemarksVisible = false;
                                     } else if (selectedStatusInt ==
                                         SiteObservationStatus.InProgress) {
-                                      print("In Progress Selected");
+                                      // print("In Progress Selected");
                                       inProgessRemarksVisible = true;
                                       isReopenRemarksVisible = false;
                                       isCloseRemarksVisible = false;
+                                      inReadyToInspectRemarksVisible = false;
+                                    } else if (selectedStatusInt ==
+                                        SiteObservationStatus.ReadyToInspect) {
+                                      // print("In Progress Selected");
+                                      inProgessRemarksVisible = false;
+                                      isReopenRemarksVisible = false;
+                                      isCloseRemarksVisible = false;
+                                      inReadyToInspectRemarksVisible = true;
                                     } else {
                                       isReopenRemarksVisible = false;
                                       isCloseRemarksVisible = false;
                                       inProgessRemarksVisible = false;
+                                      inReadyToInspectRemarksVisible = false;
                                     }
 
                                     if (selectedStatusInt ==
@@ -896,10 +930,13 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                                 .ReadyToInspect ||
                                         selectedStatusInt ==
                                             SiteObservationStatus.Closed) {
+                                      print("ReadyToInspect/Closed IN");
                                       canEditRootCause = true;
-                                      isRootCauseFileUpdateEnable = true;
+                                      // isRootCauseFileUpdateEnable = true;
                                     } else {
+                                      print("ReadyToInspect/Closed etc... OUT");
                                       canEditRootCause = false;
+                                      // isRootCauseFileUpdateEnable = false;
                                     }
                                   });
                                 }
@@ -952,6 +989,20 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     );
   }
 
+  Widget buildTextIfNotEmpty(String? value) {
+    if (value == null || value.trim().isEmpty || value == 'N/A') {
+      return const SizedBox.shrink(); // 👈 NO SPACE AT ALL
+    }
+
+    return Text(
+      value,
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 18,
+      ),
+    );
+  }
+
   Widget _buildDetailTab(BuildContext context) {
     // final media = MediaQuery.of(context);
     return SingleChildScrollView(
@@ -965,28 +1016,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                widget.detail.closeRemarks ?? 'N/A',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-              Text(
-                widget.detail.reopenRemarks ?? 'N/A',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-              Text(
-                widget.detail.description ?? 'N/A',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-              const SizedBox(height: 16),
+              buildTextIfNotEmpty(widget.detail.observationNameWithCategory),
+              // const SizedBox(height: 16),
 
               // ✅ Use this single method repeatedly — smart layout
               _buildResponsiveRow(
@@ -1031,22 +1062,63 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   widget.detail.complianceRequired ? 'True' : 'False',
                   "Escalation Required :",
                   widget.detail.escalationRequired ? 'True' : 'False'),
+              buildPairRow(
+                context,
+                label1: "Observed By :",
+                value1: widget.detail.observedByName,
+              ),
+              buildPairRow(
+                context,
+                label1: "Observation Description :",
+                value1: widget.detail.description,
+              ),
+              buildPairRow(
+                context,
+                label1: "Action To Be Taken :",
+                value1: widget.detail.actionToBeTaken,
+              ),
+              buildPairRow(
+                context,
+                label1: "Assigned Users :",
+                value1: widget.detail.assignedUsersName,
+              ),
+
+              buildTextIfNotEmpty(widget.detail.closeRemarks),
+              buildTextIfNotEmpty(widget.detail.reopenRemarks),
 
               // ⭐ NEW FIELDS — 2-per-row with condition
               buildPairRow(
                 context,
-                "Root Cause :",
-                widget.detail.rootCauseName,
-                "Rework Cost :",
-                widget.detail.reworkCost,
+                label1: "Root Cause :",
+                value1: widget.detail.rootCauseName,
+                label2: "Rework Cost :",
+                value2: widget.detail.reworkCost,
+              ),
+
+              // buildPairRow(
+              //   context,
+              //   label1: "Preventive Action To Be Taken :",
+              //   value1: widget.detail.preventiveActionTaken,
+              //   label2: "Corrective Action To Be Taken :",
+              //   value2: widget.detail.corretiveActionToBeTaken,
+              // ),
+
+              buildPairRow(
+                context,
+                label1: "Rootcause Description :",
+                value1: widget.detail.rootcauseDescription,
               ),
 
               buildPairRow(
                 context,
-                "Preventive Action To Be Taken :",
-                widget.detail.preventiveActionTaken,
-                "Corrective Action To Be Taken :",
-                widget.detail.corretiveActionToBeTaken,
+                label1: "Preventive Action To Be Taken :",
+                value1: widget.detail.preventiveActionTaken,
+              ),
+
+              buildPairRow(
+                context,
+                label1: "Corrective Action To Be Taken :",
+                value1: widget.detail.corretiveActionToBeTaken,
               ),
 
               const SizedBox(height: 24),
@@ -1061,31 +1133,42 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   }
 
   Widget buildPairRow(
-    BuildContext context,
-    String label1,
+    BuildContext context, {
+    required String label1,
     String? value1,
-    String label2,
+    String? label2,
     String? value2,
-  ) {
-    bool show1 = value1 != null && value1.trim().isNotEmpty;
-    bool show2 = value2 != null && value2.trim().isNotEmpty;
+  }) {
+    final has1 = value1?.trim().isNotEmpty == true;
+    final has2 = value2?.trim().isNotEmpty == true;
 
-    if (!show1 && !show2) return const SizedBox.shrink();
+    if (!has1 && !has2) return const SizedBox.shrink();
 
-    if (show1 && !show2) {
-      return _buildResponsiveRow(context, label1, value1!, "", "");
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    // MOBILE → vertical
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (has1) _buildDetailRow(label1, value1!),
+          if (has2) _buildDetailRow(label2!, value2!),
+          const SizedBox(height: 8),
+        ],
+      );
     }
 
-    if (!show1 && show2) {
-      return _buildResponsiveRow(context, label2, value2!, "", "");
-    }
-
-    return _buildResponsiveRow(
-      context,
-      label1,
-      value1!,
-      label2,
-      value2!,
+    // TABLET → horizontal
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          if (has1) Expanded(child: _buildDetailRow(label1, value1!)),
+          if (has1 && has2) const SizedBox(width: 10),
+          if (has2) Expanded(child: _buildDetailRow(label2!, value2!)),
+        ],
+      ),
     );
   }
 
@@ -1179,7 +1262,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ================= ROOT CAUSE SECTION (UNCHANGED) =================
-            if (isRootCauseFileUpdateEnable && canEditRootCause) ...[
+            if (isRootCauseFileUpdateEnable &&
+                canEditRootCause &&
+                !collapsed) ...[
               DropdownButtonFormField<RootCause>(
                 value: selectedRootCause,
                 decoration: const InputDecoration(
@@ -1348,6 +1433,20 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 ),
                 validator: (v) =>
                     v == null || v.isEmpty ? 'In Progress required' : null,
+              ),
+            ],
+
+            if (inReadyToInspectRemarksVisible) ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: inReadyToInspectRemarksController,
+                decoration: const InputDecoration(
+                  labelText: 'In Ready To Inspect',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => v == null || v.isEmpty
+                    ? 'In Ready To Inspect required'
+                    : null,
               ),
             ],
 

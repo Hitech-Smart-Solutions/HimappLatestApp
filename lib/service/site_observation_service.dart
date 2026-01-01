@@ -1,12 +1,10 @@
 import 'dart:convert';
-// import 'dart:io';
 import 'dart:typed_data';
-// import 'package:file_picker/file_picker.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:http/http.dart' as http;
-// import 'package:path/path.dart';
-// import 'package:http_parser/http_parser.dart';
+import 'package:himappnew/network/api_client.dart';
+import 'package:dio/dio.dart';
 
 class SiteObservationService {
   Future<List<SiteObservation>> fetchSiteObservationsSafety({
@@ -16,31 +14,25 @@ class SiteObservationService {
     int pageSize = 10,
     bool isActive = true,
   }) async {
-    final uri = Uri.https(
-      'd94acvrm8bvo5.cloudfront.net',
-      '/api/SiteObservation/GetSiteObservationSafetyByProjectID',
-      {
-        'ProjectID': projectId.toString(),
-        'SortColumn': sortColumn,
-        'PageIndex': pageIndex.toString(),
-        'PageSize': pageSize.toString(),
-        'IsActive': isActive.toString(),
-      },
-    );
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetSiteObservationSafetyByProjectID',
+        queryParameters: {
+          'ProjectID': projectId,
+          'SortColumn': sortColumn,
+          'PageIndex': pageIndex,
+          'PageSize': pageSize,
+          'IsActive': isActive,
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
       final List<dynamic> table1 = data['Value']['Table1'];
+
       return table1.map((e) => SiteObservation.fromJson(e)).toList();
-    } else {
+    } catch (e) {
       throw Exception('Failed to load labours');
     }
   }
@@ -52,349 +44,268 @@ class SiteObservationService {
     int pageSize = 100,
     bool isActive = true,
   }) async {
-    final uri = Uri.https(
-      'd94acvrm8bvo5.cloudfront.net',
-      '/api/SiteObservation/GetSiteObservationQualityByProjectID',
-      {
-        'ProjectID': projectId.toString(),
-        'SortColumn': sortColumn,
-        'PageIndex': pageIndex.toString(),
-        'PageSize': pageSize.toString(),
-        'IsActive': isActive.toString(),
-      },
-    );
-    print(projectId);
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-    print("Response status code: $response");
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
+    try {
+      print(projectId);
+
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetSiteObservationQualityByProjectID',
+        queryParameters: {
+          'ProjectID': projectId,
+          'SortColumn': sortColumn,
+          'PageIndex': pageIndex,
+          'PageSize': pageSize,
+          'IsActive': isActive,
+        },
+      );
+
+      print("Response status code: ${response.statusCode}");
+
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
       final List<dynamic> table1 = data['Value']['Table1'];
+
       return table1.map((e) => SiteObservation.fromJson(e)).toList();
-    } else {
+    } catch (e) {
       throw Exception('Failed to load labours');
     }
   }
 
   Future<List<IssueType>> fetchIssueTypes(int observationTypeId) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/Observation/GetIssueTypeByObservationTypeID/$observationTypeId'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/Observation/GetIssueTypeByObservationTypeID/$observationTypeId',
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonData = jsonDecode(response.body);
-      return jsonData.map((item) => IssueType.fromJson(item)).toList();
-    } else {
-      throw Exception('Failed to load issue types');
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
+      if (data is List) {
+        return data.map((item) => IssueType.fromJson(item)).toList();
+      } else {
+        throw Exception('Invalid response format');
+      }
+    } catch (e) {
+      throw Exception('Failed to load issue types: $e');
     }
   }
 
   Future<List<Activities>> fetchActivities(
       int companyID, int screentypeID) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/ActivityMaster/GetActivitiesByCompanyIDandScreenTypeID/$companyID/$screentypeID'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
-    if (response.statusCode == 200) {
-      try {
-        final Map<String, dynamic> jsonData = jsonDecode(response.body);
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/ActivityMaster/GetActivitiesByCompanyIDandScreenTypeID/$companyID/$screentypeID',
+      );
 
-        // Check if the "value" field exists and is not null
-        if (jsonData['value'] == null) {
-          throw Exception('"value" field is null');
-        }
-        final List<dynamic> activitiesJson = jsonData['value'] ?? [];
-        // If activitiesJson is empty, log the message
-        if (activitiesJson.isEmpty) {
-          print('No activities found');
-        }
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        // Map the JSON data to Activities objects
-        return activitiesJson.map((item) => Activities.fromJson(item)).toList();
-      } catch (e) {
-        throw Exception('Failed to load activities');
+      if (data['value'] == null) {
+        throw Exception('"value" field is null');
       }
-    } else {
+
+      final List<dynamic> activitiesJson = data['value'] ?? [];
+
+      if (activitiesJson.isEmpty) {
+        print('No activities found');
+      }
+
+      return activitiesJson.map((item) => Activities.fromJson(item)).toList();
+    } catch (e) {
       throw Exception('Failed to load activities');
     }
   }
 
   Future<List<Observation>> fetchObservations(
       int companyID, int screentypeID, int selectedIssueTypeId) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetObservationsByCompanyFunctionAndIssueTypeID/$companyID/$screentypeID/$selectedIssueTypeId'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetObservationsByCompanyFunctionAndIssueTypeID/$companyID/$screentypeID/$selectedIssueTypeId',
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        // Directly decode the JSON response as a List
-        final List<dynamic> jsonData = jsonDecode(response.body);
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        // Check if the list is empty
-        if (jsonData.isEmpty) {
-          print('No activities found');
-        }
-
-        // Map the List of dynamic objects to Observation objects
-        return jsonData.map((item) => Observation.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing the JSON data: $e");
-        throw Exception('Failed to load Observation');
+      if (data is List && data.isEmpty) {
+        print('No activities found');
       }
-    } else {
+
+      if (data is List) {
+        return data.map((item) => Observation.fromJson(item)).toList();
+      } else {
+        throw Exception('Invalid response format');
+      }
+    } catch (e) {
+      print("Error parsing the JSON data: $e");
       throw Exception('Failed to load Observation');
     }
   }
 
 // Fetch observation types
   Future<List<ObservationType>> fetchObservationType() async {
-    String? token = await SharedPrefsHelper.getToken();
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetObservationType',
+      );
 
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetObservationType'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-    if (response.statusCode == 200) {
-      try {
-        final List<dynamic> jsonData = jsonDecode(response.body);
-        if (jsonData.isEmpty) {
-          print('No ObservationType found');
-        }
-        return jsonData.map((item) => ObservationType.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing JSON: $e");
-        throw Exception('Failed to load ObservationType');
+      if (data is List && data.isEmpty) {
+        print('No ObservationType found');
       }
-    } else {
+
+      if (data is List) {
+        return data.map((item) => ObservationType.fromJson(item)).toList();
+      } else {
+        throw Exception('Invalid response format');
+      }
+    } catch (e) {
+      print("Error parsing JSON: $e");
       throw Exception('Failed to load ObservationType');
     }
   }
 
 // Fetch Area list
   Future<List<Area>> fetchAreaList(int projectID) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/ProjectSectionMapping/GetSectionsByProjectID/$projectID'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/ProjectSectionMapping/GetSectionsByProjectID/$projectID',
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        final Map<String, dynamic> jsonData = jsonDecode(response.body);
-        final List<dynamic> areaData = jsonData['value'];
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        if (areaData.isEmpty) {
-          print('No Area found');
-          return [];
-        }
+      final List<dynamic> areaData = data['value'];
 
-        // Map the List of dynamic objects to Area objects
-        return areaData.map((item) => Area.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing the JSON data: $e");
-        throw Exception('Failed to load Area');
+      if (areaData.isEmpty) {
+        print('No Area found');
+        return [];
       }
-    } else {
-      print("Error: ${response.statusCode}");
+
+      return areaData.map((item) => Area.fromJson(item)).toList();
+    } catch (e) {
+      print("Error parsing the JSON data: $e");
       throw Exception('Failed to load Area');
     }
   }
 
 // Fetch floor list
   Future<List<Floor>> fetchFloorList(int projectID) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/ProjectFloorMapping/GetFloorsByProjectID/$projectID'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/ProjectFloorMapping/GetFloorsByProjectID/$projectID',
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        final Map<String, dynamic> jsonData = jsonDecode(response.body);
-        final List<dynamic> floorData = jsonData['value'];
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        if (floorData.isEmpty) {
-          print('No Floor found');
-          return [];
-        }
+      final List<dynamic> floorData = data['value'];
 
-        // Map the List of dynamic objects to Floor objects
-        return floorData.map((item) => Floor.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing the JSON data: $e");
-        throw Exception('Failed to load Floor');
+      if (floorData.isEmpty) {
+        print('No Floor found');
+        return [];
       }
-    } else {
-      print("Error: ${response.statusCode}");
+
+      return floorData.map((item) => Floor.fromJson(item)).toList();
+    } catch (e) {
+      print("Error parsing the JSON data: $e");
       throw Exception('Failed to load Floor');
     }
   }
 
   // Fetch part list
   Future<List<Part>> fetchPartList(int projectID) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/ProjectPartMapping/GetPartsByProjectID/$projectID'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/ProjectPartMapping/GetPartsByProjectID/$projectID',
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        final Map<String, dynamic> jsonData = jsonDecode(response.body);
-        final List<dynamic> partData = jsonData['value'];
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        if (partData.isEmpty) {
-          print('No Part found');
-          return [];
-        }
+      final List<dynamic> partData = data['value'];
 
-        // Map the List of dynamic objects to part objects
-        return partData.map((item) => Part.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing the JSON data: $e");
-        throw Exception('Failed to load Floor');
+      if (partData.isEmpty) {
+        print('No Part found');
+        return [];
       }
-    } else {
-      print("Error: ${response.statusCode}");
-      throw Exception('Failed to load Floor');
+
+      return partData.map((item) => Part.fromJson(item)).toList();
+    } catch (e) {
+      print("Error parsing the JSON data: $e");
+      throw Exception('Failed to load Part');
     }
   }
 
   // Fetch Element list
   Future<List<Elements>> fetchElementList(int projectID) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/ProjectElementMapping/GetElementsByProjectID/$projectID'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/ProjectElementMapping/GetElementsByProjectID/$projectID',
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        final Map<String, dynamic> jsonData = jsonDecode(response.body);
-        final List<dynamic> partData = jsonData['value'];
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        if (partData.isEmpty) {
-          print('No Part found');
-          return [];
-        }
+      final List<dynamic> partData = data['value'];
 
-        // Map the List of dynamic objects to Element objects
-        return partData.map((item) => Elements.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing the JSON data: $e");
-        throw Exception('Failed to load Element');
+      if (partData.isEmpty) {
+        print('No Element found');
+        return [];
       }
-    } else {
-      print("Error: ${response.statusCode}");
+
+      return partData.map((item) => Elements.fromJson(item)).toList();
+    } catch (e) {
+      print("Error parsing the JSON data: $e");
       throw Exception('Failed to load Element');
     }
   }
 
   // Fetch contractor list
   Future<List<Party>> fetchContractorList() async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetPartyMasters/'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetPartyMasters/',
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        final List<dynamic> partData = jsonDecode(response.body);
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        if (partData.isEmpty) {
-          print('No Party found');
-          return [];
-        }
+      final List<dynamic> partData = data;
 
-        // Map the List of dynamic objects to Party objects
-        return partData.map((item) => Party.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing the JSON data: $e");
-        throw Exception('Failed to load Party');
+      if (partData.isEmpty) {
+        print('No Party found');
+        return [];
       }
-    } else {
-      print("Error: ${response.statusCode}");
+
+      return partData.map((item) => Party.fromJson(item)).toList();
+    } catch (e) {
+      print("Error parsing the JSON data: $e");
       throw Exception('Failed to load Party');
     }
   }
 
   // Fetch user list
   Future<List<User>> fetchUserList() async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/UserMaster/GetUsers/'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/UserMaster/GetUsers/',
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        final List<dynamic> userData = jsonDecode(response.body);
-        if (userData.isEmpty) {
-          print('No Users found');
-          return [];
-        }
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        // Map the List of dynamic objects to User objects
-        return userData.map((item) => User.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing the JSON data1: $e");
-        throw Exception('Failed to load Users');
+      final List<dynamic> userData = data;
+
+      if (userData.isEmpty) {
+        print('No Users found');
+        return [];
       }
-    } else {
-      print("Error: ${response.statusCode}"); // Log the error status code
+
+      return userData.map((item) => User.fromJson(item)).toList();
+    } catch (e) {
+      print("Error parsing the JSON data: $e");
       throw Exception('Failed to load Users');
     }
   }
@@ -402,28 +313,13 @@ class SiteObservationService {
   // Method to submit the site observation
   Future<bool> submitSiteObservation(
       SiteObservationModel siteObservation) async {
-    String? token = await SharedPrefsHelper.getToken();
-    if (token == null) {
-      print("❌ Token not found.");
-      throw 'Authorization token not found.';
-    }
-
     try {
-      final response = await http.post(
-        Uri.parse(
-            'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/CreateSiteObservationMaster'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode(siteObservation.toJson()),
+      final response = await ApiClient.dio.post(
+        '/api/SiteObservation/CreateSiteObservationMaster',
+        data: siteObservation.toJson(),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
-      } else {
-        throw response.body;
-      }
+      return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       print('❌ Error occurred: $e');
       throw e.toString();
@@ -432,32 +328,13 @@ class SiteObservationService {
 
   Future<bool> updateSiteObservationDraft(
       SiteObservationUpdateDraftModel updateDraft) async {
-    String? token = await SharedPrefsHelper.getToken();
-    if (token == null) {
-      print("❌ Token not found.");
-      throw 'Authorization token not found.';
-    }
-    // final jsonBody = json.encode(updateDraft.toJson());
-    // print("🔄 Update payload JSON: $jsonBody");
     try {
-      final response = await http.put(
-        Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/UpdateSiteObservationDraftByID/${updateDraft.id}',
-        ),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode(updateDraft.toJson()),
+      final response = await ApiClient.dio.put(
+        '/api/SiteObservation/UpdateSiteObservationDraftByID/${updateDraft.id}',
+        data: updateDraft.toJson(),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        return true;
-      } else {
-        print('❌ Failed to update. Status: ${response.statusCode}');
-        print('❌ Body: ${response.body}');
-        throw response.body;
-      }
+      return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       print('❌ Error occurred: $e');
       throw e.toString();
@@ -467,29 +344,13 @@ class SiteObservationService {
   Future<List<Activity>> fatchActivityByCompanyIdAndScreenTypeId(
       int companyID, int screentypeID) async {
     try {
-      final String? token = await SharedPrefsHelper.getToken();
-
-      final Uri url = Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/ActivityMaster/GetActivitiesByCompanyIDandScreenTypeID/$companyID/$screentypeID',
+      final response = await ApiClient.dio.get(
+        '/api/ActivityMaster/GetActivitiesByCompanyIDandScreenTypeID/$companyID/$screentypeID',
       );
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
+      final List<dynamic> jsonData = response.data['value'] ?? [];
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final List<dynamic> jsonData = jsonResponse['value'] ?? [];
-
-        return jsonData.map((item) => Activity.fromJson(item)).toList();
-      } else {
-        throw Exception(
-            'Failed to load activities. Status Code: ${response.statusCode}');
-      }
+      return jsonData.map((item) => Activity.fromJson(item)).toList();
     } catch (e) {
       throw Exception('Error fetching activities: $e');
     }
@@ -497,117 +358,78 @@ class SiteObservationService {
 
   Future<List<RootCause>> fatchRootCausesByActivityID(int companyId) async {
     try {
-      final String? token = await SharedPrefsHelper.getToken();
-
-      final Uri url = Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/RootCause/GetRootCauseByCompanyID/$companyId',
+      final response = await ApiClient.dio.get(
+        '/api/RootCause/GetRootCauseByCompanyID/$companyId',
       );
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
+      final List<dynamic> jsonData =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonData = json.decode(response.body);
-        return jsonData.map((item) => RootCause.fromJson(item)).toList();
-      } else {
-        throw Exception(
-            'Failed to load root causes. Status Code: ${response.statusCode}');
-      }
+      return jsonData.map((item) => RootCause.fromJson(item)).toList();
     } catch (e) {
       throw Exception('Error fetching root causes: $e');
     }
   }
 
   Future<List<NCRObservation>> fetchNCRSafetyObservations(int userId) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationSafetyByUserID/$userId'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetSiteObservationSafetyByUserID/$userId',
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        final List<dynamic> jsonData = jsonDecode(response.body);
-        if (jsonData.isEmpty) {
-          print('⚠️ No observations returned for userId $userId');
-        }
+      final List<dynamic> jsonData =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        return jsonData.map((item) => NCRObservation.fromJson(item)).toList();
-      } catch (e) {
-        print("❌ JSON Parsing Error: $e");
-        throw Exception('Failed to load Observation');
+      if (jsonData.isEmpty) {
+        print('⚠️ No observations returned for userId $userId');
       }
-    } else {
-      throw Exception('Failed to load Observation: ${response.statusCode}');
+
+      return jsonData.map((item) => NCRObservation.fromJson(item)).toList();
+    } catch (e) {
+      print("❌ Error fetching NCR Safety Observations: $e");
+      throw Exception('Failed to load Observation');
     }
   }
 
   Future<List<NCRObservation>> fetchNCRQualityObservations(int userId) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationQualityByUserID/$userId'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetSiteObservationQualityByUserID/$userId',
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        final List<dynamic> jsonData = jsonDecode(response.body);
-        if (jsonData.isEmpty) {
-          print('⚠️ No observations returned for userId $userId');
-        }
+      final List<dynamic> jsonData =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-        return jsonData.map((item) => NCRObservation.fromJson(item)).toList();
-      } catch (e) {
-        print("❌ JSON Parsing Error: $e");
-        throw Exception('Failed to load Observation');
+      if (jsonData.isEmpty) {
+        print('⚠️ No observations returned for userId $userId');
       }
-    } else {
-      throw Exception('Failed to load Observation: ${response.statusCode}');
+
+      return jsonData.map((item) => NCRObservation.fromJson(item)).toList();
+    } catch (e) {
+      print("❌ Error fetching NCR Quality Observations: $e");
+      throw Exception('Failed to load Observation');
     }
   }
 
   Future<List<GetSiteObservationMasterById>> fetchGetSiteObservationMasterById(
       int Id) async {
-    String? token = await SharedPrefsHelper.getToken();
+    try {
+      final response = await ApiClient.dio
+          .get('/api/SiteObservation/GetSiteObservationMasterById/$Id');
 
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationMasterById/$Id'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+      final List<dynamic> jsonData =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-    if (response.statusCode == 200) {
-      try {
-        final List<dynamic> jsonData = jsonDecode(response.body);
-        if (jsonData.isEmpty) {
-          print('⚠️ No observations returned for userId $Id');
-        }
-
-        return jsonData
-            .map((item) => GetSiteObservationMasterById.fromJson(item))
-            .toList();
-      } catch (e) {
-        print("❌ JSON Parsing Error fetchGetSiteObservationMasterById: $e");
-        throw Exception('Failed to load Observation');
+      if (jsonData.isEmpty) {
+        print('⚠️ No observations returned for ID $Id');
       }
-    } else {
-      throw Exception('Failed to load Observation: ${response.statusCode}');
+
+      return jsonData
+          .map((item) => GetSiteObservationMasterById.fromJson(item))
+          .toList();
+    } catch (e) {
+      print("❌ JSON Parsing Error fetchGetSiteObservationMasterById: $e");
+      throw Exception('Failed to load Observation');
     }
   }
 
@@ -615,24 +437,11 @@ class SiteObservationService {
     required List<ActivityDTO> activities,
     required int siteObservationID,
   }) async {
-    String? token = await SharedPrefsHelper.getToken();
-
-    if (token == null || token.isEmpty) {
-      print('❌ No auth token found.');
-      return false;
-    }
-
-    final url = Uri.parse(
-        "https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/AddSiteObservationActivity/$siteObservationID");
-    final headers = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-
-    final body = jsonEncode(activities.map((a) => a.toJson()).toList());
-
     try {
-      final response = await http.post(url, headers: headers, body: body);
+      final response = await ApiClient.dio.post(
+        '/api/SiteObservation/AddSiteObservationActivity/$siteObservationID',
+        data: activities.map((a) => a.toJson()).toList(),
+      );
 
       if (response.statusCode == 200 ||
           response.statusCode == 201 ||
@@ -641,7 +450,7 @@ class SiteObservationService {
         return true;
       } else {
         print('❌ Failed to post activity: ${response.statusCode}');
-        print('📝 Response: ${response.body}');
+        print('📝 Response: ${response.data}');
         return false;
       }
     } catch (e) {
@@ -651,23 +460,21 @@ class SiteObservationService {
   }
 
   Future<bool> updateSiteObservationByID(UpdateSiteObservation data) async {
-    String? token = await SharedPrefsHelper.getToken();
-    final url = Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/UpdateSiteObservationByID/${data.id}');
+    try {
+      final response = await ApiClient.dio.put(
+        '/api/SiteObservation/UpdateSiteObservationByID/${data.id}',
+        data: data.toJson(),
+      );
 
-    final response = await http.put(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(data.toJson()),
-    );
-    if (response.statusCode == 200 || response.statusCode == 204) {
-      print("Update successful!");
-      return true;
-    } else {
-      print("Failed to update: ${response.statusCode} ${response.body}");
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        print("Update successful!");
+        return true;
+      } else {
+        print("Failed to update: ${response.statusCode} ${response.data}");
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error updating site observation: $e');
       return false;
     }
   }
@@ -679,335 +486,305 @@ class SiteObservationService {
     int pageSize = 100,
     bool isActive = true,
   }) async {
-    final uri = Uri.https(
-      'd94acvrm8bvo5.cloudfront.net',
-      '/api/UserMaster/GetUsersForList',
-      {
-        'CompanyID': projectId.toString(),
-        'SortColumn': sortColumn,
-        'PageIndex': pageIndex.toString(),
-        'PageSize': pageSize.toString(),
-        'IsActive': isActive.toString(),
-      },
-    );
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/UserMaster/GetUsersForList',
+        queryParameters: {
+          'CompanyID': projectId.toString(),
+          'SortColumn': sortColumn,
+          'PageIndex': pageIndex.toString(),
+          'PageSize': pageSize.toString(),
+          'IsActive': isActive.toString(),
+        },
+      );
 
-    final token = await SharedPrefsHelper.getToken();
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-    final response = await http.get(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final List<dynamic> users = data['Value']['Table1'];
+      final List<dynamic> users = data['Value']['Table1'] ?? [];
       return users.map((e) => UserList.fromJson(e)).toList();
-    } else {
+    } catch (e) {
+      print('❌ Failed to fetch users: $e');
       throw Exception('Failed to fetch users');
     }
   }
 
   Future<String?> uploadFileAndGetFileName(
       String fileName, Uint8List fileBytes) async {
-    final uri = Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/upload');
-
-    final token = await SharedPrefsHelper.getToken();
-
-    final request = http.MultipartRequest('POST', uri);
-
-    request.files.add(http.MultipartFile.fromBytes(
-      'file',
-      fileBytes,
-      filename: fileName,
-    ));
-
-    request.headers['Authorization'] = 'Bearer $token';
-
     try {
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+      });
+
+      final response = await ApiClient.dio.post(
+        '/api/SiteObservation/upload',
+        data: formData,
+      );
 
       if (response.statusCode == 200 &&
-          response.body.contains('file uploaded|')) {
-        final path = response.body.split('|')[1];
-        final fileNameFromPath = path.split('/').last;
-        return fileNameFromPath;
+          response.data.toString().contains('file uploaded|')) {
+        final path = response.data.toString().split('|')[1];
+        return path.split('/').last;
       } else {
-        print('❌ Upload failed: ${response.statusCode} - ${response.body}');
+        print('❌ Upload failed: ${response.statusCode} - ${response.data}');
+        return null;
       }
     } catch (e) {
       print('❌ Upload error: $e');
+      return null;
     }
-
-    return null;
   }
 
   Future<List<AssignedUser>> fetchGetassignedusersforReopen(int Id) async {
-    String? token = await SharedPrefsHelper.getToken();
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetSiteObservationAssignedPersonsForReopen/$Id',
+      );
 
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationAssignedPersonsForReopen/$Id'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+      final List<dynamic> jsonData =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-    if (response.statusCode == 200) {
-      try {
-        final List<dynamic> jsonData = jsonDecode(response.body);
-
-        if (jsonData.isEmpty) {
-          print('⚠️ No assigned users returned for SiteObservation $Id');
-        }
-
-        return jsonData.map((item) => AssignedUser.fromJson(item)).toList();
-      } catch (e) {
-        print("❌ JSON Parsing Error: $e");
-        throw Exception('Failed to load assigned users');
+      if (jsonData.isEmpty) {
+        print('⚠️ No assigned users returned for SiteObservation $Id');
       }
-    } else {
-      throw Exception('Failed to load assigned users: ${response.statusCode}');
+
+      return jsonData.map((item) => AssignedUser.fromJson(item)).toList();
+    } catch (e) {
+      print("❌ JSON Parsing Error fetchGetassignedusersforReopen: $e");
+      throw Exception('Failed to load assigned users');
     }
   }
 
   // Fetch FatchSiteObservationSafetyByUserID list
   Future<List<SiteObservation>> fatchSiteObservationSafetyByUserID(
       int? userID) async {
-    print("Fetching safety observations for userID: $userID");
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationSafetyByUserID/$userID'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      print("Fetching safety observations for userID: $userID");
 
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonData = jsonDecode(response.body);
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetSiteObservationSafetyByUserID/$userID',
+      );
+
+      final List<dynamic> jsonData =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
       print("Decoded JSON: $jsonData");
+
       if (jsonData.isEmpty) {
-        print('No safety observations found');
+        print('⚠️ No safety observations found');
         return [];
       }
+
       return jsonData.map((item) => SiteObservation.fromJson(item)).toList();
-    } else {
+    } catch (e) {
+      print("❌ Error fetching safety observations: $e");
       throw Exception('Failed to load safety observations');
     }
   }
 
   Future<List<SiteObservation>> fatchSiteObservationQualityByUserID(
       int? userID) async {
-    print("Fetching quality observations for userID: $userID");
-    String? token = await SharedPrefsHelper.getToken();
-    final response = await http.get(
-      Uri.parse(
-          'https://d94acvrm8bvo5.cloudfront.net/api/SiteObservation/GetSiteObservationQualityByUserID/$userID'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
-    // print("Response body: ${response.body}");
-    if (response.statusCode == 200) {
-      try {
-        final List<dynamic> jsonData = jsonDecode(response.body);
-        print("Decoded JSON: $jsonData");
-        if (jsonData.isEmpty) {
-          print('No quality observations found');
-          return [];
-        }
-        return jsonData.map((item) => SiteObservation.fromJson(item)).toList();
-      } catch (e) {
-        print("Error parsing the JSON data: $e");
-        throw Exception('Failed to load quality observations');
+    try {
+      print("Fetching quality observations for userID: $userID");
+
+      final response = await ApiClient.dio.get(
+        '/api/SiteObservation/GetSiteObservationQualityByUserID/$userID',
+      );
+
+      final List<dynamic> jsonData =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
+      print("Decoded JSON: $jsonData");
+
+      if (jsonData.isEmpty) {
+        print('⚠️ No quality observations found');
+        return [];
       }
-    } else {
+
+      return jsonData.map((item) => SiteObservation.fromJson(item)).toList();
+    } catch (e) {
+      print("❌ Error fetching quality observations: $e");
       throw Exception('Failed to load quality observations');
     }
   }
-}
 
-Future<List<SectionModel>> getSectionsByProjectID(int projectID) async {
-  String? token = await SharedPrefsHelper.getToken();
-  final response = await http.get(
-    Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/ProjectSectionMapping/GetSectionsByProjectID/$projectID'),
-    headers: {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-    },
-  );
-
-  if (response.statusCode == 200) {
-    // print('Response body: ${response.body}');
-    final decoded = jsonDecode(response.body);
-
-    if (decoded is List) {
-      return decoded.map((json) => SectionModel.fromJson(json)).toList();
-    } else if (decoded is Map && decoded.containsKey('value')) {
-      List<dynamic> data = decoded['value'];
-      return data.map((json) => SectionModel.fromJson(json)).toList();
-    } else {
-      throw Exception('Unexpected response format');
-    }
-  } else {
-    throw Exception('Failed to load sections');
-  }
-}
-
-Future<List<FloorModel>> getFloorByProjectID(int projectID) async {
-  String? token = await SharedPrefsHelper.getToken();
-  final response = await http.get(
-    Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/ProjectFloorMapping/GetFloorsByProjectID/$projectID'),
-    headers: {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-    },
-  );
-
-  if (response.statusCode == 200) {
-    // print('Floor API response: ${response.body}');
-    final decoded = jsonDecode(response.body);
-
-    if (decoded is List) {
-      return decoded.map((json) => FloorModel.fromJson(json)).toList();
-    } else if (decoded is Map && decoded.containsKey('value')) {
-      List<dynamic> data = decoded['value'];
-      return data.map((json) => FloorModel.fromJson(json)).toList();
-    } else {
-      throw Exception('Unexpected response format for floor');
-    }
-  } else {
-    throw Exception('Failed to load floors');
-  }
-}
-
-Future<List<PourModel>> getPourByProjectID(int projectID) async {
-  String? token = await SharedPrefsHelper.getToken();
-  final response = await http.get(
-    Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/ProjectPartMapping/GetPartsByProjectID/$projectID'),
-    headers: {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-    },
-  );
-
-  if (response.statusCode == 200) {
-    // print('Floor API response: ${response.body}');
-    final decoded = jsonDecode(response.body);
-
-    if (decoded is List) {
-      return decoded.map((json) => PourModel.fromJson(json)).toList();
-    } else if (decoded is Map && decoded.containsKey('value')) {
-      List<dynamic> data = decoded['value'];
-      return data.map((json) => PourModel.fromJson(json)).toList();
-    } else {
-      throw Exception('Unexpected response format for floor');
-    }
-  } else {
-    throw Exception('Failed to load floors');
-  }
-}
-
-Future<List<ElementModel>> getElementByProjectID(int projectID) async {
-  String? token = await SharedPrefsHelper.getToken();
-  final response = await http.get(
-    Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/ProjectElementMapping/GetElementsByProjectID/$projectID'),
-    headers: {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-    },
-  );
-
-  if (response.statusCode == 200) {
-    // print('Element API response: ${response.body}');
-    final decoded = jsonDecode(response.body);
-
-    if (decoded is List) {
-      return decoded.map((json) => ElementModel.fromJson(json)).toList();
-    } else if (decoded is Map && decoded.containsKey('value')) {
-      List<dynamic> data = decoded['value'];
-      return data.map((json) => ElementModel.fromJson(json)).toList();
-    } else {
-      throw Exception('Unexpected response format for elements');
-    }
-  } else {
-    throw Exception('Failed to load elements');
-  }
-}
-
-Future<List<NotificationModel>> getNotificationsByUserID(int userID) async {
-  String? token =
-      await SharedPrefsHelper.getToken(); // Optional: if your API requires auth
-
-  final response = await http.get(
-    Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/Notification/GetNotificationByUserID/$userID'),
-    headers: {
-      'Authorization': 'Bearer $token', // Only if needed
-      'Content-Type': 'application/json',
-    },
-  );
-
-  if (response.statusCode == 200) {
-    final decoded = jsonDecode(response.body);
-
-    if (decoded is List) {
-      return decoded.map((json) => NotificationModel.fromJson(json)).toList();
-    } else if (decoded is Map && decoded.containsKey('value')) {
-      List<dynamic> data = decoded['value'];
-      return data.map((json) => NotificationModel.fromJson(json)).toList();
-    } else {
-      throw Exception('Unexpected response format for notifications');
-    }
-  } else {
-    throw Exception('Failed to load notifications');
-  }
-}
-
-Future<bool> deleteNotification(
-    String notificationId, int userId, int deviceId) async {
-  String? token = await SharedPrefsHelper.getToken();
-
-  final url = Uri.parse(
-      'https://d94acvrm8bvo5.cloudfront.net/api/Notification/UpdateNotificationReadFlag/$notificationId/$userId/$deviceId');
-
-  final response = await http.put(
-    url,
-    headers: {
-      'Authorization': 'Bearer $token', // Agar token required hai to
-      'Content-Type': 'application/json',
-    },
-  );
-  print('Response status: ${response.statusCode}');
-  print('Response body: ${response.body}');
-  if (response.statusCode == 200 || response.statusCode == 204) {
-    // 204 ke case me body empty hota hai, to directly true return karo
-    if (response.statusCode == 204) {
-      return true;
-    }
-    // Agar 200 hai to existing logic
+  Future<List<SectionModel>> getSectionsByProjectID(int projectID) async {
     try {
-      final decoded = jsonDecode(response.body);
-      if (decoded is bool) return decoded;
-      if (response.body.toLowerCase() == 'true') return true;
-      return false;
+      final response = await ApiClient.dio.get(
+        '/api/ProjectSectionMapping/GetSectionsByProjectID/$projectID',
+      );
+
+      final decoded =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
+      if (decoded is List) {
+        return decoded.map((json) => SectionModel.fromJson(json)).toList();
+      } else if (decoded is Map && decoded.containsKey('value')) {
+        final data = decoded['value'] as List<dynamic>;
+        return data.map((json) => SectionModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Unexpected response format for sections');
+      }
     } catch (e) {
-      print('Error decoding response: $e');
+      print("❌ Error fetching sections: $e");
+      throw Exception('Failed to load sections');
+    }
+  }
+
+  Future<List<FloorModel>> getFloorByProjectID(int projectID) async {
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/ProjectFloorMapping/GetFloorsByProjectID/$projectID',
+      );
+
+      final decoded =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
+      if (decoded is List) {
+        return decoded.map((json) => FloorModel.fromJson(json)).toList();
+      } else if (decoded is Map && decoded.containsKey('value')) {
+        final data = decoded['value'] as List<dynamic>;
+        return data.map((json) => FloorModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Unexpected response format for floors');
+      }
+    } catch (e) {
+      print("❌ Error fetching floors: $e");
+      throw Exception('Failed to load floors');
+    }
+  }
+
+  Future<List<PourModel>> getPourByProjectID(int projectID) async {
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/ProjectPartMapping/GetPartsByProjectID/$projectID',
+      );
+
+      final decoded =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
+      if (decoded is List) {
+        return decoded.map((json) => PourModel.fromJson(json)).toList();
+      } else if (decoded is Map && decoded.containsKey('value')) {
+        final data = decoded['value'] as List<dynamic>;
+        return data.map((json) => PourModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Unexpected response format for pours');
+      }
+    } catch (e) {
+      print("❌ Error fetching pours: $e");
+      throw Exception('Failed to load pours');
+    }
+  }
+
+  Future<List<ElementModel>> getElementByProjectID(int projectID) async {
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/ProjectElementMapping/GetElementsByProjectID/$projectID',
+      );
+
+      final decoded =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
+      if (decoded is List) {
+        return decoded.map((json) => ElementModel.fromJson(json)).toList();
+      } else if (decoded is Map && decoded.containsKey('value')) {
+        final data = decoded['value'] as List<dynamic>;
+        return data.map((json) => ElementModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Unexpected response format for elements');
+      }
+    } catch (e) {
+      print("❌ Error fetching elements: $e");
+      throw Exception('Failed to load elements');
+    }
+  }
+
+  Future<List<NotificationModel>> getNotificationsByUserID(int userID) async {
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/Notification/GetNotificationByUserID/$userID',
+      );
+
+      // Response ko decode karo agar string hai
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
+      if (data is List) {
+        return data.map((json) => NotificationModel.fromJson(json)).toList();
+      } else if (data is Map && data.containsKey('value')) {
+        final List<dynamic> notifications = data['value'];
+        return notifications
+            .map((json) => NotificationModel.fromJson(json))
+            .toList();
+      } else {
+        throw Exception('Unexpected response format for notifications');
+      }
+    } catch (e) {
+      print('❌ Failed to fetch notifications: $e');
+      throw Exception('Failed to fetch notifications');
+    }
+  }
+
+//   Future<bool> deleteNotification(
+//       String notificationId, int userId, int deviceId) async {
+//     try {
+//       final response = await ApiClient.dio.put(
+//         '/api/Notification/UpdateNotificationReadFlag/$notificationId/$userId/$deviceId',
+//       );
+
+//       if (response.statusCode == 200 || response.statusCode == 204) {
+//         // 204 ka matlab hai body empty, direct true
+//         if (response.statusCode == 204) return true;
+
+//         final decoded =
+//             response.data is String ? jsonDecode(response.data) : response.data;
+//         if (decoded is bool) return decoded;
+//         if (response.data.toString().toLowerCase() == 'true') return true;
+//         return false;
+//       } else {
+//         print('❌ Failed to delete notification: ${response.statusCode}');
+//         return false;
+//       }
+//     } catch (e) {
+//       print('❌ Error deleting notification: $e');
+//       return false;
+//     }
+//   }
+// }
+  Future<bool> deleteNotification(
+      String notificationId, int userId, int deviceId) async {
+    String? token = await SharedPrefsHelper.getToken();
+
+    final url = Uri.parse(
+        'https://d94acvrm8bvo5.cloudfront.net/api/Notification/UpdateNotificationReadFlag/$notificationId/$userId/$deviceId');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token', // Agar token required hai to
+        'Content-Type': 'application/json',
+      },
+    );
+    print('Response status: ${response.statusCode}');
+    print('Response body: ${response.body}');
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      // 204 ke case me body empty hota hai, to directly true return karo
+      if (response.statusCode == 204) {
+        return true;
+      }
+      // Agar 200 hai to existing logic
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is bool) return decoded;
+        if (response.body.toLowerCase() == 'true') return true;
+        return false;
+      } catch (e) {
+        print('Error decoding response: $e');
+        return false;
+      }
+    } else {
       return false;
     }
-  } else {
-    return false;
   }
 }

@@ -46,7 +46,7 @@ class SiteObservation {
   });
 
   factory SiteObservation.fromJson(Map<String, dynamic> json) {
-    print("observation33:$json");
+    // print("observation33:$json");
 
     return SiteObservation(
       id: (json['ID'] ?? 0) as int,
@@ -1059,6 +1059,7 @@ class GetSiteObservationMasterById {
   final String closeRemarks;
   final String reopenRemarks;
   final String assignedUsersName;
+  final String observationNameWithCategory;
 
   final List<ActivityDTO> activityDTO;
   final List<AssignmentStatusDTO> assignmentStatusDTO;
@@ -1106,6 +1107,7 @@ class GetSiteObservationMasterById {
     required this.closeRemarks,
     required this.reopenRemarks,
     required this.assignedUsersName,
+    required this.observationNameWithCategory,
   });
 
   factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
@@ -1162,6 +1164,7 @@ class GetSiteObservationMasterById {
       closeRemarks: json['closeRemarks'] ?? '',
       reopenRemarks: json['reopenRemarks'] ?? '',
       assignedUsersName: json['assignedUsersName'] ?? '',
+      observationNameWithCategory: json['observationNameWithCategory'] ?? '',
     );
   }
 
@@ -1358,7 +1361,7 @@ class AssignmentStatusDTO {
   });
 
   factory AssignmentStatusDTO.fromJson(Map<String, dynamic> json) {
-    print("json974:$json");
+    // print("json974:$json");
     return AssignmentStatusDTO(
       siteObservationID: json['siteObservationID'] ?? 0,
       assignedUserID: json['assignedUserID'] ?? 0,
@@ -1391,6 +1394,8 @@ class UpdateSiteObservation {
   int statusID;
   String? reopenRemarks;
   String? closeRemarks;
+  String? inprogressRemarks;
+  String? readytoinspectRemarks;
   int lastModifiedBy;
   DateTime lastModifiedDate;
   List<ActivityDTO> activityDTO;
@@ -1407,6 +1412,8 @@ class UpdateSiteObservation {
     required this.statusID,
     required this.reopenRemarks,
     required this.closeRemarks,
+    required this.inprogressRemarks,
+    required this.readytoinspectRemarks,
     required this.lastModifiedBy,
     required this.lastModifiedDate,
     required this.activityDTO,
@@ -1425,6 +1432,8 @@ class UpdateSiteObservation {
       'statusID': statusID,
       'reopenRemarks': reopenRemarks,
       'closeRemarks': closeRemarks,
+      'inprogressRemarks': inprogressRemarks,
+      'readytoinspectRemarks': readytoinspectRemarks,
       'lastModifiedBy': lastModifiedBy,
       'lastModifiedDate': lastModifiedDate.toIso8601String(),
       'activityDTO': activityDTO.map((a) => a.toJson()).toList(),

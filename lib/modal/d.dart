@@ -1242,7 +1242,7 @@ class AssignmentStatusDTO {
   });
 
   factory AssignmentStatusDTO.fromJson(Map<String, dynamic> json) {
-    print("json974:$json");
+    // print("json974:$json");
     return AssignmentStatusDTO(
       siteObservationID: json['siteObservationID'] ?? 0,
       assignedUserID: json['assignedUserID'] ?? 0,
