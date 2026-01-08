@@ -20,6 +20,7 @@ class SiteObservation {
   final String corretiveActionToBeTaken;
   final String preventiveActionTaken;
   final String closeRemarks;
+  final String statusName;
 
   SiteObservation({
     required this.id,
@@ -43,6 +44,7 @@ class SiteObservation {
     required this.corretiveActionToBeTaken,
     required this.preventiveActionTaken,
     required this.closeRemarks,
+    required this.statusName,
   });
 
   factory SiteObservation.fromJson(Map<String, dynamic> json) {
@@ -71,6 +73,7 @@ class SiteObservation {
           (json['CorretiveActionToBeTaken'] ?? '').toString(),
       preventiveActionTaken: (json['PreventiveActionTaken'] ?? '').toString(),
       closeRemarks: (json['closeRemarks'] ?? '').toString(),
+      statusName: (json['statusName'] ?? '').toString(),
     );
   }
 

@@ -22,6 +22,8 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'package:intl/intl.dart';
+
 class SiteObservationQuality extends StatefulWidget {
   final String companyName;
   final ProjectService _projectService;
@@ -1654,73 +1656,85 @@ class _SiteObservationState extends State<SiteObservationQuality> {
             ),
           ),
           const SizedBox(height: 6),
-          GestureDetector(
-            onTap: () => openImageModal(activity.documentName),
-            child: Container(
-              height: 150,
-              width: 150,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300, width: 2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  isImage(activity.documentName)
-                      ? "$url/${activity.documentName}"
-                      : "assets/default-image.png",
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.broken_image, size: 50),
+          Row(
+            children: [
+              // 🔹 Image fixed size
+              GestureDetector(
+                onTap: () => openImageModal(activity.documentName),
+                child: Container(
+                  height: 120, // fixed height
+                  width: 120, // fixed width
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      isImage(activity.documentName)
+                          ? "$url/${activity.documentName}"
+                          : "assets/default-image.png",
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.broken_image, size: 50),
+                    ),
+                  ),
                 ),
               ),
-            ),
+
+              const SizedBox(width: 8),
+
+              // 🔹 Download button aligned with image
+              IconButton(
+                icon: const Icon(Icons.download, size: 28, color: Colors.blue),
+                onPressed: () => downloadImage(activity.documentName),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _userHeader(String initial, String name, String date) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: Colors.blue.shade100,
-          child: Text(
-            initial,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            name,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-        ),
-        Text(
-          date,
-          style: const TextStyle(
-            fontSize: 11,
-            color: Colors.grey,
-          ),
-        ),
-      ],
-    );
-  }
+  // Widget _userHeader(String initial, String name, String date) {
+  //   return Row(
+  //     children: [
+  //       CircleAvatar(
+  //         radius: 18,
+  //         backgroundColor: Colors.blue.shade100,
+  //         child: Text(
+  //           initial,
+  //           style: const TextStyle(
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.blue,
+  //           ),
+  //         ),
+  //       ),
+  //       const SizedBox(width: 10),
+  //       Expanded(
+  //         child: Text(
+  //           name,
+  //           style: const TextStyle(
+  //             fontWeight: FontWeight.bold,
+  //             fontSize: 14,
+  //           ),
+  //         ),
+  //       ),
+  //       Text(
+  //         date,
+  //         style: const TextStyle(
+  //           fontSize: 11,
+  //           color: Colors.grey,
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildActivityItem(List<ActivityDTO> activities) {
     final sortedActivities = [...activities]
       ..sort((a, b) => a.createdDate.compareTo(b.createdDate));
 
-    // 🔹 Latest activity = card status
     final latestActivity = sortedActivities.last;
     final first = sortedActivities.first;
 
@@ -1734,109 +1748,156 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Card(
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 4,
+        shadowColor: Colors.black.withOpacity(0.08),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 🔹 USER HEADER (common)
+              // 🔹 USER HEADER
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Colors.blue.withOpacity(0.15),
+                    child: Text(
+                      userInitial,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      first.createdByName ?? 'Unknown',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    date,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 6),
+
+              // 🔹 CARD LEVEL STATUS
               if (latestActivity.fromStatusName != null ||
                   latestActivity.toStatusName != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      "Status: ${latestActivity.fromStatusName ?? '-'} → ${latestActivity.toStatusName ?? '-'}",
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.sync_alt,
+                          size: 14, color: Colors.orange),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "${latestActivity.fromStatusName ?? '-'} → ${latestActivity.toStatusName ?? '-'}",
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.orange,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
 
               const SizedBox(height: 10),
 
-              // 🔹 ALL ACTIONS IN SAME CARD
+              // 🔹 ALL ACTIONS
               ...sortedActivities.map((activity) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Action name
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Action name
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: activity.actionName == 'Assign'
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        activity.actionName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
                           color: activity.actionName == 'Assign'
-                              ? Colors.green.withOpacity(0.12)
-                              : Colors.blue.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
+                              ? Colors.green
+                              : Colors.blue,
                         ),
-                        child: Text(
-                          activity.actionName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: activity.actionName == 'Assign'
-                                ? Colors.green
-                                : Colors.blue,
+                      ),
+                    ),
+
+                    // Assigned user
+                    if (activity.assignedUserName != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Chip(
+                          label: Text(
+                            activity.assignedUserName!,
+                            style: const TextStyle(fontSize: 12),
                           ),
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                       ),
 
-                      // Status
-                      // if (activity.fromStatusName != null ||
-                      //     activity.toStatusName != null)
-                      //   Padding(
-                      //     padding: const EdgeInsets.only(top: 6),
-                      //     child: Text(
-                      //       "Status: ${activity.fromStatusName ?? '-'} → ${activity.toStatusName ?? '-'}",
-                      //       style: const TextStyle(fontSize: 12),
-                      //     ),
-                      //   ),
-
-                      // Assigned user
-                      if (activity.assignedUserName != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Chip(
-                            label: Text(activity.assignedUserName!),
-                          ),
+                    // Comment
+                    if ((activity.comments ?? '').isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          activity.comments!,
+                          style: const TextStyle(fontSize: 12),
                         ),
+                      ),
 
-                      // Comment
-                      if ((activity.comments ?? '').isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(activity.comments!),
-                        ),
-
-                      // Attachment (separate visual)
-                      if (activity.documentName.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.attach_file, size: 14),
-                              const SizedBox(width: 6),
-                              Text(
-                                activity.documentName,
-                                style: const TextStyle(color: Colors.blue),
+                    // Attachment
+                    if (activity.documentName.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.attach_file,
+                                size: 12, color: Colors.grey),
+                            const SizedBox(width: 6),
+                            SizedBox(
+                              height: 60, // height chhoti rakho
+                              width: 60, // width proportional rakho
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  isImage(activity.documentName)
+                                      ? "$url/${activity.documentName}"
+                                      : "assets/default-image.png",
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      const Icon(Icons.broken_image, size: 24),
+                                ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                    ],
-                  ),
+                      ),
+
+                    const SizedBox(height: 8),
+                    if (activity != sortedActivities.last)
+                      const Divider(height: 16),
+                  ],
                 );
               }).toList(),
             ],
@@ -1949,6 +2010,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     }
   }
 
+  String _formatDate(DateTime? date) {
+    return date != null
+        ? DateFormat('dd/MM/yyyy hh:mm').format(date.toLocal())
+        : 'N/A';
+  }
+
   Future<void> _openObservationDetailPopup(int observationId) async {
     try {
       // 1️⃣ Fetch observation detail
@@ -2031,7 +2098,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                         ),
                         IconButton(
                             icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context))
+                            onPressed: () => Navigator.pop(context, true))
                       ],
                     ),
                   ),
@@ -2065,19 +2132,54 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                     "Observation Code", detail.observationCode),
                               ),
                               _tableRow(
-                                _popupDateRowIfValid(
-                                    "Observation Date", detail.trancationDate),
-                                _popupDateRowIfValid(
-                                    "Created Date", detail.createdDate),
+                                // _popupDateRowIfValid(
+                                //     "Observation Date", detail.trancationDate),
+                                Row(
+                                  children: [
+                                    Text(
+                                      "Observation Date: ",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    Text(_formatDate(detail.trancationDate)),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      "Created Date: ",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    Text(_formatDate(detail.createdDate)),
+                                  ],
+                                ),
+                                // _popupDateRowIfValid(
+                                //     "Created Date", detail.createdDate),
                               ),
                               _tableRow(
                                 _popupRow(
                                     "Observation Type", detail.observationType),
+                                // _formatDate("Due Date", detail.dueDate),
                                 _popupRow("Issue Type", detail.issueType),
                               ),
                               _tableRow(
+                                  _popupRow("Created By",
+                                      detail.observationRaisedBy ?? 'N/A'),
+                                  // _formatDate("Due Date", detail.dueDate),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        "Due Date: ",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(_formatDate(detail.dueDate)),
+                                    ],
+                                  )),
+                              _tableRow(
                                 _popupRow("Activity", detail.activityName),
-                                _popupRow("Area", detail.sectionName),
+                                _popupRow("Block", detail.sectionName),
                               ),
                               _tableRow(
                                 _popupRow("Floor", detail.floorName),
