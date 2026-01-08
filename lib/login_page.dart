@@ -52,18 +52,17 @@ class _MyCustomFormState extends State<MyCustomForm> {
       var userId = responseBody['userId'];
       var userName = responseBody['userName'];
       var token = responseBody['token'];
-      print("responseBody: $responseBody");
 
       if (userId != null && token != null) {
         await SharedPrefsHelper.clear();
         await SharedPrefsHelper.saveUserId(userId);
         await SharedPrefsHelper.saveToken(token);
         await SharedPrefsHelper.saveUserName(userName);
-        print("✅ Saved UserName: $userName");
+        // print("✅ Saved UserName: $userName");
 
         // ✅ STEP: Get Firebase token
         final fcmToken = await FirebaseMessaging.instance.getToken();
-        print("✅ FCM Token: $fcmToken");
+        // print("✅ FCM Token: $fcmToken");
         if (fcmToken != null) {
           // ✅ STEP: Call API to save mobileAppToken
           await _loginService.updateUserMobileAppToken(userId, fcmToken);
@@ -134,7 +133,6 @@ class _MyCustomFormState extends State<MyCustomForm> {
                             return const Center(
                                 child: CircularProgressIndicator());
                           } else if (snapshot.hasError) {
-                            print('snapshot,$snapshot');
                             return Center(
                                 child: Text('Error: \${snapshot.error}'));
                           } else if (snapshot.hasData) {

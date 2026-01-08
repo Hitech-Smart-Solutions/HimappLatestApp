@@ -509,11 +509,35 @@ class SiteObservationService {
     }
   }
 
+  Future<List<UserList>> getUsersForSiteObservation({
+    required int siteObservationId,
+    required int flag, // 1 = comment, 2 = assign
+  }) async {
+    try {
+      final response = await ApiClient.dio.get(
+        '/api/UserMaster/GetUsersForSiteObservation/$siteObservationId/$flag',
+      );
+
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
+
+      final List<dynamic> users = data['Value']['Table1'] ?? [];
+
+      return users.map((e) => UserList.fromJson(e)).toList();
+    } catch (e) {
+      print('❌ Failed to fetch users: $e');
+      return [];
+    }
+  }
+
   Future<String?> uploadFileAndGetFileName(
       String fileName, Uint8List fileBytes) async {
     try {
       final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+        'file': MultipartFile.fromBytes(
+          fileBytes,
+          filename: fileName,
+        ),
       });
 
       final response = await ApiClient.dio.post(
@@ -521,16 +545,21 @@ class SiteObservationService {
         data: formData,
       );
 
-      if (response.statusCode == 200 &&
-          response.data.toString().contains('file uploaded|')) {
-        final path = response.data.toString().split('|')[1];
-        return path.split('/').last;
-      } else {
-        print('❌ Upload failed: ${response.statusCode} - ${response.data}');
-        return null;
+      if (response.statusCode == 200 && response.data is Map) {
+        final data = response.data as Map<String, dynamic>;
+
+        final storedFileName = data['storedFileName'];
+
+        if (storedFileName != null && storedFileName.toString().isNotEmpty) {
+          print("✅ Upload success: $storedFileName");
+          return storedFileName;
+        }
       }
+
+      print("❌ Upload failed: ${response.statusCode} - ${response.data}");
+      return null;
     } catch (e) {
-      print('❌ Upload error: $e');
+      print("❌ Upload error: $e");
       return null;
     }
   }

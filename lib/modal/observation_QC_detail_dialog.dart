@@ -66,7 +66,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       TextEditingController();
   final TextEditingController _activityCommentController =
       TextEditingController();
-  final GlobalKey<FlutterMentionsState> mentionsKey =
+  GlobalKey<FlutterMentionsState> mentionsKey =
       GlobalKey<FlutterMentionsState>();
 
   final TextEditingController reopenRemarksController = TextEditingController();
@@ -110,6 +110,14 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   bool inReadyToInspectRemarksVisible = false;
   bool isUpdateBtnVisible = false;
   bool collapsed = false;
+
+  String selectedActionType = 'Comment';
+  String mentionsPlaceholder = "Please add comment...";
+  bool isMentionsEnabled = false;
+  List<User> selectedMentions = [];
+  late void Function(void Function()) _activityTabSetState;
+
+  bool isFirstLoad = true;
   @override
   void initState() {
     super.initState();
@@ -166,6 +174,13 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   Future<void> initData() async {
     int projectID = widget.projectID;
     await fetchUsers();
+    setState(() {
+      // isMentionsEnabled = selectedActionType == 'Assign' && userList.isNotEmpty;
+      // only enable mentions now if user selected 'Assign'
+      isMentionsEnabled =
+          (selectedActionType == 'Assign' || selectedActionType == 'Comment') &&
+              userList.isNotEmpty;
+    });
     userId = await SharedPrefsHelper.getUserId();
     currentUserName = await SharedPrefsHelper.getUserName();
   }
@@ -245,20 +260,36 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     // print("Initializing form for observation ID: $rootCauseIDs");
 
     // ---------- Root Cause selection ----------
-    if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
-      try {
-        selectedRootCause = rootCauses.firstWhere(
-          (rc) => rc.id == rootCauseIDs, // ✅ correct field
-        );
-      } catch (e) {
-        selectedRootCause = null;
-      }
-    } else if (rootCauseIDs == 0 && rootCauses.isNotEmpty) {
-      selectedRootCause = rootCauses.first;
+    // if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
+    //   try {
+    //     selectedRootCause = rootCauses.firstWhere(
+    //       (rc) => rc.id == rootCauseIDs, // ✅ correct field
+    //     );
+    //   } catch (e) {
+    //     selectedRootCause = null;
+    //   }
+    // } else if (rootCauseIDs == 0 && rootCauses.isNotEmpty) {
+    //   selectedRootCause = rootCauses.first;
+    // } else {
+    //   selectedRootCause = null;
+    // }
+
+    // ---------- Root Cause selection ----------
+    if (rootCauses.isNotEmpty) {
+      selectedRootCause = rootCauses.firstWhere(
+        (rc) => rc.id == rootCauseIDs,
+        orElse: () => rootCauses.first,
+      );
     } else {
       selectedRootCause = null;
     }
 
+    print("DEBUG RootCause -> rootCauses length: ${rootCauses.length}");
+    print(
+        "DEBUG RootCause -> widget.detail.rootCauseID: ${widget.detail.rootCauseID}");
+    print("DEBUG RootCause -> selectedRootCause: $selectedRootCause");
+
+    // print("DEBUG: acts length = ${acts.length}");
     // ---------- Text fields ----------
     // print(
     // 'widget.detail.rootcauseDescription 259: ${widget.detail.rootcauseDescription}');
@@ -270,6 +301,44 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
     correctiveActionController.text =
         widget.detail.corretiveActionToBeTaken ?? '';
+  }
+
+  ActivityDTO buildAssignedActivity({
+    required int siteObservationID,
+    required int assignedUserID,
+  }) {
+    return ActivityDTO(
+      id: 0,
+      siteObservationID: siteObservationID,
+      actionID: SiteObservationActions.Assigned,
+      actionName: 'Assigned',
+      comments: '',
+      documentName: '',
+      fromStatusID: fromStatus,
+      toStatusID: toStatus,
+      assignedUserID: assignedUserID,
+      createdBy: userId,
+      createdDate: DateTime.now(),
+    );
+  }
+
+  ActivityDTO buildCommentActivity({
+    required int siteObservationID,
+    required String comment,
+  }) {
+    return ActivityDTO(
+      id: 0,
+      siteObservationID: siteObservationID,
+      actionID: SiteObservationActions.Commented,
+      actionName: 'Commented',
+      comments: comment,
+      documentName: '',
+      fromStatusID: fromStatus,
+      toStatusID: toStatus,
+      assignedUserID: 0,
+      createdBy: userId,
+      createdDate: DateTime.now(),
+    );
   }
 
   Future<void> _loadRootCauses() async {
@@ -295,60 +364,108 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     int id = widget.detail.id;
     int rootCauseID = selectedRootCause?.id ?? 0;
 
+    List<ActivityDTO> activities = [];
+
+    int selectedStatusId =
+        int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
+
     String? reopenRemarks;
     String? closeRemarks;
     String? inprogressRemarks;
     String? readytoinspectRemarks;
 
-    List<ActivityDTO> activities = [];
-    int selectedStatusId =
-        int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
-    // if (selectedStatusId == SiteObservationStatus.ReadyToInspect ||
-    //     selectedStatusId == SiteObservationStatus.InProgress ||
-    //     selectedStatusId == SiteObservationStatus.Closed) {
+    /// ---------------- STATUS BASED REMARKS ----------------
+    if (selectedStatusId == SiteObservationStatus.Reopen) {
+      reopenRemarks = reopenRemarksController.text.trim();
+    }
+
+    if (selectedStatusId == SiteObservationStatus.Closed) {
+      closeRemarks = closeRemarksController.text.trim();
+    }
+
+    if (selectedStatusId == SiteObservationStatus.InProgress) {
+      inprogressRemarks = inProgessRemarksController.text.trim();
+    }
 
     if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
+      readytoinspectRemarks = inReadyToInspectRemarksController.text.trim();
+    }
+
+    /// ---------------- READY TO INSPECT ----------------
+    if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
       activities.add(
-        ActivityDTO(
-          id: 0,
+        buildAssignedActivity(
           siteObservationID: id,
-          actionID: SiteObservationActions.Assigned,
-          actionName: 'Assigned',
-          comments: '',
-          documentName: '',
-          fromStatusID: fromStatus,
-          toStatusID: toStatus,
-          assignedUserID: widget.detail.createdBy,
-          assignedUserName: null,
-          createdBy: userId,
-          createdDate: DateTime.now(),
+          assignedUserID: widget.detail.createdBy!,
         ),
       );
-    } else if (selectedStatusId == SiteObservationStatus.Reopen) {
-      final assignedUsers =
-          await SiteObservationService().fetchGetassignedusersforReopen(id);
 
-      // Add an activity for each assigned user
-      for (var user in assignedUsers) {
+      if (readytoinspectRemarks?.isNotEmpty == true) {
         activities.add(
-          ActivityDTO(
-            id: 0,
+          buildCommentActivity(
             siteObservationID: id,
-            actionID: SiteObservationActions.Assigned,
-            actionName: 'Assigned',
-            comments: '',
-            documentName: '',
-            fromStatusID: fromStatus,
-            toStatusID: toStatus,
-            assignedUserID: user.assignedUserID,
-            createdBy: userId,
-            createdDate: DateTime.now(),
+            comment: readytoinspectRemarks!,
           ),
         );
       }
     }
 
-    // Add file uploads if available
+    /// ---------------- REOPEN ----------------
+    else if (selectedStatusId == SiteObservationStatus.Reopen) {
+      final assignedUsers =
+          await SiteObservationService().fetchGetassignedusersforReopen(id);
+
+      for (var user in assignedUsers) {
+        activities.add(
+          buildAssignedActivity(
+            siteObservationID: id,
+            assignedUserID: user.assignedUserID,
+          ),
+        );
+      }
+
+      if (reopenRemarks?.isNotEmpty == true) {
+        activities.add(
+          buildCommentActivity(
+            siteObservationID: id,
+            comment: reopenRemarks!,
+          ),
+        );
+      }
+    }
+
+    /// ---------------- IN PROGRESS / CLOSED ----------------
+    else if (selectedStatusId == SiteObservationStatus.InProgress ||
+        selectedStatusId == SiteObservationStatus.Closed) {
+      activities.add(
+        buildAssignedActivity(
+          siteObservationID: id,
+          assignedUserID: widget.detail.createdBy!,
+        ),
+      );
+
+      if (selectedStatusId == SiteObservationStatus.InProgress &&
+          inprogressRemarks?.isNotEmpty == true) {
+        activities.add(
+          buildCommentActivity(
+            siteObservationID: id,
+            comment: inprogressRemarks!,
+          ),
+        );
+      }
+
+      if (selectedStatusId == SiteObservationStatus.Closed &&
+          closeRemarks?.isNotEmpty == true) {
+        activities.add(
+          buildCommentActivity(
+            siteObservationID: id,
+            comment: closeRemarks!,
+          ),
+        );
+      }
+    }
+
+    /// ---------------- FILE UPLOAD ----------------
     for (String fileName in uploadedFiles) {
       activities.add(
         ActivityDTO(
@@ -361,29 +478,13 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           fromStatusID: fromStatus,
           toStatusID: toStatus,
           assignedUserID: userId!,
-          assignedUserName: null,
           createdBy: userId,
           createdDate: DateTime.now(),
         ),
       );
     }
 
-    if (selectedStatusId == SiteObservationStatus.Reopen) {
-      reopenRemarks = reopenRemarksController.text;
-    }
-
-    if (selectedStatusId == SiteObservationStatus.Closed) {
-      closeRemarks = closeRemarksController.text;
-    }
-
-    if (selectedStatusId == SiteObservationStatus.InProgress) {
-      inprogressRemarks = inProgessRemarksController.text;
-    }
-
-    if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
-      readytoinspectRemarks = inReadyToInspectRemarksController.text;
-    }
-
+    /// ---------------- FINAL MODEL ----------------
     return UpdateSiteObservation(
       id: id,
       rootCauseID: rootCauseID,
@@ -403,6 +504,136 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       activityDTO: activities,
     );
   }
+
+  // Future<UpdateSiteObservation> getUpdatedDataFromForm(
+  //     List<String> uploadedFiles) async {
+  //   int id = widget.detail.id;
+  //   int rootCauseID = selectedRootCause?.id ?? 0;
+
+  //   String? reopenRemarks;
+  //   String? closeRemarks;
+  //   String? inprogressRemarks;
+  //   String? readytoinspectRemarks;
+
+  //   List<ActivityDTO> activities = [];
+  //   int selectedStatusId =
+  //       int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
+
+  //   if (selectedStatusId == SiteObservationStatus.Reopen) {
+  //     reopenRemarks = reopenRemarksController.text;
+  //   }
+
+  //   if (selectedStatusId == SiteObservationStatus.Closed) {
+  //     closeRemarks = closeRemarksController.text;
+  //   }
+
+  //   if (selectedStatusId == SiteObservationStatus.InProgress) {
+  //     inprogressRemarks = inProgessRemarksController.text;
+  //   }
+
+  //   if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
+  //     readytoinspectRemarks = inReadyToInspectRemarksController.text;
+  //   }
+
+  //   if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
+  //     activities.add(
+  //       ActivityDTO(
+  //         id: 0,
+  //         siteObservationID: id,
+  //         actionID: SiteObservationActions.Assigned,
+  //         actionName: 'Assigned',
+  //         comments: '',
+  //         documentName: '',
+  //         fromStatusID: fromStatus,
+  //         toStatusID: toStatus,
+  //         assignedUserID: widget.detail.createdBy,
+  //         assignedUserName: null,
+  //         createdBy: userId,
+  //         createdDate: DateTime.now(),
+  //       ),
+  //     );
+
+  //     activities.add(
+  //       ActivityDTO(
+  //         id: 0,
+  //         siteObservationID: id,
+  //         actionID: SiteObservationActions.Assigned,
+  //         actionName: 'Assigned',
+  //         comments: '',
+  //         documentName: '',
+  //         fromStatusID: fromStatus,
+  //         toStatusID: toStatus,
+  //         assignedUserID: widget.detail.createdBy,
+  //         assignedUserName: null,
+  //         createdBy: userId,
+  //         createdDate: DateTime.now(),
+  //       ),
+  //     );
+  //   } else if (selectedStatusId == SiteObservationStatus.Reopen) {
+  //     final assignedUsers =
+  //         await SiteObservationService().fetchGetassignedusersforReopen(id);
+
+  //     // Add an activity for each assigned user
+  //     for (var user in assignedUsers) {
+  //       activities.add(
+  //         ActivityDTO(
+  //           id: 0,
+  //           siteObservationID: id,
+  //           actionID: SiteObservationActions.Assigned,
+  //           actionName: 'Assigned',
+  //           comments: '',
+  //           documentName: '',
+  //           fromStatusID: fromStatus,
+  //           toStatusID: toStatus,
+  //           assignedUserID: user.assignedUserID,
+  //           createdBy: userId,
+  //           createdDate: DateTime.now(),
+  //         ),
+  //       );
+  //     }
+  //   }
+
+  //   // Add file uploads if available
+  //   for (String fileName in uploadedFiles) {
+  //     activities.add(
+  //       ActivityDTO(
+  //         id: 0,
+  //         siteObservationID: id,
+  //         actionID: SiteObservationActions.DocUploaded,
+  //         actionName: 'DocUploaded',
+  //         comments: '',
+  //         documentName: fileName,
+  //         fromStatusID: fromStatus,
+  //         toStatusID: toStatus,
+  //         assignedUserID: userId!,
+  //         assignedUserName: null,
+  //         createdBy: userId,
+  //         createdDate: DateTime.now(),
+  //       ),
+  //     );
+  //   }
+
+  //   print("inprogressRemarks,$inprogressRemarks");
+
+  //   return UpdateSiteObservation(
+  //     id: id,
+  //     rootCauseID: rootCauseID,
+  //     rootcauseDescription: rootcauseDescriptionController.text,
+  //     corretiveActionToBeTaken: correctiveActionController.text,
+  //     preventiveActionTaken: preventiveActionController.text,
+  //     materialCost: double.tryParse(materialCostController.text) ?? 0.0,
+  //     labourCost: double.tryParse(labourCostController.text) ?? 0.0,
+  //     reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
+  //     statusID: selectedStatusId,
+  //     reopenRemarks: reopenRemarks,
+  //     closeRemarks: closeRemarks,
+  //     inprogressRemarks: inprogressRemarks,
+  //     readytoinspectRemarks: readytoinspectRemarks,
+  //     lastModifiedBy: userId!,
+  //     lastModifiedDate: DateTime.now(),
+  //     activityDTO: activities,
+  //   );
+  // }
 
   String getAttachmentStatusName(ActivityDTO activity) {
     final relatedActivities = widget.detail.activityDTO
@@ -427,209 +658,389 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     return status['name'] ?? 'Unknown';
   }
 
+  // Future<void> _sendActivityComment() async {
+  //   if (isSending) return;
+  //   setState(() {
+  //     isSending = true; // send start hone pe disable kar do
+  //   });
+  //   try {
+  //     final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
+  //     final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
+  //     final Iterable<RegExpMatch> matches = mentionRegex.allMatches(markupText);
+
+  //     List<User> selectedUsers = matches.map((match) {
+  //       String rawIdStr = match.group(1)!;
+  //       String rawUserName = match.group(2)!;
+
+  //       String cleanedIdStr = rawIdStr.replaceAll('_', '');
+  //       String cleanedUserName = rawUserName.replaceAll('_', '');
+
+  //       int userId = int.tryParse(cleanedIdStr) ?? 0;
+
+  //       // final matchedUser = allUsers.firstWhere(
+  //       //   (user) => user.id == userId,
+  //       //   orElse: () => User(id: 0, userName: ''),
+  //       // );
+
+  //       final matchedUser = allUsers.firstWhere(
+  //         (user) => user.id == userId,
+  //         orElse: () => User(
+  //             id: userId,
+  //             userName: cleanedUserName), // ✅ fallback me bhi name jaaye
+  //       );
+
+  //       String finalUserName = matchedUser.userName.isNotEmpty
+  //           ? matchedUser.userName
+  //           : cleanedUserName;
+
+  //       return User(id: userId, userName: finalUserName);
+  //     }).toList();
+
+  //     // ✅ Fix is here — get int userId only
+  //     // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
+  //     // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
+  //     // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
+  //     int createdById = await SharedPrefsHelper.getUserId() ?? 0;
+  //     String createdByName = await SharedPrefsHelper.getUserName() ?? 'Unknown';
+
+  //     // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
+  //     List<ActivityDTO> activities = [];
+
+  //     final commentText =
+  //         mentionsKey.currentState?.controller?.text.trim() ?? "";
+  //     final plainComment =
+  //         commentText.replaceAll(RegExp(r'\@\[(.*?)\]\((.*?)\)'), '').trim();
+
+  //     bool hasMentions = selectedUsers.isNotEmpty;
+  //     bool hasComment = plainComment.isNotEmpty;
+  //     // CASE 1 — Only mention(s)
+  //     if (hasMentions && !hasComment) {
+  //       for (var user in selectedUsers) {
+  //         activities.add(ActivityDTO(
+  //           id: 0,
+  //           siteObservationID: editingUserId,
+  //           actionID: SiteObservationActions.Assigned,
+  //           actionName: "Assigned",
+  //           comments: "",
+  //           documentName: "",
+  //           fromStatusID: fromStatus,
+  //           toStatusID: toStatus,
+  //           toStatusName: SiteObservationStatus.idToName[toStatus] ??
+  //               "Unknown", // ✅ Add this
+  //           assignedUserID: user.id,
+  //           assignedUserName: user.userName,
+  //           createdBy: createdById, // ✅ send as integer
+  //           createdByName: createdByName,
+  //           createdDate: DateTime.now(),
+  //         ));
+  //       }
+  //     }
+
+  //     // CASE 2 — Only comment
+  //     else if (!hasMentions && hasComment) {
+  //       activities.add(ActivityDTO(
+  //         id: 0,
+  //         siteObservationID: editingUserId,
+  //         actionID: SiteObservationActions.Commented,
+  //         actionName: "Commented",
+  //         comments: plainComment,
+  //         documentName: "",
+  //         fromStatusID: fromStatus,
+  //         toStatusID: toStatus,
+  //         toStatusName: SiteObservationStatus.idToName[toStatus] ??
+  //             "Unknown", // ✅ Add this
+  //         assignedUserID: 0,
+  //         // assignedUserName: '',
+  //         // createdBy: createdBy, // ✅ integer
+  //         createdBy: createdById,
+  //         createdByName: createdByName,
+  //         assignedUserName: createdByName,
+  //         createdDate: DateTime.now(),
+  //       ));
+  //     }
+
+  //     // CASE 3 — Both mention(s) and comment
+  //     else if (hasMentions && hasComment) {
+  //       for (var user in selectedUsers) {
+  //         activities.add(ActivityDTO(
+  //           id: 0,
+  //           siteObservationID: editingUserId,
+  //           actionID: SiteObservationActions.Assigned,
+  //           actionName: "Assigned",
+  //           comments: "",
+  //           documentName: "",
+  //           fromStatusID: fromStatus,
+  //           toStatusID: toStatus,
+  //           toStatusName: SiteObservationStatus.idToName[toStatus] ??
+  //               "Unknown", // ✅ Add this
+  //           assignedUserID: user.id,
+  //           assignedUserName: user.userName,
+  //           createdBy: createdById, // ✅ integer
+  //           createdByName: createdByName,
+  //           createdDate: DateTime.now(),
+  //         ));
+  //       }
+
+  //       activities.add(ActivityDTO(
+  //         id: 0,
+  //         siteObservationID: editingUserId,
+  //         actionID: SiteObservationActions.Commented,
+  //         actionName: "Commented",
+  //         comments: plainComment,
+  //         documentName: "",
+  //         fromStatusID: fromStatus,
+  //         toStatusID: toStatus,
+  //         toStatusName: SiteObservationStatus.idToName[toStatus] ??
+  //             "Unknown", // ✅ Add this
+  //         assignedUserID: 0,
+  //         assignedUserName: '',
+  //         createdBy: createdById, // ✅ integer
+  //         createdByName: createdByName,
+  //         createdDate: DateTime.now(),
+  //       ));
+  //     }
+
+  //     if (activities.isEmpty) {
+  //       return;
+  //     }
+
+  //     bool success = await SiteObservationService().sendSiteObservationActivity(
+  //       activities: activities,
+  //       siteObservationID: editingUserId,
+  //     );
+
+  //     if (success) {
+  //       mentionsKey.currentState?.controller?.clear();
+  //       _activityCommentController.clear();
+
+  //       setState(() {
+  //         widget.detail.activityDTO.insertAll(0, activities);
+  //       });
+  //     } else {
+  //       print("❌ Failed to post activity!");
+  //     }
+  //   } catch (e, st) {
+  //     print(st);
+  //   } finally {
+  //     setState(() {
+  //       isSending = false; // send complete hone ke baad enable kar do
+  //     });
+  //   }
+  // }
+
   Future<void> _sendActivityComment() async {
     if (isSending) return;
-    setState(() {
-      isSending = true; // send start hone pe disable kar do
-    });
+    setState(() => isSending = true);
+
     try {
-      final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
+      // --- 1. Current user info ---
+      final int currentUserId = await SharedPrefsHelper.getUserId() ?? 0;
+      final String currentUserName =
+          await SharedPrefsHelper.getUserName() ?? 'Unknown';
+
+      // --- 2. Get markup text from FlutterMentions ---
+      final markupText = mentionsKey.currentState?.controller?.markupText ?? '';
+
       final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
-      final Iterable<RegExpMatch> matches = mentionRegex.allMatches(markupText);
 
-      List<User> selectedUsers = matches.map((match) {
-        String rawIdStr = match.group(1)!;
-        String rawUserName = match.group(2)!;
-
-        String cleanedIdStr = rawIdStr.replaceAll('_', '');
-        String cleanedUserName = rawUserName.replaceAll('_', '');
-
-        int userId = int.tryParse(cleanedIdStr) ?? 0;
-
-        // final matchedUser = allUsers.firstWhere(
-        //   (user) => user.id == userId,
-        //   orElse: () => User(id: 0, userName: ''),
-        // );
-
-        final matchedUser = allUsers.firstWhere(
-          (user) => user.id == userId,
-          orElse: () => User(
-              id: userId,
-              userName: cleanedUserName), // ✅ fallback me bhi name jaaye
-        );
-
-        String finalUserName = matchedUser.userName.isNotEmpty
-            ? matchedUser.userName
-            : cleanedUserName;
-
-        return User(id: userId, userName: finalUserName);
+      // --- 3. Extract mentioned users (ONLY for Assign mode) ---
+      final matches = mentionRegex.allMatches(markupText);
+      final List<User> selectedMentions = matches.map((m) {
+        final id = int.tryParse(m.group(1)?.replaceAll('_', '') ?? '') ?? 0;
+        final name = m.group(2)?.replaceAll('_', '') ?? '';
+        return User(id: id, userName: name);
       }).toList();
 
-      // ✅ Fix is here — get int userId only
-      // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
-      // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-      // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-      int createdById = await SharedPrefsHelper.getUserId() ?? 0;
-      String createdByName = await SharedPrefsHelper.getUserName() ?? 'Unknown';
+      // --- 4. Build readable comment text ---
+      // String commentText = markupText.replaceAllMapped(mentionRegex, (m) {
+      //   return '@${m.group(2)}';
+      // }).trim();
+      String commentText = markupText
+          // convert @[id](name) → @name
+          .replaceAllMapped(mentionRegex, (m) {
+            return '@${m.group(2)}';
+          })
+          // remove flutter_mentions styling __
+          .replaceAll('__', '')
+          .trim();
 
-      // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
+      bool hasComment = commentText.isNotEmpty;
+      bool hasMentions = selectedMentions.isNotEmpty;
+
+      if (!hasComment && !hasMentions) return;
+
+      // --- 5. Prepare activities ---
       List<ActivityDTO> activities = [];
 
-      final commentText =
-          mentionsKey.currentState?.controller?.text.trim() ?? "";
-      final plainComment =
-          commentText.replaceAll(RegExp(r'\@\[(.*?)\]\((.*?)\)'), '').trim();
-
-      bool hasMentions = selectedUsers.isNotEmpty;
-      bool hasComment = plainComment.isNotEmpty;
-      // CASE 1 — Only mention(s)
-      if (hasMentions && !hasComment) {
-        for (var user in selectedUsers) {
-          activities.add(ActivityDTO(
-            id: 0,
-            siteObservationID: editingUserId,
-            actionID: SiteObservationActions.Assigned,
-            actionName: "Assigned",
-            comments: "",
-            documentName: "",
-            fromStatusID: fromStatus,
-            toStatusID: toStatus,
-            toStatusName: SiteObservationStatus.idToName[toStatus] ??
-                "Unknown", // ✅ Add this
-            assignedUserID: user.id,
-            assignedUserName: user.userName,
-            createdBy: createdById, // ✅ send as integer
-            createdByName: createdByName,
-            createdDate: DateTime.now(),
-          ));
-        }
-      }
-
-      // CASE 2 — Only comment
-      else if (!hasMentions && hasComment) {
+      // =========================
+      // COMMENT MODE
+      // =========================
+      if (selectedActionType == 'Comment' && hasComment) {
         activities.add(ActivityDTO(
           id: 0,
           siteObservationID: editingUserId,
           actionID: SiteObservationActions.Commented,
           actionName: "Commented",
-          comments: plainComment,
+          comments: commentText, // contains @username text only
           documentName: "",
-          fromStatusID: fromStatus,
-          toStatusID: toStatus,
-          toStatusName: SiteObservationStatus.idToName[toStatus] ??
-              "Unknown", // ✅ Add this
-          assignedUserID: 0,
-          // assignedUserName: '',
-          // createdBy: createdBy, // ✅ integer
-          createdBy: createdById,
-          createdByName: createdByName,
-          assignedUserName: createdByName,
-          createdDate: DateTime.now(),
-        ));
-      }
-
-      // CASE 3 — Both mention(s) and comment
-      else if (hasMentions && hasComment) {
-        for (var user in selectedUsers) {
-          activities.add(ActivityDTO(
-            id: 0,
-            siteObservationID: editingUserId,
-            actionID: SiteObservationActions.Assigned,
-            actionName: "Assigned",
-            comments: "",
-            documentName: "",
-            fromStatusID: fromStatus,
-            toStatusID: toStatus,
-            toStatusName: SiteObservationStatus.idToName[toStatus] ??
-                "Unknown", // ✅ Add this
-            assignedUserID: user.id,
-            assignedUserName: user.userName,
-            createdBy: createdById, // ✅ integer
-            createdByName: createdByName,
-            createdDate: DateTime.now(),
-          ));
-        }
-
-        activities.add(ActivityDTO(
-          id: 0,
-          siteObservationID: editingUserId,
-          actionID: SiteObservationActions.Commented,
-          actionName: "Commented",
-          comments: plainComment,
-          documentName: "",
-          fromStatusID: fromStatus,
-          toStatusID: toStatus,
-          toStatusName: SiteObservationStatus.idToName[toStatus] ??
-              "Unknown", // ✅ Add this
           assignedUserID: 0,
           assignedUserName: '',
-          createdBy: createdById, // ✅ integer
-          createdByName: createdByName,
+          createdBy: currentUserId,
+          createdByName: currentUserName,
           createdDate: DateTime.now(),
+          fromStatusID: fromStatus,
+          toStatusID: toStatus,
+          toStatusName: SiteObservationStatus.idToName[toStatus] ?? "Unknown",
         ));
       }
 
-      if (activities.isEmpty) {
-        return;
+      // =========================
+      // ASSIGN MODE
+      // =========================
+      else if (selectedActionType == 'Assign' && hasMentions) {
+        for (var user in selectedMentions) {
+          activities.add(ActivityDTO(
+            id: 0,
+            siteObservationID: editingUserId,
+            actionID: SiteObservationActions.Assigned,
+            actionName: "Assigned",
+            comments: "",
+            documentName: "",
+            assignedUserID: user.id,
+            assignedUserName: user.userName,
+            createdBy: currentUserId,
+            createdByName: currentUserName,
+            createdDate: DateTime.now(),
+            fromStatusID: fromStatus,
+            toStatusID: toStatus,
+            toStatusName: SiteObservationStatus.idToName[toStatus] ?? "Unknown",
+          ));
+        }
       }
 
-      bool success = await SiteObservationService().sendSiteObservationActivity(
+      if (activities.isEmpty) return;
+
+      // --- 6. Send to API ---
+      final bool success =
+          await SiteObservationService().sendSiteObservationActivity(
         activities: activities,
         siteObservationID: editingUserId,
       );
 
       if (success) {
+        // Clear input
         mentionsKey.currentState?.controller?.clear();
         _activityCommentController.clear();
 
+        // Add new activities to top
         setState(() {
           widget.detail.activityDTO.insertAll(0, activities);
         });
       } else {
-        print("❌ Failed to post activity!");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to post activity.")),
+        );
       }
     } catch (e, st) {
-      print(st);
+      debugPrint("❌ Error in _sendActivityComment: $e\n$st");
     } finally {
-      setState(() {
-        isSending = false; // send complete hone ke baad enable kar do
-      });
+      setState(() => isSending = false);
     }
   }
 
-  fetchUsers() async {
-    setState(() {
-      isLoading = true;
-    });
+  // fetchUsers() async {
+  //   setState(() {
+  //     isLoading = true;
+  //   });
 
+  //   try {
+  //     int projectID = widget.projectID;
+  //     int? currentUserId =
+  //         await SharedPrefsHelper.getUserId(); // 👈 Get logged-in user ID
+  //     int? creatorId = widget.detail.createdBy; // 👈 Observation creator ID
+  //     // print("CreatorID: $creatorId  Logged-in: $currentUserId");
+  //     final response = await SiteObservationService().fetchUsersForList(
+  //       projectId: projectID,
+  //     );
+
+  //     setState(() {
+  //       userList = response
+  //           .where((u) => u.id != currentUserId) // 👈 Exclude current user
+  //           .where((u) => currentUserId == creatorId || u.id != creatorId)
+  //           .map((u) => {
+  //                 'id': u.id.toString(),
+  //                 'display': u.userName,
+  //                 'full_name': '${u.firstName} ${u.lastName}',
+  //               })
+  //           .toList();
+  //       // print('userlist606: $userList');
+  //     });
+  //   } catch (e) {
+  //     print('Error fetching users: $e');
+  //   } finally {
+  //     setState(() {
+  //       isLoading = false;
+  //     });
+  //   }
+  // }
+
+  Future<void> fetchUsers() async {
     try {
-      int projectID = widget.projectID;
-      int? currentUserId =
-          await SharedPrefsHelper.getUserId(); // 👈 Get logged-in user ID
-      int? creatorId = widget.detail.createdBy; // 👈 Observation creator ID
-      // print("CreatorID: $creatorId  Logged-in: $currentUserId");
-      final response = await SiteObservationService().fetchUsersForList(
-        projectId: projectID,
+      final response =
+          await SiteObservationService().getUsersForSiteObservation(
+        siteObservationId: widget.detail.id,
+        flag: selectedActionType == 'Assign' ? 2 : 1,
       );
 
+      final currentUserId = await SharedPrefsHelper.getUserId();
+      final creatorUserId = widget.detail.createdBy;
+
+      // 🔥 Step 1: collect assigned usernames (exclude null/empty)
+      final assignedUserNames = widget.detail.activityDTO
+          .where((a) => a.actionID == SiteObservationActions.Assigned)
+          .map((a) => a.assignedUserName!.toLowerCase().trim())
+          .toSet();
+
+      List<UserList> filteredUsers;
+
+      if (selectedActionType == 'Assign') {
+        // ASSIGN → all users except current + creator
+        filteredUsers = response.where((u) {
+          final notCurrentUser = u.id != currentUserId;
+          final notCreator = creatorUserId == null || u.id != creatorUserId;
+          return notCurrentUser && notCreator;
+        }).toList();
+      } else {
+        // COMMENT → only assigned users, exclude current + creator
+        filteredUsers = response.where((u) {
+          final userNameNorm = u.userName.toLowerCase().trim();
+          final isAssigned = assignedUserNames.contains(userNameNorm);
+          final notCurrentUser = u.id != currentUserId;
+          final notCreator = creatorUserId == null || u.id != creatorUserId;
+          return isAssigned && notCurrentUser && notCreator;
+        }).toList();
+      }
+
       setState(() {
-        userList = response
-            .where((u) => u.id != currentUserId) // 👈 Exclude current user
-            .where((u) => currentUserId == creatorId || u.id != creatorId)
+        userList = filteredUsers
             .map((u) => {
                   'id': u.id.toString(),
                   'display': u.userName,
                   'full_name': '${u.firstName} ${u.lastName}',
                 })
             .toList();
-        // print('userlist606: $userList');
+
+        isMentionsEnabled = userList.isNotEmpty;
+
+        // 🔥 Force FlutterMentions rebuild to reflect new data
+        mentionsKey = GlobalKey<FlutterMentionsState>();
       });
+
+      debugPrint("ACTION: $selectedActionType");
+      debugPrint("Assigned Names: $assignedUserNames");
+      debugPrint("Users shown: ${userList.map((e) => e['display'])}");
     } catch (e) {
-      print('Error fetching users: $e');
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
+      debugPrint("fetchUsers error: $e");
     }
   }
 
@@ -1854,6 +2265,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       return SiteObservationStatus.idToName[id] ?? 'Unknown';
     }
 
+    debugPrint("DEBUG: userList length = ${userList.length}");
+    debugPrint("DEBUG: isMentionsEnabled = $isMentionsEnabled");
+
     return StatefulBuilder(builder: (context, setState) {
       return Portal(
         child: Column(
@@ -1864,9 +2278,17 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 child: Column(
                   children: groupedActivities.entries.map((entry) {
                     final acts = entry.value;
+                    if (acts.isEmpty) {
+                      debugPrint("DEBUG: acts is EMPTY, skipping card");
+                      return const SizedBox.shrink();
+                    }
                     final first = acts.first;
                     // print(acts.first.toString());
                     final statusName = first.toStatusName ?? "Unknown";
+                    print("DEBUG: selectedRootCause = $selectedRootCause");
+                    print("DEBUG: userList length = ${userList.length}");
+                    print("DEBUG: acts length = ${acts.length}");
+
                     // print("Status Name: $statusName");
                     String userName = first.createdByName ??
                         (() {
@@ -1886,13 +2308,16 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                         createdByStr;
                                 return idMatch || displayMatch || fullNameMatch;
                               },
-                              orElse: () => {},
+                              orElse: () => <String,
+                                  String>{}, // ✅ return empty map instead of null
                             );
 
                             if (matchedUser.isNotEmpty) {
                               return matchedUser['full_name'] ??
                                   matchedUser['display'] ??
                                   createdByStr;
+                            } else {
+                              return createdByStr; // fallback if no match found
                             }
 
                             // Fallback to createdBy string if no match
@@ -1903,7 +2328,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                     final date =
                         first.createdDate.toLocal().toString().split(' ')[0];
                     String nameToShow =
-                        userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+                        (userName.trim().isNotEmpty ? userName.trim()[0] : '?')
+                            .toUpperCase();
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -2135,90 +2561,106 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  // ---------------------------
+                  // Dropdown for Action Type
+                  // ---------------------------
+                  // Whenever dropdown changes
+                  // DropdownButton<String>(
+                  //   value: selectedActionType,
+                  //   onChanged: (String? newValue) async {
+                  //     if (newValue == null) return;
+
+                  //     setState(() {
+                  //       selectedActionType = newValue;
+                  //       _activityCommentController.clear();
+                  //       mentionsKey.currentState?.controller?.clear();
+                  //       selectedMentions.clear();
+                  //       fetchUsers(); // 🔥 ALWAYS reload users
+                  //       // Disable mentions until users are fetched
+                  //       isMentionsEnabled = false;
+
+                  //       mentionsPlaceholder = selectedActionType == 'Assign'
+                  //           ? "Enter '@' to assign users..."
+                  //           : "Enter '@' to mention assigned users...";
+                  //     });
+
+                  //     // Fetch users and rebuild
+                  //     await fetchUsers(); // fetchUsers updates userList & isMentionsEnabled inside setState
+                  //   },
+                  //   items: ['Comment', 'Assign'].map((action) {
+                  //     return DropdownMenuItem(
+                  //         value: action, child: Text(action));
+                  //   }).toList(),
+                  // ),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white,
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedActionType,
+                        onChanged: (String? newValue) async {
+                          if (newValue == null) return;
+                          setState(() {
+                            selectedActionType = newValue;
+                            _activityCommentController.clear();
+                            mentionsKey.currentState?.controller?.clear();
+                            selectedMentions.clear();
+                            isMentionsEnabled = false;
+                          });
+                          await fetchUsers();
+                        },
+                        items: ['Comment', 'Assign'].map((action) {
+                          return DropdownMenuItem(
+                              value: action, child: Text(action));
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+                  // ---------------------------
+                  // FlutterMentions
+                  // ---------------------------
+
                   Expanded(
                     child: Container(
-                        constraints: const BoxConstraints(maxHeight: 250),
-                        child: FlutterMentions(
-                          key: mentionsKey,
-                          maxLines: 3,
-                          minLines: 1,
-                          suggestionPosition: SuggestionPosition.Top,
-                          suggestionListHeight: 250, // 👈 enough height
-                          decoration: InputDecoration(
-                            hintText: "Enter '@' Or #...",
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                      constraints: const BoxConstraints(maxHeight: 270),
+                      child: FlutterMentions(
+                        key: mentionsKey,
+                        maxLines: 3,
+                        minLines: 1,
+                        suggestionPosition: SuggestionPosition.Top,
+                        suggestionListHeight: 270,
+                        decoration: InputDecoration(
+                          hintText: selectedActionType == 'Assign'
+                              ? "Enter '@' to assign users..."
+                              : "Enter '@' to mention assigned users...",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          mentions: [
-                            Mention(
-                              trigger: '@',
-                              style: const TextStyle(color: Colors.blue),
-                              data: userList,
-                              matchAll: true,
-                              suggestionBuilder: (data) {
-                                return Container(
-                                  margin: const EdgeInsets.only(
-                                      left:
-                                          25), // 👈 Shift box to right by 50 pixels
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    border: Border(
-                                      bottom: BorderSide(
-                                          color: Colors.grey.shade300),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: Colors.blueAccent,
-                                        child: Text(
-                                          data['display'][0].toUpperCase(),
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              data['display'],
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            Text(
-                                              data['full_name'],
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        )),
+                        ),
+                        mentions: [
+                          Mention(
+                            trigger: '@',
+                            data: isMentionsEnabled ? userList : [], // ✅ SAFE
+                            style: const TextStyle(color: Colors.blue),
+                            suggestionBuilder: (data) {
+                              final display = data['display'] ?? '';
+                              if (display.isEmpty)
+                                return const SizedBox.shrink();
+                              return ListTile(title: Text(display));
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+
                   const SizedBox(width: 8),
                   Container(
                     decoration: BoxDecoration(

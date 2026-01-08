@@ -155,30 +155,19 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   bool get isDueDateEnabled {
     // 1. If no observation selected, disable due date
     if (selectedObservation == null || selectedObservation!.isEmpty) {
-      print("Due date disabled: No observation selected");
       return false;
     }
 
     // 2. Disable for NCR issue type
     if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
-      print("Due date disabled: NCR selected");
       return false;
     }
 
     // 3. Disable for Good Practice observation type
     if (selectedObservationTypeId == goodPracticeObservationTypeId) {
-      print("Due date disabled: Good Practice selected");
       return false;
     }
     // print("isDueDateEnabled: $isDueDateEnabled");
-    print("isToggleEnabled: $isToggleEnabled");
-    print("selectedObservationTypeId: $selectedObservationTypeId");
-    print("goodPracticeObservationTypeId: $goodPracticeObservationTypeId");
-    print("selectedIssueTypeId: $selectedIssueTypeId");
-    print("isDraftObservation: $isDraftObservation");
-    print("selectedObservation: $selectedObservation");
-    // 4. Otherwise enable
-    print("Due date enabled");
     return true;
   }
 
@@ -512,8 +501,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
     bool isUserValidationRequired = isEditMode && isUserSelectionEnabled;
     bool isUserSelected = selectedUserObjects.isNotEmpty;
-
-    print('Selected Observation: $selectedObservation');
 
     if (isFormValid && (!isUserValidationRequired || isUserSelected)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1183,7 +1170,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       //         "toStatusID: ${dto.toStatusID}");
       //   }
       // }
-      print("📦 commonFields to send: ${commonFields.toJson()}");
+      // print("📦 commonFields to send: ${commonFields.toJson()}");
       // debugPrint("commonFields: ${commonFields.toJson()}");
       // debugPrint(const JsonEncoder.withIndent('  ').convert(activityDTOList));
       bool success = false;
@@ -1426,7 +1413,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 //   }
   Future<void> _loadDataAndObservation(
       GetSiteObservationMasterById observation) async {
-    print("Loading observation: $observation - ${observation.description}");
+    // print("Loading observation: $observation - ${observation.description}");
 
     selectedObservationType = observation.observationType;
     selectedObservationTypeId = observation.observationTypeID;
@@ -1544,7 +1531,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       _dateDueDateController.text = '';
     }
 
-    print("Due Date: ${_dateDueDateController.text}");
+    // print("Due Date: ${_dateDueDateController.text}");
 
     final isGoodPractice =
         foundObs.observationTypeID == goodPracticeObservationTypeId;

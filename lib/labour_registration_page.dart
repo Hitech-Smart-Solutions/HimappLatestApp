@@ -168,7 +168,6 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
     _loadParties();
 
     int? projectID = await SharedPrefsHelper.getProjectID();
-    print(projectID);
     if (projectID != null) {
       Project? projectFromPrefs =
           items.firstWhere((p) => p.id == projectID, orElse: () => items.first);
@@ -387,7 +386,6 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
                             onTap: () async {
                               // final labourId = labour.id;
                               final labourIdFromList = labour.id;
-                              // print(labourId);
                               final labourRegistration = await widget
                                   .labourRegistrationService
                                   .getLabourById(labourIdFromList);
@@ -611,8 +609,6 @@ class _LabourRegistrationPageState extends State<LabourRegistrationPage> {
         ],
       );
       // Debugging: Print the registration object
-      print("labourId: $labourId");
-      print("Registration Object: ${registration.id}");
       // ✅ Save or Update
       bool success;
       if (registration.id == 0) {

@@ -58,25 +58,19 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _loadStats() async {
-    print("Loading stats started");
     try {
       final userId = await SharedPrefsHelper.getUserId();
-      print("User ID fetched: $userId");
       if (userId != null) {
         final safety = await widget.siteObservationService
             .fatchSiteObservationSafetyByUserID(userId);
-        print("Safety observations fetched: ${safety.length}");
         final quality = await widget.siteObservationService
             .fatchSiteObservationQualityByUserID(userId);
-        print("Quality observations fetched: ${quality.length}");
         setState(() {
           safetyObservationsCount = safety.length;
           qualityObservationsCount = quality.length;
           isLoading = false;
         });
-        print("State updated with new counts");
       } else {
-        print("User ID is null");
         setState(() {
           isLoading = false;
         });
@@ -173,11 +167,6 @@ class _DashboardPageState extends State<DashboardPage> {
                                             final notificationId =
                                                 _dialogNotifications[index].id;
                                             if (notificationId == null) return;
-                                            print(
-                                                "Notification deletion success: $notificationId");
-                                            print("userId: $userId");
-                                            print(
-                                                "Device ID: ${AppSettings.DEVICEID['Mobile']}");
                                             bool success = await widget
                                                 .siteObservationService
                                                 .deleteNotification(

@@ -1052,6 +1052,11 @@ class GetSiteObservationMasterById {
   final int? createdBy; // Assuming elementID is a String
   final String? createdByName; // Assuming createdByName is a String
   final int? activityID; // Assuming activityId is an int
+  final int? sectionID;
+  final int? floorID;
+  final int? partID;
+  final int? elementID;
+  final int? contractorID;
   final int projectID; // Assuming projectId is a String
   final String observedByName;
   final int? violationTypeID;
@@ -1098,6 +1103,11 @@ class GetSiteObservationMasterById {
     required this.createdBy,
     required this.createdByName,
     required this.activityID,
+    required this.sectionID,
+    required this.floorID,
+    required this.partID,
+    required this.elementID,
+    required this.contractorID,
     required this.projectID,
     required this.observedByName,
     this.violationTypeID,
@@ -1148,6 +1158,11 @@ class GetSiteObservationMasterById {
           ? json['createdBy']
           : int.tryParse(json['createdBy']?.toString() ?? '0'),
       activityID: json['activityID'] as int?,
+      sectionID: json['sectionID'] as int?,
+      floorID: json['floorID'] as int?,
+      partID: json['partID'] as int?,
+      elementID: json['elementID'] as int?,
+      contractorID: json['contractorID'] as int?,
       // projectID: json['projectID'] as int,
       projectID: json['projectID'] != null ? json['projectID'] as int : 0,
       observedByName: json["observedByName"],
@@ -1507,12 +1522,14 @@ class UserList {
     );
   }
 
-  /// Optional: for FlutterMentions
+  // ✅ Add this getter for full name
+  String get fullName => "$firstName $lastName".trim();
+
   Map<String, dynamic> toMentionMap() {
     return {
       'id': id.toString(),
       'display': userName,
-      'full_name': "$firstName $lastName".trim(),
+      'full_name': fullName,
     };
   }
 }
