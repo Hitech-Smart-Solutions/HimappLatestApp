@@ -2621,8 +2621,38 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
                   children: sortedGroupEntries.map((entry) {
-                    final acts = [...entry.value]..sort((a, b) => b.createdDate
-                        .compareTo(a.createdDate)); // latest inside group
+                    // final acts = [...entry.value]..sort((a, b) => b.createdDate
+                    //     .compareTo(a.createdDate)); // latest inside group
+                    int _actionPriority(String action) {
+                      switch (action) {
+                        case 'Created':
+                          return 1;
+                        case 'DocUploaded':
+                          return 2;
+                        case 'Assigned':
+                          return 3;
+                        case 'Commented':
+                          return 4;
+                        case 'In Progress':
+                          return 5;
+                        case 'Closed':
+                          return 6;
+                        default:
+                          return 99;
+                      }
+                    }
+
+                    final acts = [...entry.value]..sort((a, b) {
+                        final p1 = _actionPriority(a.actionName ?? '');
+                        final p2 = _actionPriority(b.actionName ?? '');
+
+                        if (p1 != p2) {
+                          return p1.compareTo(p2); // action order
+                        }
+                        return a.createdDate.compareTo(
+                            b.createdDate); // time inside same action
+                      });
+
                     if (acts.isEmpty) return const SizedBox.shrink();
 
                     final first = acts.first;
@@ -2730,7 +2760,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                                   activity.actionName,
                                                   activity.comments ?? "",
                                                   null,
-                                                  activity.assignedUserName,
+                                                  activity.assignedUserName ??
+                                                      activity.createdByName,
                                                 ),
                                                 if (activity.actionName ==
                                                         'DocUploaded' &&
