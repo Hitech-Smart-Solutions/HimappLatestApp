@@ -185,114 +185,150 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     currentUserName = await SharedPrefsHelper.getUserName();
   }
 
+  // void _initializeFormFields() {
+  //   if (selectedStatus == SiteObservationStatus.Open.toString()) {
+  //     try {
+  //       if (widget.detail.rootCauseID != null &&
+  //           widget.detail.rootCauseID != 0) {
+  //         selectedRootCause = rootCauses.firstWhere(
+  //           (rc) => rc.id == widget.detail.rootCauseID,
+  //         );
+  //       } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
+  //         selectedRootCause = rootCauses.first;
+  //       } else {
+  //         selectedRootCause = null;
+  //       }
+  //     } catch (e) {
+  //       selectedRootCause = null;
+  //     }
+  //     // print(
+  //     //     'widget.detail.rootcauseDescription 185: ${widget.detail.rootcauseDescription}');
+  //     rootcauseDescriptionController.text =
+  //         widget.detail.rootcauseDescription ?? '';
+  //     materialCostController.text = widget.detail.materialCost.toString();
+  //     labourCostController.text = widget.detail.labourCost.toString();
+  //     reworkCostController.text = widget.detail.reworkCost.toString();
+  //     preventiveActionController.text =
+  //         widget.detail.preventiveActionTaken ?? '';
+  //     correctiveActionController.text =
+  //         widget.detail.corretiveActionToBeTaken ?? '';
+  //   }
+  //   if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
+  //       selectedStatus == SiteObservationStatus.Closed.toString()) {
+  //     // try {
+  //     //   if (widget.detail.rootCauseID != null &&
+  //     //       widget.detail.rootCauseID != 0) {
+  //     //     selectedRootCause = rootCauses.firstWhere(
+  //     //       (rc) => rc.id == widget.detail.rootCauseID,
+  //     //     );
+  //     //   } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
+  //     //     selectedRootCause = rootCauses.first;
+  //     //   } else {
+  //     //     selectedRootCause = null;
+  //     //   }
+  //     // } catch (e) {
+  //     //   selectedRootCause = null;
+  //     // }
+  //     try {
+  //       if (widget.detail.rootCauseID != null &&
+  //           widget.detail.rootCauseID != 0) {
+  //         selectedRootCause = rootCauses.firstWhere(
+  //           (rc) => rc.id == widget.detail.rootCauseID,
+  //         );
+  //       } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
+  //         selectedRootCause = rootCauses.first;
+  //       } else {
+  //         selectedRootCause = null;
+  //       }
+  //     } catch (e) {
+  //       selectedRootCause = null;
+  //     }
+  //     print(
+  //         'widget.detail.rootcauseDescription 225: ${widget.detail.rootcauseDescription}');
+  //     rootcauseDescriptionController.text =
+  //         widget.detail.rootcauseDescription ?? '';
+  //     materialCostController.text = widget.detail.materialCost.toString();
+  //     labourCostController.text = widget.detail.labourCost.toString();
+  //     reworkCostController.text = widget.detail.reworkCost.toString();
+  //     preventiveActionController.text =
+  //         widget.detail.preventiveActionTaken ?? '';
+  //     correctiveActionController.text =
+  //         widget.detail.corretiveActionToBeTaken ?? '';
+  //   }
+  //   int rootCauseIDs = widget.detail.rootCauseID ?? 0;
+
+  //   // print("Initializing form for observation ID: $rootCauseIDs");
+
+  //   // ---------- Root Cause selection ----------
+  //   // if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
+  //   //   try {
+  //   //     selectedRootCause = rootCauses.firstWhere(
+  //   //       (rc) => rc.id == rootCauseIDs, // ✅ correct field
+  //   //     );
+  //   //   } catch (e) {
+  //   //     selectedRootCause = null;
+  //   //   }
+  //   // } else if (rootCauseIDs == 0 && rootCauses.isNotEmpty) {
+  //   //   selectedRootCause = rootCauses.first;
+  //   // } else {
+  //   //   selectedRootCause = null;
+  //   // }
+
+  //   // ---------- Root Cause selection ----------
+  //   if (rootCauses.isNotEmpty) {
+  //     selectedRootCause = rootCauses.firstWhere(
+  //       (rc) => rc.id == rootCauseIDs,
+  //       orElse: () => rootCauses.first,
+  //     );
+  //   } else {
+  //     selectedRootCause = null;
+  //   }
+
+  //   print("DEBUG RootCause -> rootCauses length: ${rootCauses.length}");
+  //   print(
+  //       "DEBUG RootCause -> widget.detail.rootCauseID: ${widget.detail.rootCauseID}");
+  //   print("DEBUG RootCause -> selectedRootCause: $selectedRootCause");
+
+  //   // print("DEBUG: acts length = ${acts.length}");
+  //   // ---------- Text fields ----------
+  //   // print(
+  //   // 'widget.detail.rootcauseDescription 259: ${widget.detail.rootcauseDescription}');
+  //   rootcauseDescriptionController.text =
+  //       widget.detail.rootcauseDescription ?? '';
+  //   materialCostController.text = widget.detail.materialCost?.toString() ?? '';
+  //   labourCostController.text = widget.detail.labourCost?.toString() ?? '';
+  //   reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
+  //   preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
+  //   correctiveActionController.text =
+  //       widget.detail.corretiveActionToBeTaken ?? '';
+  // }
+
   void _initializeFormFields() {
-    if (selectedStatus == SiteObservationStatus.Open.toString()) {
-      try {
-        if (widget.detail.rootCauseID != null &&
-            widget.detail.rootCauseID != 0) {
-          selectedRootCause = rootCauses.firstWhere(
-            (rc) => rc.id == widget.detail.rootCauseID,
-          );
-        } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-          selectedRootCause = rootCauses.first;
-        } else {
-          selectedRootCause = null;
-        }
-      } catch (e) {
-        selectedRootCause = null;
-      }
-      // print(
-      //     'widget.detail.rootcauseDescription 185: ${widget.detail.rootcauseDescription}');
-      rootcauseDescriptionController.text =
-          widget.detail.rootcauseDescription ?? '';
-      materialCostController.text = widget.detail.materialCost.toString();
-      labourCostController.text = widget.detail.labourCost.toString();
-      reworkCostController.text = widget.detail.reworkCost.toString();
-      preventiveActionController.text =
-          widget.detail.preventiveActionTaken ?? '';
-      correctiveActionController.text =
-          widget.detail.corretiveActionToBeTaken ?? '';
-    }
-    if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-        selectedStatus == SiteObservationStatus.Closed.toString()) {
-      // try {
-      //   if (widget.detail.rootCauseID != null &&
-      //       widget.detail.rootCauseID != 0) {
-      //     selectedRootCause = rootCauses.firstWhere(
-      //       (rc) => rc.id == widget.detail.rootCauseID,
-      //     );
-      //   } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-      //     selectedRootCause = rootCauses.first;
-      //   } else {
-      //     selectedRootCause = null;
-      //   }
-      // } catch (e) {
-      //   selectedRootCause = null;
-      // }
-      try {
-        if (widget.detail.rootCauseID != null &&
-            widget.detail.rootCauseID != 0) {
-          selectedRootCause = rootCauses.firstWhere(
-            (rc) => rc.id == widget.detail.rootCauseID,
-          );
-        } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-          selectedRootCause = rootCauses.first;
-        } else {
-          selectedRootCause = null;
-        }
-      } catch (e) {
-        selectedRootCause = null;
-      }
-      print(
-          'widget.detail.rootcauseDescription 225: ${widget.detail.rootcauseDescription}');
-      rootcauseDescriptionController.text =
-          widget.detail.rootcauseDescription ?? '';
-      materialCostController.text = widget.detail.materialCost.toString();
-      labourCostController.text = widget.detail.labourCost.toString();
-      reworkCostController.text = widget.detail.reworkCost.toString();
-      preventiveActionController.text =
-          widget.detail.preventiveActionTaken ?? '';
-      correctiveActionController.text =
-          widget.detail.corretiveActionToBeTaken ?? '';
-    }
     int rootCauseIDs = widget.detail.rootCauseID ?? 0;
 
-    // print("Initializing form for observation ID: $rootCauseIDs");
+    // ✅ Default always null
+    selectedRootCause = null;
 
-    // ---------- Root Cause selection ----------
-    // if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
-    //   try {
-    //     selectedRootCause = rootCauses.firstWhere(
-    //       (rc) => rc.id == rootCauseIDs, // ✅ correct field
-    //     );
-    //   } catch (e) {
-    //     selectedRootCause = null;
-    //   }
-    // } else if (rootCauseIDs == 0 && rootCauses.isNotEmpty) {
-    //   selectedRootCause = rootCauses.first;
-    // } else {
-    //   selectedRootCause = null;
-    // }
+    /// -------- OPEN --------
+    if (selectedStatus == SiteObservationStatus.Open.toString()) {
+      if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
+        try {
+          selectedRootCause =
+              rootCauses.firstWhere((rc) => rc.id == rootCauseIDs);
+        } catch (e) {
+          selectedRootCause = null;
+        }
+      }
+    }
 
-    // ---------- Root Cause selection ----------
-    if (rootCauses.isNotEmpty) {
-      selectedRootCause = rootCauses.firstWhere(
-        (rc) => rc.id == rootCauseIDs,
-        orElse: () => rootCauses.first,
-      );
-    } else {
+    /// -------- ReadyToInspect / Closed --------
+    if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
+        selectedStatus == SiteObservationStatus.Closed.toString()) {
+      // 🔥 FORCE NULL – user khud select kare
       selectedRootCause = null;
     }
 
-    print("DEBUG RootCause -> rootCauses length: ${rootCauses.length}");
-    print(
-        "DEBUG RootCause -> widget.detail.rootCauseID: ${widget.detail.rootCauseID}");
-    print("DEBUG RootCause -> selectedRootCause: $selectedRootCause");
-
-    // print("DEBUG: acts length = ${acts.length}");
     // ---------- Text fields ----------
-    // print(
-    // 'widget.detail.rootcauseDescription 259: ${widget.detail.rootcauseDescription}');
     rootcauseDescriptionController.text =
         widget.detail.rootcauseDescription ?? '';
     materialCostController.text = widget.detail.materialCost?.toString() ?? '';
@@ -301,6 +337,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
     correctiveActionController.text =
         widget.detail.corretiveActionToBeTaken ?? '';
+
+    print("DEBUG selectedRootCause => $selectedRootCause");
   }
 
   ActivityDTO buildAssignedActivity({
@@ -1224,6 +1262,28 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     });
   }
 
+  Color getStatusBgColor(int? statusId) {
+    switch (statusId) {
+      case SiteObservationStatus.Open:
+        return const Color(0xFFCF8310); // bg-opened
+
+      case SiteObservationStatus.InProgress:
+        return const Color(0xFFCAA122); // bg-inProgress
+
+      case SiteObservationStatus.Closed:
+        return const Color(0xFF0F830B); // bg-completed
+
+      case SiteObservationStatus.ReadyToInspect:
+        return const Color(0xFF6518AD); // bg-readyToInspect
+
+      case SiteObservationStatus.Reopen:
+        return const Color(0xFF2937FF); // bg-reopen
+
+      default:
+        return Colors.grey; // bg-default
+    }
+  }
+
   @override
   @override
   Widget build(BuildContext context) {
@@ -1245,22 +1305,90 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Title row
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+                  width: double.infinity,
+                  color: getStatusBgColor(toStatus),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           widget.detail.observationCode ?? 'No Code',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white, // Angular jaisa
+                          ),
                         ),
                       ),
                       const SizedBox(width: 15),
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: selectedStatus,
-                          hint: const Text("-- Status --"),
+
+                          hint: const Text(
+                            "-- Status --",
+                            style: TextStyle(color: Colors.white),
+                          ),
+
                           isExpanded: true,
+
+                          // ✅ selected value text color
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+
+                          // ✅ dropdown open background
+                          dropdownColor: Colors.white,
+
+                          // ✅ icon color
+                          icon: const Icon(
+                            Icons.arrow_drop_down,
+                            color: Colors.white,
+                          ),
+
+                          // 🔥🔥 THIS FIXES SELECTED VALUE COLOR 🔥🔥
+                          selectedItemBuilder: (BuildContext context) {
+                            return observationStatus.map<Widget>((status) {
+                              final idStr = status['id'].toString();
+                              final id = int.tryParse(idStr);
+                              final name = SiteObservationStatus.idToName[id] ??
+                                  status['name'] ??
+                                  'Unknown';
+
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  name,
+                                  style: const TextStyle(
+                                    color:
+                                        Colors.white, // 👈 SELECTED TEXT WHITE
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              );
+                            }).toList();
+                          },
+
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Colors.white),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Colors.white),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                  color: Colors.white, width: 1.5),
+                            ),
+                          ),
+
                           items: observationStatus.map((status) {
                             final idStr = status['id'].toString();
                             final id = int.tryParse(idStr);
@@ -1270,35 +1398,31 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
                             return DropdownMenuItem<String>(
                               value: idStr,
-                              child: Text(name),
+                              child: Text(
+                                name,
+                                style: const TextStyle(
+                                    color: Colors.black), // dropdown list
+                              ),
                             );
                           }).toList(),
+
+                          // ❌ LOGIC SAME – EK LINE BHI CHANGE NAHI
                           onChanged: isStatusEnabled
                               ? (newValue) {
                                   if (newValue == null) return;
-
                                   final int selectedStatusInt =
                                       int.parse(newValue);
 
                                   setState(() {
-                                    // ✅ THIS IS IMPORTANT
-                                    // print('newValue861: $newValue');
                                     selectedStatus = newValue;
-
-                                    // fromStatus = toStatus;
                                     toStatus = selectedStatusInt;
-
                                     isUpdateBtnVisible = true;
                                     collapsed = false;
-                                    // print('fromStatus868: $fromStatus');
-                                    // print('toStatus869: $toStatus');
 
                                     if (fromStatus != selectedStatusInt) {
-                                      print("in");
                                       isUpdateBtnVisible = true;
                                       isRootCauseFileUpdateEnable = true;
                                     } else {
-                                      print("out");
                                       isUpdateBtnVisible = false;
                                       isRootCauseFileUpdateEnable = false;
                                     }
@@ -1317,14 +1441,12 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                       inReadyToInspectRemarksVisible = false;
                                     } else if (selectedStatusInt ==
                                         SiteObservationStatus.InProgress) {
-                                      // print("In Progress Selected");
                                       inProgessRemarksVisible = true;
                                       isReopenRemarksVisible = false;
                                       isCloseRemarksVisible = false;
                                       inReadyToInspectRemarksVisible = false;
                                     } else if (selectedStatusInt ==
                                         SiteObservationStatus.ReadyToInspect) {
-                                      // print("In Progress Selected");
                                       inProgessRemarksVisible = false;
                                       isReopenRemarksVisible = false;
                                       isCloseRemarksVisible = false;
@@ -1341,17 +1463,14 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                                 .ReadyToInspect ||
                                         selectedStatusInt ==
                                             SiteObservationStatus.Closed) {
-                                      print("ReadyToInspect/Closed IN");
                                       canEditRootCause = true;
-                                      // isRootCauseFileUpdateEnable = true;
                                     } else {
-                                      print("ReadyToInspect/Closed etc... OUT");
                                       canEditRootCause = false;
-                                      // isRootCauseFileUpdateEnable = false;
                                     }
                                   });
                                 }
                               : null,
+
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please select a status';
@@ -1363,6 +1482,125 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                     ],
                   ),
                 ),
+
+                // Padding(
+                //   padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                //   child: Row(
+                //     children: [
+                //       Expanded(
+                //         child: Text(
+                //           widget.detail.observationCode ?? 'No Code',
+                //           style: const TextStyle(fontWeight: FontWeight.bold),
+                //         ),
+                //       ),
+                //       const SizedBox(width: 15),
+                //       Expanded(
+                //         child: DropdownButtonFormField<String>(
+                //           value: selectedStatus,
+                //           hint: const Text("-- Status --"),
+                //           isExpanded: true,
+                //           items: observationStatus.map((status) {
+                //             final idStr = status['id'].toString();
+                //             final id = int.tryParse(idStr);
+                //             final name = SiteObservationStatus.idToName[id] ??
+                //                 status['name'] ??
+                //                 'Unknown';
+
+                //             return DropdownMenuItem<String>(
+                //               value: idStr,
+                //               child: Text(name),
+                //             );
+                //           }).toList(),
+                //           onChanged: isStatusEnabled
+                //               ? (newValue) {
+                //                   if (newValue == null) return;
+
+                //                   final int selectedStatusInt =
+                //                       int.parse(newValue);
+
+                //                   setState(() {
+                //                     // ✅ THIS IS IMPORTANT
+                //                     // print('newValue861: $newValue');
+                //                     selectedStatus = newValue;
+
+                //                     // fromStatus = toStatus;
+                //                     toStatus = selectedStatusInt;
+
+                //                     isUpdateBtnVisible = true;
+                //                     collapsed = false;
+                //                     // print('fromStatus868: $fromStatus');
+                //                     // print('toStatus869: $toStatus');
+
+                //                     if (fromStatus != selectedStatusInt) {
+                //                       print("in");
+                //                       isUpdateBtnVisible = true;
+                //                       isRootCauseFileUpdateEnable = true;
+                //                     } else {
+                //                       print("out");
+                //                       isUpdateBtnVisible = false;
+                //                       isRootCauseFileUpdateEnable = false;
+                //                     }
+
+                //                     if (selectedStatusInt ==
+                //                         SiteObservationStatus.Reopen) {
+                //                       isReopenRemarksVisible = true;
+                //                       isCloseRemarksVisible = false;
+                //                       inProgessRemarksVisible = false;
+                //                       inReadyToInspectRemarksVisible = false;
+                //                     } else if (selectedStatusInt ==
+                //                         SiteObservationStatus.Closed) {
+                //                       isReopenRemarksVisible = false;
+                //                       isCloseRemarksVisible = true;
+                //                       inProgessRemarksVisible = false;
+                //                       inReadyToInspectRemarksVisible = false;
+                //                     } else if (selectedStatusInt ==
+                //                         SiteObservationStatus.InProgress) {
+                //                       // print("In Progress Selected");
+                //                       inProgessRemarksVisible = true;
+                //                       isReopenRemarksVisible = false;
+                //                       isCloseRemarksVisible = false;
+                //                       inReadyToInspectRemarksVisible = false;
+                //                     } else if (selectedStatusInt ==
+                //                         SiteObservationStatus.ReadyToInspect) {
+                //                       // print("In Progress Selected");
+                //                       inProgessRemarksVisible = false;
+                //                       isReopenRemarksVisible = false;
+                //                       isCloseRemarksVisible = false;
+                //                       inReadyToInspectRemarksVisible = true;
+                //                     } else {
+                //                       isReopenRemarksVisible = false;
+                //                       isCloseRemarksVisible = false;
+                //                       inProgessRemarksVisible = false;
+                //                       inReadyToInspectRemarksVisible = false;
+                //                     }
+
+                //                     if (selectedStatusInt ==
+                //                             SiteObservationStatus
+                //                                 .ReadyToInspect ||
+                //                         selectedStatusInt ==
+                //                             SiteObservationStatus.Closed) {
+                //                       print("ReadyToInspect/Closed IN");
+                //                       canEditRootCause = true;
+                //                       // isRootCauseFileUpdateEnable = true;
+                //                     } else {
+                //                       print("ReadyToInspect/Closed etc... OUT");
+                //                       canEditRootCause = false;
+                //                       // isRootCauseFileUpdateEnable = false;
+                //                     }
+                //                   });
+                //                 }
+                //               : null,
+                //           validator: (value) {
+                //             if (value == null || value.isEmpty) {
+                //               return 'Please select a status';
+                //             }
+                //             return null;
+                //           },
+                //         ),
+                //       ),
+                //     ],
+                //   ),
+                // ),
 
                 const SizedBox(height: 16),
 
@@ -1416,6 +1654,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Widget _buildDetailTab(BuildContext context) {
     // final media = MediaQuery.of(context);
+    print("widget.detail.reworkCost,${widget.detail.reworkCost}");
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12.0),
       child: ConstrainedBox(
@@ -1470,9 +1709,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               _buildResponsiveRow(
                   context,
                   "Compliance Required :",
-                  widget.detail.complianceRequired ? 'True' : 'False',
+                  widget.detail.complianceRequired ? 'Yes' : 'No',
                   "Escalation Required :",
-                  widget.detail.escalationRequired ? 'True' : 'False'),
+                  widget.detail.escalationRequired ? 'Yes' : 'No'),
               buildPairRow(
                 context,
                 label1: "Observed By :",
@@ -1551,7 +1790,11 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     String? value2,
   }) {
     final has1 = value1?.trim().isNotEmpty == true;
-    final has2 = value2?.trim().isNotEmpty == true;
+    // final has2 = value2?.trim().isNotEmpty == true;
+    final has2 = value2 != null &&
+        value2.trim().isNotEmpty &&
+        value2.trim() != '0' &&
+        value2.trim() != '0.0';
 
     if (!has1 && !has2) return const SizedBox.shrink();
 
@@ -1763,23 +2006,68 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 const SizedBox(height: 16),
                 const Text("Upload File",
                     style: TextStyle(fontWeight: FontWeight.bold)),
+                // ElevatedButton(
+                //   onPressed: () async {
+                //     FilePickerResult? result =
+                //         await FilePicker.platform.pickFiles(
+                //       allowMultiple: true,
+                //       withData: true,
+                //     );
+
+                //     if (result != null && result.files.isNotEmpty) {
+                //       final file = result.files.first;
+
+                //       setState(() {
+                //         selectedFileName = file.name;
+                //       });
+
+                //       final uploadedFileName = await SiteObservationService()
+                //           .uploadFileAndGetFileName(file.name, file.bytes!);
+
+                //       if (uploadedFileName != null) {
+                //         setState(() {
+                //           uploadedFiles.add(uploadedFileName);
+                //         });
+                //       }
+                //       else {
+                //         ScaffoldMessenger.of(context).showSnackBar(
+                //           const SnackBar(content: Text("File upload failed")),
+                //         );
+                //       }
+                //     } else {
+                //       print("No file selected");
+                //     }
+                //   },
+                //   child: const Text("Choose File"),
+                // ),
                 ElevatedButton(
                   onPressed: () async {
                     FilePickerResult? result =
                         await FilePicker.platform.pickFiles(
-                      allowMultiple: false,
+                      allowMultiple: true,
                       withData: true,
                     );
 
-                    if (result != null && result.files.isNotEmpty) {
-                      final file = result.files.first;
+                    // 1️⃣ No file selected
+                    if (result == null || result.files.isEmpty) {
+                      print("No file selected");
+                      return;
+                    }
+
+                    // 2️⃣ Loop through selected files
+                    for (var file in result.files) {
+                      // Safety check
+                      if (file.bytes == null) continue;
 
                       setState(() {
                         selectedFileName = file.name;
                       });
 
                       final uploadedFileName = await SiteObservationService()
-                          .uploadFileAndGetFileName(file.name, file.bytes!);
+                          .uploadFileAndGetFileName(
+                        file.name,
+                        file.bytes!,
+                      );
 
                       if (uploadedFileName != null) {
                         setState(() {
@@ -1787,21 +2075,55 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                         });
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("File upload failed")),
+                          SnackBar(
+                            content: Text("Failed to upload ${file.name}"),
+                          ),
                         );
                       }
-                    } else {
-                      print("No file selected");
                     }
                   },
                   child: const Text("Choose File"),
                 ),
-                if (selectedFileName != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    "Selected file: $selectedFileName",
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+
+                // if (selectedFileName != null) ...[
+                //   const SizedBox(height: 8),
+                //   Text(
+                //     "Selected file: $selectedFileName",
+                //     style: const TextStyle(fontWeight: FontWeight.w600),
+                //   ),
+                // ],
+
+                if (uploadedFiles.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Uploaded Files",
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
+                  for (var file in uploadedFiles)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.insert_drive_file,
+                              color: Colors.green),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              file,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              setState(() {
+                                uploadedFiles.remove(file);
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
                 const SizedBox(height: 16),
               ],
@@ -1842,8 +2164,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   labelText: 'In Progress Remarks',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'In Progress required' : null,
+                // validator: (v) =>
+                //     v == null || v.isEmpty ? 'In Progress required' : null,
               ),
             ],
 
@@ -1855,85 +2177,102 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   labelText: 'In Ready To Inspect',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => v == null || v.isEmpty
-                    ? 'In Ready To Inspect required'
-                    : null,
+                // validator: (v) => v == null || v.isEmpty
+                //     ? 'In Ready To Inspect required'
+                //     : null,
               ),
             ],
-
+            const SizedBox(height: 16),
             // ================= UPDATE BUTTON (UNCHANGED) =================
             if (isRootCauseFileUpdateEnable && isUpdateBtnVisible)
-              // ElevatedButton(
-              //   onPressed: isButtonDisabled
-              //       ? null
-              //       : () async {
-              //           if (_formKey.currentState!.validate()) {
-              //             // existing update logic untouched
-              //           }
-              //         },
-              //   child: const Text('Update'),
-              // ),
-              ElevatedButton(
-                onPressed: isButtonDisabled
-                    ? null
-                    : () async {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          setState(() {
-                            isButtonDisabled = true;
-                            isEditingRootCause = false;
-                          });
+              Center(
+                child: SizedBox(
+                  width: 180,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(
+                      Icons.update, // 👈 update icon
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Update',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    onPressed: isButtonDisabled
+                        ? null
+                        : () async {
+                            if (_formKey.currentState?.validate() ?? false) {
+                              setState(() {
+                                isButtonDisabled = true;
+                                isEditingRootCause = false;
+                              });
 
-                          UpdateSiteObservation updatedData =
-                              await getUpdatedDataFromForm(uploadedFiles);
+                              UpdateSiteObservation updatedData =
+                                  await getUpdatedDataFromForm(uploadedFiles);
 
-                          bool success = await SiteObservationService()
-                              .updateSiteObservationByID(updatedData);
+                              bool success = await SiteObservationService()
+                                  .updateSiteObservationByID(updatedData);
 
-                          if (success) {
-                            for (var fileName in uploadedFiles) {
-                              widget.detail.activityDTO.add(
-                                ActivityDTO(
-                                  id: 0,
-                                  siteObservationID: widget.detail.id,
-                                  actionID: SiteObservationActions.DocUploaded,
-                                  actionName: "DocUploaded",
-                                  comments: '',
-                                  documentName: fileName,
-                                  fromStatusID: fromStatus,
-                                  toStatusID: toStatus,
-                                  assignedUserID: 0,
-                                  assignedUserName: null,
-                                  createdBy: userId,
-                                  createdDate: DateTime.now(),
-                                ),
-                              );
+                              if (success) {
+                                for (var fileName in uploadedFiles) {
+                                  widget.detail.activityDTO.add(
+                                    ActivityDTO(
+                                      id: 0,
+                                      siteObservationID: widget.detail.id,
+                                      actionID:
+                                          SiteObservationActions.DocUploaded,
+                                      actionName: "DocUploaded",
+                                      comments: '',
+                                      documentName: fileName,
+                                      fromStatusID: fromStatus,
+                                      toStatusID: toStatus,
+                                      assignedUserID: 0,
+                                      assignedUserName: null,
+                                      createdBy: userId,
+                                      createdDate: DateTime.now(),
+                                    ),
+                                  );
+                                }
+
+                                setState(() {
+                                  uploadedFiles.clear();
+                                });
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Update successful!')),
+                                );
+
+                                Navigator.of(context).pop(true);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'Update failed! Please try again.')),
+                                );
+                                setState(() {
+                                  isButtonDisabled = false;
+                                });
+                              }
                             }
+                          },
 
-                            setState(() {
-                              uploadedFiles.clear();
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Update successful!')),
-                            );
-
-                            Navigator.of(context).pop(true);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content:
-                                      Text('Update failed! Please try again.')),
-                            );
-                            setState(() {
-                              isButtonDisabled = false;
-                            });
-                          }
-                        } else {
-                          print("Validation failed.");
-                        }
-                      },
-                child: const Text('Update'),
+                    // 🎨 MODERN STYLE
+                    style: ElevatedButton.styleFrom(
+                      elevation: 4,
+                      backgroundColor: Colors.blue,
+                      disabledBackgroundColor: Colors.grey.shade400,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
               ),
           ],
         ),
@@ -2230,10 +2569,12 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Widget _buildActivityTab() {
     final activities = widget.detail.activityDTO;
-    // print("Activities: ${activities.length}");
+
     if (activities.isEmpty) {
       return const Center(child: Text("No activity recorded."));
     }
+
+    // 🔹 Group activities by user + 5-sec window (original logic)
     Map<String, List<ActivityDTO>> groupedActivities = {};
     Set<int> usedIndexes = {};
 
@@ -2257,16 +2598,19 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           usedIndexes.add(j);
         }
       }
+
       final creator = current.createdByName ?? 'Unknown';
       final groupKey = "$creator|${current.createdDate.toIso8601String()}";
       groupedActivities[groupKey] = group;
     }
-    String getStatusNameById(int id) {
-      return SiteObservationStatus.idToName[id] ?? 'Unknown';
-    }
 
-    debugPrint("DEBUG: userList length = ${userList.length}");
-    debugPrint("DEBUG: isMentionsEnabled = $isMentionsEnabled");
+    // 🔹 Sort groups descending (latest group first)
+    final sortedGroupEntries = groupedActivities.entries.toList()
+      ..sort((a, b) {
+        final aDate = a.value.first.createdDate;
+        final bDate = b.value.first.createdDate;
+        return bDate.compareTo(aDate); // latest group first
+      });
 
     return StatefulBuilder(builder: (context, setState) {
       return Portal(
@@ -2276,60 +2620,26 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
-                  children: groupedActivities.entries.map((entry) {
-                    final acts = entry.value;
-                    if (acts.isEmpty) {
-                      debugPrint("DEBUG: acts is EMPTY, skipping card");
-                      return const SizedBox.shrink();
-                    }
+                  children: sortedGroupEntries.map((entry) {
+                    final acts = [...entry.value]..sort((a, b) => b.createdDate
+                        .compareTo(a.createdDate)); // latest inside group
+                    if (acts.isEmpty) return const SizedBox.shrink();
+
                     final first = acts.first;
-                    // print(acts.first.toString());
                     final statusName = first.toStatusName ?? "Unknown";
-                    print("DEBUG: selectedRootCause = $selectedRootCause");
-                    print("DEBUG: userList length = ${userList.length}");
-                    print("DEBUG: acts length = ${acts.length}");
 
-                    // print("Status Name: $statusName");
-                    String userName = first.createdByName ??
-                        (() {
-                          if (first.createdBy != null && userList.isNotEmpty) {
-                            final createdByStr =
-                                first.createdBy.toString().toLowerCase();
-
-                            final matchedUser = userList.firstWhere(
-                              (user) {
-                                final idMatch =
-                                    user['id'].toString() == createdByStr;
-                                final displayMatch =
-                                    (user['display'] ?? '').toLowerCase() ==
-                                        createdByStr;
-                                final fullNameMatch =
-                                    (user['full_name'] ?? '').toLowerCase() ==
-                                        createdByStr;
-                                return idMatch || displayMatch || fullNameMatch;
-                              },
-                              orElse: () => <String,
-                                  String>{}, // ✅ return empty map instead of null
-                            );
-
-                            if (matchedUser.isNotEmpty) {
-                              return matchedUser['full_name'] ??
-                                  matchedUser['display'] ??
-                                  createdByStr;
-                            } else {
-                              return createdByStr; // fallback if no match found
-                            }
-
-                            // Fallback to createdBy string if no match
-                            return createdByStr;
-                          }
-                          return "Unknown";
-                        })();
+                    String userName = first.createdByName ?? "Unknown";
+                    // final date =
+                    //     first.createdDate.toLocal().toString().split(' ')[0];
+                    final dateTime = first.createdDate.toLocal();
                     final date =
-                        first.createdDate.toLocal().toString().split(' ')[0];
+                        "${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} "
+                        "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+
                     String nameToShow =
                         (userName.trim().isNotEmpty ? userName.trim()[0] : '?')
                             .toUpperCase();
+
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -2341,6 +2651,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // 🔹 Status at top of card
                             Padding(
                               padding: const EdgeInsets.only(bottom: 12.0),
                               child: Row(
@@ -2421,8 +2732,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                                   null,
                                                   activity.assignedUserName,
                                                 ),
-
-                                                // YEH NAYA ADD KARO HAR ACTIVITY KE LIYE
                                                 if (activity.actionName ==
                                                         'DocUploaded' &&
                                                     activity.documentName !=
@@ -2464,45 +2773,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                                                   .documentName)
                                                               ? GestureDetector(
                                                                   onTap: () {
-                                                                    showDialog(
-                                                                      context:
-                                                                          context,
-                                                                      barrierColor:
-                                                                          Colors
-                                                                              .black54,
-                                                                      builder:
-                                                                          (_) =>
-                                                                              Dialog(
-                                                                        backgroundColor:
-                                                                            Colors.transparent,
-                                                                        insetPadding: const EdgeInsets
-                                                                            .all(
-                                                                            16),
-                                                                        child:
-                                                                            GestureDetector(
-                                                                          onTap: () =>
-                                                                              Navigator.pop(context),
-                                                                          child:
-                                                                              InteractiveViewer(
-                                                                            panEnabled:
-                                                                                true,
-                                                                            minScale:
-                                                                                1,
-                                                                            maxScale:
-                                                                                4,
-                                                                            child:
-                                                                                ClipRRect(
-                                                                              borderRadius: BorderRadius.circular(12),
-                                                                              child: Image.network(
-                                                                                "$url/${activity.documentName}",
-                                                                                fit: BoxFit.contain,
-                                                                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 100),
-                                                                              ),
-                                                                            ),
-                                                                          ),
-                                                                        ),
-                                                                      ),
-                                                                    );
+                                                                    openImageModal(
+                                                                        activity
+                                                                            .documentName);
                                                                   },
                                                                   child:
                                                                       ClipRRect(
@@ -2556,43 +2829,12 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
               ),
             ),
             const Divider(height: 1),
+            // --------------------------- Your Dropdown + Mentions UI ---------------------------
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // ---------------------------
-                  // Dropdown for Action Type
-                  // ---------------------------
-                  // Whenever dropdown changes
-                  // DropdownButton<String>(
-                  //   value: selectedActionType,
-                  //   onChanged: (String? newValue) async {
-                  //     if (newValue == null) return;
-
-                  //     setState(() {
-                  //       selectedActionType = newValue;
-                  //       _activityCommentController.clear();
-                  //       mentionsKey.currentState?.controller?.clear();
-                  //       selectedMentions.clear();
-                  //       fetchUsers(); // 🔥 ALWAYS reload users
-                  //       // Disable mentions until users are fetched
-                  //       isMentionsEnabled = false;
-
-                  //       mentionsPlaceholder = selectedActionType == 'Assign'
-                  //           ? "Enter '@' to assign users..."
-                  //           : "Enter '@' to mention assigned users...";
-                  //     });
-
-                  //     // Fetch users and rebuild
-                  //     await fetchUsers(); // fetchUsers updates userList & isMentionsEnabled inside setState
-                  //   },
-                  //   items: ['Comment', 'Assign'].map((action) {
-                  //     return DropdownMenuItem(
-                  //         value: action, child: Text(action));
-                  //   }).toList(),
-                  // ),
-
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
@@ -2664,7 +2906,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   const SizedBox(width: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.green,
+                      color: Colors.blue,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(

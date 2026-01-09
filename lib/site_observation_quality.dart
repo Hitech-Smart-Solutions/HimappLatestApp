@@ -2428,6 +2428,24 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     );
   }
 
+  void _removeUploadedFile(String fileName) {
+    setState(() {
+      uploadedFiles.remove(fileName);
+
+      activityList.removeWhere(
+        (a) => a.documentName == fileName,
+      );
+
+      activityDTOList.removeWhere(
+        (dto) => dto.documentName == fileName,
+      );
+
+      if (selectedFileName == fileName) {
+        selectedFileName = null;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -3412,12 +3430,60 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                         fontWeight:
                                                             FontWeight.bold),
                                                   ),
+                                                  // for (var name
+                                                  //     in uploadedFiles)
+                                                  //   Text("📄 $name",
+                                                  //       style: const TextStyle(
+                                                  //           color:
+                                                  //               Colors.green)),
                                                   for (var name
                                                       in uploadedFiles)
-                                                    Text("📄 $name",
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.green)),
+                                                    Padding(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 4),
+                                                      child: Row(
+                                                        children: [
+                                                          const Icon(
+                                                              Icons
+                                                                  .insert_drive_file,
+                                                              color:
+                                                                  Colors.green),
+                                                          const SizedBox(
+                                                              width: 8),
+
+                                                          // File name
+                                                          Expanded(
+                                                            child: Text(
+                                                              name,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style:
+                                                                  const TextStyle(
+                                                                color: Colors
+                                                                    .green,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                            ),
+                                                          ),
+
+                                                          // 🔴 REMOVE ICON (only this new)
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                                Icons.delete,
+                                                                color:
+                                                                    Colors.red),
+                                                            onPressed: () {
+                                                              _removeUploadedFile(
+                                                                  name);
+                                                            },
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    )
                                                 ],
                                               ],
                                             ),

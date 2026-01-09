@@ -307,12 +307,12 @@ class _DashboardPageState extends State<DashboardPage> {
     double cardSpacing = 16;
 
     final cards = [
-      _buildNeonGlassCard(
-        icon: Icons.work,
-        title: "Ongoing Projects",
-        value: "12",
-        color: Color(0xFF3A86FF),
-      ),
+      // _buildNeonGlassCard(
+      //   icon: Icons.work,
+      //   title: "Ongoing Projects",
+      //   value: "12",
+      //   color: Color(0xFF3A86FF),
+      // ),
       GestureDetector(
         onTap: () async {
           final userId = await SharedPrefsHelper.getUserId();
@@ -336,12 +336,12 @@ class _DashboardPageState extends State<DashboardPage> {
           color: Color(0xFFFFB703),
         ),
       ),
-      _buildNeonGlassCard(
-        icon: Icons.pending_actions,
-        title: "Pending",
-        value: "3",
-        color: Color(0xFFFB5607),
-      ),
+      // _buildNeonGlassCard(
+      //   icon: Icons.pending_actions,
+      //   title: "Pending",
+      //   value: "3",
+      //   color: Color(0xFFFB5607),
+      // ),
       GestureDetector(
         onTap: () async {
           final userId = await SharedPrefsHelper.getUserId();
