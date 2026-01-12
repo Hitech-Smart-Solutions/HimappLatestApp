@@ -21,6 +21,7 @@ class SiteObservation {
   final String preventiveActionTaken;
   final String closeRemarks;
   final String statusName;
+  // final String observationRaisedBy;
 
   SiteObservation({
     required this.id,
@@ -45,6 +46,7 @@ class SiteObservation {
     required this.preventiveActionTaken,
     required this.closeRemarks,
     required this.statusName,
+    // required this.observationRaisedBy,
   });
 
   factory SiteObservation.fromJson(Map<String, dynamic> json) {
@@ -74,6 +76,7 @@ class SiteObservation {
       preventiveActionTaken: (json['PreventiveActionTaken'] ?? '').toString(),
       closeRemarks: (json['closeRemarks'] ?? '').toString(),
       statusName: (json['statusName'] ?? '').toString(),
+      // observationRaisedBy: json['observationRaisedBy'].toString(),
     );
   }
 
@@ -1068,6 +1071,7 @@ class GetSiteObservationMasterById {
   final String reopenRemarks;
   final String assignedUsersName;
   final String observationNameWithCategory;
+  final DateTime lastModifiedDate;
 
   final List<ActivityDTO> activityDTO;
   final List<AssignmentStatusDTO> assignmentStatusDTO;
@@ -1121,6 +1125,7 @@ class GetSiteObservationMasterById {
     required this.reopenRemarks,
     required this.assignedUsersName,
     required this.observationNameWithCategory,
+    required this.lastModifiedDate,
   });
 
   factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
@@ -1183,6 +1188,8 @@ class GetSiteObservationMasterById {
       reopenRemarks: json['reopenRemarks'] ?? '',
       assignedUsersName: json['assignedUsersName'] ?? '',
       observationNameWithCategory: json['observationNameWithCategory'] ?? '',
+      lastModifiedDate:
+          DateTime.tryParse(json['lastModifiedDate'] ?? '') ?? DateTime.now(),
     );
   }
 

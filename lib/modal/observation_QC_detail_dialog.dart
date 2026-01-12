@@ -1826,6 +1826,41 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     );
   }
 
+  // Widget _buildResponsiveRow(
+  //   BuildContext context,
+  //   String label1,
+  //   String value1,
+  //   String label2,
+  //   String value2,
+  // ) {
+  //   final screenWidth = MediaQuery.of(context).size.width;
+  //   final isMobile = screenWidth < 600;
+
+  //   if (isMobile) {
+  //     // MOBILE: 1 item per row (stacked vertically)
+  //     return Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         _buildDetailRow(label1, value1),
+  //         const SizedBox(height: 6), // consistent vertical spacing
+  //         _buildDetailRow(label2, value2),
+  //         const SizedBox(height: 6),
+  //       ],
+  //     );
+  //   } else {
+  //     // TABLET: 2 items in a row (like table)
+  //     return Padding(
+  //       padding: const EdgeInsets.symmetric(vertical: 6.0),
+  //       child: Row(
+  //         children: [
+  //           Expanded(child: _buildDetailRow(label1, value1)),
+  //           const SizedBox(width: 12),
+  //           Expanded(child: _buildDetailRow(label2, value2)),
+  //         ],
+  //       ),
+  //     );
+  //   }
+  // }
   Widget _buildResponsiveRow(
     BuildContext context,
     String label1,
@@ -1837,23 +1872,24 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     final isMobile = screenWidth < 600;
 
     if (isMobile) {
-      // MOBILE: 1 item per row (stacked vertically)
+      // MOBILE: stacked vertically with uniform spacing
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildDetailRow(label1, value1),
+          const SizedBox(height: 6), // consistent vertical spacing
           _buildDetailRow(label2, value2),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6), // consistent vertical spacing
         ],
       );
     } else {
-      // TABLET: 2 items in a row (like table)
+      // TABLET/DESKTOP: horizontal row with consistent spacing
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 6.0),
         child: Row(
           children: [
             Expanded(child: _buildDetailRow(label1, value1)),
-            const SizedBox(width: 12),
+            const SizedBox(width: 12), // consistent horizontal spacing
             Expanded(child: _buildDetailRow(label2, value2)),
           ],
         ),

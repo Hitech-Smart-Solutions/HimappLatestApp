@@ -877,7 +877,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         setState(() {
           controller.text =
               DateFormat('yyyy-MM-dd HH:mm').format(finalDateTime);
-          _recalculateDueDate();
+          // _recalculateDueDate();
         });
       }
     }
@@ -1535,39 +1535,51 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // _buildToggleRow("Compliance Required", isComplianceRequired, (value) {
+          //   setState(() {
+          //     isComplianceRequired = value;
+          //     if (!isComplianceRequired) {
+          //       // disable + clear due date
+          //       _dateDueDateController.text = '';
+          //     } else {
+          //       // ✅ compliance ON → auto calculate if possible
+          //       final selected = (selectedObservation != null)
+          //           ? observationsList.firstWhereOrNull(
+          //               (obs) =>
+          //                   obs.observationDisplayText == selectedObservation,
+          //             )
+          //           : null;
+
+          //       if (selected != null &&
+          //           _dateController.text.isNotEmpty &&
+          //           selected.dueTimeInHrs != 0) {
+          //         try {
+          //           DateTime startDate = DateFormat('yyyy-MM-dd HH:mm')
+          //               .parse(_dateController.text);
+          //           DateTime dueDate = startDate.add(
+          //             Duration(hours: selected.dueTimeInHrs),
+          //           );
+          //           _dateDueDateController.text =
+          //               DateFormat('yyyy-MM-dd HH:mm').format(dueDate);
+          //         } catch (e) {
+          //           _dateDueDateController.text = '';
+          //         }
+          //       } else {
+          //         // Agar condition match nahi hui toh blank rehne do
+          //         _dateDueDateController.text = '';
+          //       }
+          //     }
+          //   });
+          // }),
           _buildToggleRow("Compliance Required", isComplianceRequired, (value) {
             setState(() {
               isComplianceRequired = value;
+
               if (!isComplianceRequired) {
-                // disable + clear due date
                 _dateDueDateController.text = '';
               } else {
-                // ✅ compliance ON → auto calculate if possible
-                final selected = (selectedObservation != null)
-                    ? observationsList.firstWhereOrNull(
-                        (obs) =>
-                            obs.observationDisplayText == selectedObservation,
-                      )
-                    : null;
-
-                if (selected != null &&
-                    _dateController.text.isNotEmpty &&
-                    selected.dueTimeInHrs != 0) {
-                  try {
-                    DateTime startDate = DateFormat('yyyy-MM-dd HH:mm')
-                        .parse(_dateController.text);
-                    DateTime dueDate = startDate.add(
-                      Duration(hours: selected.dueTimeInHrs),
-                    );
-                    _dateDueDateController.text =
-                        DateFormat('yyyy-MM-dd HH:mm').format(dueDate);
-                  } catch (e) {
-                    _dateDueDateController.text = '';
-                  }
-                } else {
-                  // Agar condition match nahi hui toh blank rehne do
-                  _dateDueDateController.text = '';
-                }
+                // 🔥 SINGLE SOURCE OF TRUTH
+                _recalculateDueDate();
               }
             });
           }),
@@ -2016,6 +2028,132 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         : 'N/A';
   }
 
+  Widget _buildResponsiveRow(
+    BuildContext context,
+    String label1,
+    String value1,
+    String label2,
+    String value2,
+  ) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    if (isMobile) {
+      // MOBILE: stacked vertically with uniform spacing
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDetailRow(label1, value1),
+          const SizedBox(height: 6), // consistent vertical spacing
+          _buildDetailRow(label2, value2),
+          const SizedBox(height: 6), // consistent vertical spacing
+        ],
+      );
+    } else {
+      // TABLET/DESKTOP: horizontal row with consistent spacing
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Row(
+          children: [
+            Expanded(child: _buildDetailRow(label1, value1)),
+            const SizedBox(width: 12), // consistent horizontal spacing
+            Expanded(child: _buildDetailRow(label2, value2)),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(width: 6),
+        Expanded(child: Text(value)),
+      ],
+    );
+  }
+
+  Widget buildPairRow(
+    BuildContext context, {
+    required String label1,
+    String? value1,
+    String? label2,
+    String? value2,
+    Color valueColor = Colors.black87, // ✅ ADD THIS
+  }) {
+    final has1 = value1?.trim().isNotEmpty == true && value1 != 'N/A';
+    final has2 = value2?.trim().isNotEmpty == true && value2 != 'N/A';
+
+    if (!has1 && !has2) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (has1)
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label1,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      value1!,
+                      style: TextStyle(color: valueColor), // ✅ USED HERE
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (has1 && has2) const SizedBox(width: 12),
+          if (has2)
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label2!,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      value2!,
+                      style: const TextStyle(color: Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildTextIfNotEmpty(String? value) {
+    if (value == null || value.trim().isEmpty || value == 'N/A') {
+      return const SizedBox.shrink(); // 👈 NO SPACE AT ALL
+    }
+
+    return Text(
+      value,
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 18,
+      ),
+    );
+  }
+
   Future<void> _openObservationDetailPopup(int observationId) async {
     try {
       // 1️⃣ Fetch observation detail
@@ -2105,119 +2243,252 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                   const Divider(height: 1),
 
                   // 🔹 Body Scroll
-                  Flexible(
+                  // Flexible(
+                  //   child: SingleChildScrollView(
+                  //     padding: const EdgeInsets.all(16),
+                  //     child: Column(
+                  //       crossAxisAlignment: CrossAxisAlignment.start,
+                  //       children: [
+                  //         // Observation info table
+                  //         Text(
+                  //           detail.observationNameWithCategory,
+                  //           style: const TextStyle(
+                  //               fontSize: 14, fontWeight: FontWeight.w500),
+                  //         ),
+                  //         // const SizedBox(height: 12),
+                  //         Text(
+                  //           "Observation Date: ",
+                  //           style: const TextStyle(
+                  //               fontSize: 14, fontWeight: FontWeight.w500),
+                  //         ),
+                  //         Text(_formatDate(detail.trancationDate)),
+                  //         Table(
+                  //           columnWidths: const {
+                  //             0: FlexColumnWidth(1),
+                  //             1: FlexColumnWidth(1),
+                  //           },
+                  //           defaultVerticalAlignment:
+                  //               TableCellVerticalAlignment.top,
+                  //           children: [
+                  //             // _tableRow(
+                  //             //   _popupRow("Status", detail.statusName),
+                  //             //   _popupRow(
+                  //             //       "Observation Code", detail.observationCode),
+                  //             // ),
+                  //             _tableRow(
+                  //               // _popupDateRowIfValid(
+                  //               //     "Observation Date", detail.trancationDate),
+                  //               Row(
+                  //                 children: [
+                  //                   Text(
+                  //                     "Observation Date: ",
+                  //                     style: TextStyle(
+                  //                         fontWeight: FontWeight.bold),
+                  //                   ),
+                  //                   Text(_formatDate(detail.trancationDate)),
+                  //                 ],
+                  //               ),
+                  //               Row(
+                  //                 children: [
+                  //                   Text(
+                  //                     "Created Date: ",
+                  //                     style: TextStyle(
+                  //                         fontWeight: FontWeight.bold),
+                  //                   ),
+                  //                   Text(_formatDate(detail.createdDate)),
+                  //                 ],
+                  //               ),
+                  //               // _popupDateRowIfValid(
+                  //               //     "Created Date", detail.createdDate),
+                  //             ),
+                  //             _tableRow(
+                  //               _popupRow(
+                  //                   "Observation Type", detail.observationType),
+                  //               // _formatDate("Due Date", detail.dueDate),
+                  //               _popupRow("Issue Type", detail.issueType),
+                  //             ),
+                  //             _tableRow(
+                  //                 _popupRow("Created By",
+                  //                     detail.observationRaisedBy ?? 'N/A'),
+                  //                 // _formatDate("Due Date", detail.dueDate),
+                  //                 Row(
+                  //                   children: [
+                  //                     Text(
+                  //                       "Due Date: ",
+                  //                       style: TextStyle(
+                  //                           fontWeight: FontWeight.bold),
+                  //                     ),
+                  //                     Text(_formatDate(detail.dueDate)),
+                  //                   ],
+                  //                 )),
+                  //             _tableRow(
+                  //               _popupRow("Activity", detail.activityName),
+                  //               _popupRow("Block", detail.sectionName),
+                  //             ),
+                  //             _tableRow(
+                  //               _popupRow("Floor", detail.floorName),
+                  //               _popupRow("Pour", detail.partName),
+                  //             ),
+                  //             _tableRow(
+                  //               _popupRow("Element", detail.elementName),
+                  //               _popupRow("Contractor", detail.contractorName),
+                  //             ),
+                  //             _tableRow(
+                  //               _popupRow("Compliance Required",
+                  //                   detail.complianceRequired ? 'Yes' : 'No'),
+                  //               _popupRow("Escalation Required",
+                  //                   detail.escalationRequired ? 'Yes' : 'No'),
+                  //             ),
+                  //             _tableRow(
+                  //               _popupRow("Observed By", detail.observedByName),
+                  //               const SizedBox.shrink(),
+                  //             ),
+                  //             _tableRow(
+                  //               _popupRow("Observation Description",
+                  //                   detail.description),
+                  //               const SizedBox.shrink(),
+                  //             ),
+                  //             _tableRow(
+                  //               _popupRow("Action To Be Taken",
+                  //                   detail.actionToBeTaken),
+                  //               const SizedBox.shrink(),
+                  //             ),
+                  //           ],
+                  //         ),
+
+                  //         // 🔹 Root cause section
+                  //         _rootCauseSection(detail),
+
+                  //         const SizedBox(height: 12),
+
+                  //         // 🔹 Attachments
+                  //         ExpansionTile(
+                  //           title: Text(
+                  //             "Attachments (${detail.activityDTO.where((a) => a.documentName.isNotEmpty).length})",
+                  //             style:
+                  //                 const TextStyle(fontWeight: FontWeight.bold),
+                  //           ),
+                  //           initiallyExpanded: false,
+                  //           children: detail.activityDTO
+                  //               .where((activity) =>
+                  //                   activity.documentName.isNotEmpty)
+                  //               .map((activity) =>
+                  //                   _buildAttachmentItem(activity, detail))
+                  //               .toList(),
+                  //         ),
+
+                  //         const SizedBox(height: 12),
+
+                  //         // 🔹 Activities
+                  //         ExpansionTile(
+                  //           title: Text(
+                  //             "Activities (${detail.activityDTO.length})",
+                  //             style:
+                  //                 const TextStyle(fontWeight: FontWeight.bold),
+                  //           ),
+                  //           children: groupedActivities.values
+                  //               .map((acts) => _buildActivityItem(acts))
+                  //               .toList(),
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   ),
+                  // ),
+
+                  Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Observation info table
-                          Text(
+                          buildTextIfNotEmpty(
                             detail.observationNameWithCategory,
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w500),
                           ),
-                          const SizedBox(height: 12),
-                          Table(
-                            columnWidths: const {
-                              0: FlexColumnWidth(1),
-                              1: FlexColumnWidth(1),
-                            },
-                            defaultVerticalAlignment:
-                                TableCellVerticalAlignment.top,
-                            children: [
-                              _tableRow(
-                                _popupRow("Status", detail.statusName),
-                                _popupRow(
-                                    "Observation Code", detail.observationCode),
-                              ),
-                              _tableRow(
-                                // _popupDateRowIfValid(
-                                //     "Observation Date", detail.trancationDate),
-                                Row(
-                                  children: [
-                                    Text(
-                                      "Observation Date: ",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    Text(_formatDate(detail.trancationDate)),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Text(
-                                      "Created Date: ",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    Text(_formatDate(detail.createdDate)),
-                                  ],
-                                ),
-                                // _popupDateRowIfValid(
-                                //     "Created Date", detail.createdDate),
-                              ),
-                              _tableRow(
-                                _popupRow(
-                                    "Observation Type", detail.observationType),
-                                // _formatDate("Due Date", detail.dueDate),
-                                _popupRow("Issue Type", detail.issueType),
-                              ),
-                              _tableRow(
-                                  _popupRow("Created By",
-                                      detail.observationRaisedBy ?? 'N/A'),
-                                  // _formatDate("Due Date", detail.dueDate),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        "Due Date: ",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      Text(_formatDate(detail.dueDate)),
-                                    ],
-                                  )),
-                              _tableRow(
-                                _popupRow("Activity", detail.activityName),
-                                _popupRow("Block", detail.sectionName),
-                              ),
-                              _tableRow(
-                                _popupRow("Floor", detail.floorName),
-                                _popupRow("Pour", detail.partName),
-                              ),
-                              _tableRow(
-                                _popupRow("Element", detail.elementName),
-                                _popupRow("Contractor", detail.contractorName),
-                              ),
-                              _tableRow(
-                                _popupRow("Compliance Required",
-                                    detail.complianceRequired ? 'Yes' : 'No'),
-                                _popupRow("Escalation Required",
-                                    detail.escalationRequired ? 'Yes' : 'No'),
-                              ),
-                              _tableRow(
-                                _popupRow("Observed By", detail.observedByName),
-                                const SizedBox.shrink(),
-                              ),
-                              _tableRow(
-                                _popupRow("Observation Description",
-                                    detail.description),
-                                const SizedBox.shrink(),
-                              ),
-                              _tableRow(
-                                _popupRow("Action To Be Taken",
-                                    detail.actionToBeTaken),
-                                const SizedBox.shrink(),
-                              ),
-                            ],
+                          // const SizedBox(height: 6),
+                          // ✅ SAME METHOD AS DETAIL TAB
+                          _buildResponsiveRow(
+                            context,
+                            "Observation Date :",
+                            _formatDate(detail.trancationDate),
+                            "Created Date :",
+                            _formatDate(detail.createdDate),
                           ),
 
-                          // 🔹 Root cause section
+                          _buildResponsiveRow(
+                            context,
+                            "Observation Type :",
+                            detail.observationType ?? 'N/A',
+                            "Issue Type :",
+                            detail.issueType ?? 'N/A',
+                          ),
+
+                          _buildResponsiveRow(
+                            context,
+                            "Created By :",
+                            detail.observationRaisedBy ?? 'N/A',
+                            "Due Date :",
+                            _formatDate(detail.dueDate),
+                          ),
+
+                          _buildResponsiveRow(
+                            context,
+                            "Activity :",
+                            detail.activityName ?? 'N/A',
+                            "Block :",
+                            detail.sectionName ?? 'N/A',
+                          ),
+
+                          _buildResponsiveRow(
+                            context,
+                            "Floor :",
+                            detail.floorName ?? 'N/A',
+                            "Pour :",
+                            detail.partName ?? 'N/A',
+                          ),
+
+                          _buildResponsiveRow(
+                            context,
+                            "Element :",
+                            detail.elementName ?? 'N/A',
+                            "Contractor :",
+                            detail.contractorName ?? 'N/A',
+                          ),
+
+                          _buildResponsiveRow(
+                            context,
+                            "Compliance Required :",
+                            detail.complianceRequired ? 'Yes' : 'No',
+                            "Escalation Required :",
+                            detail.escalationRequired ? 'Yes' : 'No',
+                          ),
+
+                          buildPairRow(
+                            context,
+                            label1: "Observed By :",
+                            value1: detail.observedByName,
+                          ),
+
+                          buildPairRow(
+                            context,
+                            label1: "Observation Description :",
+                            value1: detail.description,
+                          ),
+
+                          buildPairRow(
+                            context,
+                            label1: "Action To Be Taken :",
+                            value1: detail.actionToBeTaken,
+                          ),
+                          buildPairRow(
+                            context,
+                            label1: "Assigned Users :",
+                            value1: detail.assignedUsersName,
+                          ),
+
+                          const SizedBox(height: 16),
+
                           _rootCauseSection(detail),
-
                           const SizedBox(height: 12),
-
-                          // 🔹 Attachments
                           ExpansionTile(
                             title: Text(
                               "Attachments (${detail.activityDTO.where((a) => a.documentName.isNotEmpty).length})",
@@ -2232,10 +2503,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                     _buildAttachmentItem(activity, detail))
                                 .toList(),
                           ),
-
                           const SizedBox(height: 12),
-
-                          // 🔹 Activities
                           ExpansionTile(
                             title: Text(
                               "Activities (${detail.activityDTO.length})",
@@ -2263,75 +2531,83 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   }
 
 // Popup row for date (if valid)
-  Widget _popupDateRowIfValid(String label, DateTime? date) {
-    if (date == null) return const SizedBox.shrink();
-    return _popupRow(label, "${date.toLocal()}".split(' ')[0]);
-  }
+  // Widget _popupDateRowIfValid(String label, DateTime? date) {
+  //   if (date == null) return const SizedBox.shrink();
+  //   return _popupRow(label, "${date.toLocal()}".split(' ')[0]);
+  // }
 
   Widget _rootCauseSection(GetSiteObservationMasterById observation) {
-    // Prepare valid cells
-    final rootCauseName =
-        _popupRowIfValid("Root Cause Name", observation.rootCauseName);
-    final reworkCost = _popupRowIfValid("Rework Cost", observation.reworkCost);
+    final widgets = <Widget>[];
+    print("observation.reworkCost:${observation.reworkCost}");
+    void addIfValid(String label, dynamic value) {
+      if (value == null) return;
 
-    final rootCauseDesc = _popupRowIfValid(
-        "Root Cause Description", observation.rootcauseDescription);
-    final correctiveAction = _popupRowIfValid(
+      // Numeric check
+      if (value is num && value == 0) return;
+
+      // String check
+      if (value is String &&
+          (value.trim().isEmpty ||
+              value == 'N/A' ||
+              value == '0' ||
+              value == '0.0')) return;
+
+      // Add widget
+      widgets.add(
+        buildPairRow(
+          context,
+          label1: "$label :",
+          value1: value.toString(),
+        ),
+      );
+    }
+
+    // 🔹 Normal fields
+    addIfValid("Root Cause Name", observation.rootCauseName);
+    addIfValid("Rework Cost", observation.reworkCost);
+    addIfValid("Root Cause Description", observation.rootcauseDescription);
+    addIfValid(
         "Corrective Action To Be Taken", observation.corretiveActionToBeTaken);
+    addIfValid("Preventive Action Taken", observation.preventiveActionTaken);
 
-    final preventiveAction = _popupRowIfValid(
-        "Preventive Action Taken", observation.preventiveActionTaken);
-    // final reopenRemarks =
-    //     _popupRowIfValid("Reopen Remarks", observation.reopenRemarks);
-
-    final reopenRemarks =
-        observation.statusID == SiteObservationStatus.Reopen &&
-                observation.reopenRemarks != null &&
-                observation.reopenRemarks!.trim().isNotEmpty
-            ? RichText(
-                text: TextSpan(
-                  children: [
-                    const TextSpan(
-                      text: "Reopen Remarks: ",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    TextSpan(
-                      text: observation.reopenRemarks!,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : const SizedBox.shrink();
-
-    final closureRemarks = observation.statusID == SiteObservationStatus.Closed
-        ? _popupRowIfValid("Closure Remarks", observation.closeRemarks)
-        : const SizedBox.shrink();
-
-    // Create TableRows only if at least one cell has valid data
-    final rows = <TableRow>[];
-    if (rootCauseName is! SizedBox || reworkCost is! SizedBox) {
-      rows.add(_tableRow(rootCauseName, reworkCost));
-    }
-    if (rootCauseDesc is! SizedBox || correctiveAction is! SizedBox) {
-      rows.add(_tableRow(rootCauseDesc, correctiveAction));
-    }
-    if (preventiveAction is! SizedBox || closureRemarks is! SizedBox) {
-      rows.add(_tableRow(preventiveAction, closureRemarks));
-    }
-    if (reopenRemarks is! SizedBox) {
-      rows.add(_tableRow(reopenRemarks, const SizedBox.shrink()));
+    // 🔴 Reopen Remarks (only when Reopen)
+    if (observation.statusID == SiteObservationStatus.Reopen &&
+        observation.reopenRemarks != null &&
+        observation.reopenRemarks!.trim().isNotEmpty) {
+      widgets.add(
+        buildPairRow(
+          context,
+          label1: "Reopen Remarks :",
+          value1: observation.reopenRemarks,
+          valueColor: Colors.red,
+        ),
+      );
     }
 
-    // Agar rows empty → pura section hide
-    if (rows.isEmpty) return const SizedBox.shrink();
+    // 🟢 Closure Remarks (only when Closed)
+    if (observation.statusID == SiteObservationStatus.Closed &&
+        observation.closeRemarks != null &&
+        observation.closeRemarks!.trim().isNotEmpty) {
+      widgets.add(
+        buildPairRow(
+          context,
+          label1: "Closure Date:",
+          value1: _formatDate(observation.lastModifiedDate),
+          valueColor: Colors.green,
+        ),
+      );
+      widgets.add(
+        buildPairRow(
+          context,
+          label1: "Closure Remarks :",
+          value1: observation.closeRemarks,
+          valueColor: Colors.green,
+        ),
+      );
+    }
+
+    // 👉 Agar kuch bhi nahi hai → pura section hide
+    if (widgets.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(top: 24),
@@ -2347,82 +2623,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
             ),
           ),
           const SizedBox(height: 12),
-          Table(
-            columnWidths: const {
-              0: FlexColumnWidth(1),
-              1: FlexColumnWidth(1),
-            },
-            defaultVerticalAlignment: TableCellVerticalAlignment.top,
-            children: rows,
-          ),
-        ],
-      ),
-    );
-  }
-
-// TableRow helper
-  TableRow _tableRow(Widget left, Widget right) {
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8, bottom: 12),
-          child: left,
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 8, bottom: 12),
-          child: right,
-        ),
-      ],
-    );
-  }
-
-// PopupRowIfValid helper
-  Widget _popupRowIfValid(String label, String? value) {
-    if (value == null) return const SizedBox.shrink();
-    final v = value.trim();
-    if (v.isEmpty || v == 'N/A' || v == '0' || v == '0.0') {
-      return const SizedBox.shrink();
-    }
-    return _popupRow(label, v);
-  }
-
-// PopupRow helper
-  Widget _popupRow(String label, String value, {bool hideLabel = false}) {
-    final bool isClosure = label == 'Closure Remarks';
-
-    if (hideLabel) {
-      return Text(
-        value,
-        softWrap: true,
-        maxLines: null,
-        overflow: TextOverflow.visible,
-        style: TextStyle(
-          fontSize: 14,
-          color: isClosure ? Colors.green : Colors.black87,
-          fontWeight: isClosure ? FontWeight.bold : FontWeight.normal,
-        ),
-      );
-    }
-
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: "$label: ",
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-          ),
-          TextSpan(
-            text: value,
-            style: TextStyle(
-              fontSize: 14,
-              color: isClosure ? Colors.green : Colors.black87,
-              fontWeight: isClosure ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
+          ...widgets,
         ],
       ),
     );
@@ -2585,41 +2786,301 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       ),
                                                     ),
                                                     SizedBox(height: 8),
-                                                    Wrap(
-                                                      spacing: 16,
-                                                      runSpacing: 12,
+                                                    // Wrap(
+                                                    //   spacing: 16,
+                                                    //   runSpacing: 12,
+                                                    //   children: [
+                                                    //     _infoBox(
+                                                    //         "ObservationType",
+                                                    //         observation
+                                                    //             .observationType,
+                                                    //         isDark: isDark),
+                                                    //     _infoBox(
+                                                    //         "IssueType",
+                                                    //         observation
+                                                    //             .issueType,
+                                                    //         isDark: isDark),
+                                                    //     _infoBox(
+                                                    //         "Status",
+                                                    //         observation
+                                                    //             .observationStatus,
+                                                    //         isDark: isDark),
+                                                    //     _infoBox(
+                                                    //         "Project",
+                                                    //         observation
+                                                    //             .projectName,
+                                                    //         isDark: isDark),
+                                                    //     _infoBox(
+                                                    //       "Date",
+                                                    //       observation
+                                                    //           .transactionDate
+                                                    //           .toLocal()
+                                                    //           .toString()
+                                                    //           .split(' ')[0],
+                                                    //       isDark: isDark,
+                                                    //     ),
+                                                    //   ],
+                                                    // ),
+                                                    Row(
                                                       children: [
-                                                        _infoBox(
-                                                            "ObservationType",
-                                                            observation
-                                                                .observationType,
-                                                            isDark: isDark),
-                                                        _infoBox(
-                                                            "IssueType",
-                                                            observation
-                                                                .issueType,
-                                                            isDark: isDark),
-                                                        _infoBox(
-                                                            "Status",
-                                                            observation
-                                                                .observationStatus,
-                                                            isDark: isDark),
-                                                        _infoBox(
-                                                            "Project",
-                                                            observation
-                                                                .projectName,
-                                                            isDark: isDark),
-                                                        _infoBox(
-                                                          "Date",
-                                                          observation
-                                                              .transactionDate
-                                                              .toLocal()
-                                                              .toString()
-                                                              .split(' ')[0],
-                                                          isDark: isDark,
+                                                        Expanded(
+                                                          child: RichText(
+                                                            text: TextSpan(
+                                                              children: [
+                                                                TextSpan(
+                                                                  text:
+                                                                      'Observation Type: ',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: Theme.of(
+                                                                            context)
+                                                                        .textTheme
+                                                                        .bodyMedium
+                                                                        ?.color,
+                                                                  ),
+                                                                ),
+                                                                TextSpan(
+                                                                  text: observation
+                                                                          .observationType ??
+                                                                      'N/A',
+                                                                  style: Theme.of(
+                                                                          context)
+                                                                      .textTheme
+                                                                      .bodyMedium,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: RichText(
+                                                            text: TextSpan(
+                                                              children: [
+                                                                TextSpan(
+                                                                  text:
+                                                                      'Issue Type: ',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: Theme.of(
+                                                                            context)
+                                                                        .textTheme
+                                                                        .bodyMedium
+                                                                        ?.color,
+                                                                  ),
+                                                                ),
+                                                                TextSpan(
+                                                                  text: observation
+                                                                          .issueType ??
+                                                                      'N/A',
+                                                                  style: Theme.of(
+                                                                          context)
+                                                                      .textTheme
+                                                                      .bodyMedium,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
                                                         ),
                                                       ],
                                                     ),
+                                                    const SizedBox(height: 4),
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: RichText(
+                                                            text: TextSpan(
+                                                              children: [
+                                                                TextSpan(
+                                                                  text:
+                                                                      'Status: ',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: Theme.of(
+                                                                            context)
+                                                                        .textTheme
+                                                                        .bodyMedium
+                                                                        ?.color,
+                                                                  ),
+                                                                ),
+                                                                TextSpan(
+                                                                  text: observation
+                                                                          .observationStatus ??
+                                                                      'N/A',
+                                                                  style: Theme.of(
+                                                                          context)
+                                                                      .textTheme
+                                                                      .bodyMedium,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: RichText(
+                                                            text: TextSpan(
+                                                              children: [
+                                                                TextSpan(
+                                                                  text:
+                                                                      'Project: ',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: Theme.of(
+                                                                            context)
+                                                                        .textTheme
+                                                                        .bodyMedium
+                                                                        ?.color,
+                                                                  ),
+                                                                ),
+                                                                TextSpan(
+                                                                  text: observation
+                                                                          .projectName ??
+                                                                      'N/A',
+                                                                  style: Theme.of(
+                                                                          context)
+                                                                      .textTheme
+                                                                      .bodyMedium,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    // Row(
+                                                    //   children: [
+                                                    //     Expanded(
+                                                    //       child: Text(
+                                                    //           'Status: ${observation.observationStatus ?? "N/A"}'),
+                                                    //     ),
+                                                    //     Expanded(
+                                                    //       child: Text(
+                                                    //           'Project: ${observation.projectName}'),
+                                                    //     ),
+                                                    //   ],
+                                                    // ),
+                                                    const SizedBox(height: 4),
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: RichText(
+                                                            text: TextSpan(
+                                                              children: [
+                                                                TextSpan(
+                                                                  text:
+                                                                      'Date: ',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: Theme.of(
+                                                                            context)
+                                                                        .textTheme
+                                                                        .bodyMedium
+                                                                        ?.color,
+                                                                  ),
+                                                                ),
+                                                                TextSpan(
+                                                                  text: observation
+                                                                          .transactionDate
+                                                                          .toLocal()
+                                                                          .toString()
+                                                                          .split(
+                                                                              ' ')[0] ??
+                                                                      'N/A',
+                                                                  style: Theme.of(
+                                                                          context)
+                                                                      .textTheme
+                                                                      .bodyMedium,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: RichText(
+                                                            text: TextSpan(
+                                                              children: [
+                                                                TextSpan(
+                                                                  text:
+                                                                      'Is Overdue: ',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: Theme.of(
+                                                                            context)
+                                                                        .textTheme
+                                                                        .bodyMedium
+                                                                        ?.color,
+                                                                  ),
+                                                                ),
+                                                                TextSpan(
+                                                                  text: observation
+                                                                          .isoverdue ??
+                                                                      'N/A',
+                                                                  style: Theme.of(
+                                                                          context)
+                                                                      .textTheme
+                                                                      .bodyMedium,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+
+                                                    // Row(
+                                                    //   children: [
+                                                    //     Expanded(
+                                                    //       child: RichText(
+                                                    //         text: TextSpan(
+                                                    //           children: [
+                                                    //             TextSpan(
+                                                    //               text:
+                                                    //                   'Created By: ',
+                                                    //               style:
+                                                    //                   TextStyle(
+                                                    //                 fontWeight:
+                                                    //                     FontWeight
+                                                    //                         .w600,
+                                                    //                 color: Theme.of(
+                                                    //                         context)
+                                                    //                     .textTheme
+                                                    //                     .bodyMedium
+                                                    //                     ?.color,
+                                                    //               ),
+                                                    //             ),
+                                                    //             TextSpan(
+                                                    //               text: observation
+                                                    //                       .observationRaisedBy ??
+                                                    //                   'N/A',
+                                                    //               style: Theme.of(
+                                                    //                       context)
+                                                    //                   .textTheme
+                                                    //                   .bodyMedium,
+                                                    //             ),
+                                                    //           ],
+                                                    //         ),
+                                                    //       ),
+                                                    //     ),
+                                                    //   ],
+                                                    // ),
+
                                                     SizedBox(height: 8),
                                                     Text(
                                                       observation
@@ -3001,6 +3462,20 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               readOnly: true,
                                               // validator: _validateDueDate,
                                             ),
+                                            // TextFormField(
+                                            //   controller:
+                                            //       _dateDueDateController,
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Due Date',
+                                            //     border: OutlineInputBorder(
+                                            //       borderRadius:
+                                            //           BorderRadius.circular(8),
+                                            //     ),
+                                            //   ),
+                                            //   // validator: _validateDescription,
+                                            //   enabled:
+                                            //       actionToBeTakenEnabled, // 🔑 Use your flag here
+                                            // ),
                                             SizedBox(height: 20),
 
                                             _buildToggleSwitches(context),
