@@ -58,6 +58,8 @@ dependencies:
   path_provider: ^2.1.2
   permission_handler: ^11.3.0
   dropdown_search: ^5.0.6
+  # media_scanner: ^2.1.0
+  # device_info_plus: ^10.1.0
 
 dev_dependencies:
   flutter_test:

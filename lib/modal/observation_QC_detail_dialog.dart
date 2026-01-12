@@ -115,6 +115,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   String mentionsPlaceholder = "Please add comment...";
   bool isMentionsEnabled = false;
   List<User> selectedMentions = [];
+
+  static final MethodChannel _galleryChannel = MethodChannel('gallery_scanner');
+
   late void Function(void Function()) _activityTabSetState;
 
   bool isFirstLoad = true;
@@ -2351,43 +2354,41 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   }
 
   Future<bool> requestMediaPermission() async {
-    if (!Platform.isAndroid) return true;
+    // 🔥 Android + iOS sab ke liye
+    return true;
+  }
 
-    // Android 13+ (READ_MEDIA_IMAGES)
-    if (await Permission.photos.isGranted ||
-        await Permission.photos.request().isGranted) {
-      return true;
+  Future<void> refreshGallery(String path) async {
+    try {
+      await _galleryChannel.invokeMethod('scanFile', {'path': path});
+    } catch (e) {
+      debugPrint("Gallery refresh error: $e");
     }
+  }
 
-    // Android 10–12 (WRITE_EXTERNAL_STORAGE)
-    if (await Permission.storage.isGranted ||
-        await Permission.storage.request().isGranted) {
-      return true;
-    }
-
-    return false;
+  Future<void> _saveImageToGallery(String tempPath, String fileName) async {
+    await _galleryChannel.invokeMethod('saveToGallery', {
+      'path': tempPath,
+      'fileName': fileName,
+    });
   }
 
   Future<void> downloadImage(String fileName) async {
     try {
-      final granted = await requestMediaPermission();
-      if (!granted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Permission denied")),
-        );
-        return;
-      }
-
       final dio = Dio();
-      final dir = await getExternalStorageDirectory();
-      final savePath = "${dir!.path}/$fileName";
 
-      await dio.download("$url/$fileName", savePath);
-      print("Saved at: $savePath");
+      // 1️⃣ Download to TEMP directory (allowed)
+      final tempDir = await getTemporaryDirectory();
+      final tempPath = "${tempDir.path}/$fileName";
+
+      await dio.download("$url/$fileName", tempPath);
+
+      // 2️⃣ Save to Gallery using MediaStore
+      await _saveImageToGallery(tempPath, fileName);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Image downloaded successfully"),
+          content: Text("Image downloaded & saved to Gallery"),
           backgroundColor: Colors.green,
         ),
       );

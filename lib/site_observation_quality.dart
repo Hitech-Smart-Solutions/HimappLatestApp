@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/model/company_model.dart';
@@ -17,12 +18,14 @@ import 'package:collection/collection.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 
 import 'package:dio/dio.dart';
-import 'dart:io';
+// import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
+// import 'package:permission_handler/permission_handler.dart';
 
-import 'package:intl/intl.dart';
+// import 'package:intl/intl.dart';
+// import 'package:media_scanner/media_scanner.dart';
+// import 'package:device_info_plus/device_info_plus.dart';
 
 class SiteObservationQuality extends StatefulWidget {
   final String companyName;
@@ -117,6 +120,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   int? selectedIssueTypeId;
 
   bool _isSubmitting = false;
+
+  static final MethodChannel _galleryChannel = MethodChannel('gallery_scanner');
 
   bool get isToggleEnabled {
     // NCR + IssueTypeId = 1 → always disabled
@@ -758,44 +763,55 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     return null;
   }
 
+  // Future<bool> requestMediaPermission() async {
+  //   if (!Platform.isAndroid) return true;
+
+  //   // Android 13+ and even below: safe to proceed
+  //   final status = await Permission.storage.status;
+
+  //   if (status.isGranted || status.isLimited) {
+  //     return true;
+  //   }
+
+  //   final result = await Permission.storage.request();
+  //   return result.isGranted;
+  // }
   Future<bool> requestMediaPermission() async {
-    if (!Platform.isAndroid) return true;
+    // 🔥 Android + iOS sab ke liye
+    return true;
+  }
 
-    // Android 13+ (READ_MEDIA_IMAGES)
-    if (await Permission.photos.isGranted ||
-        await Permission.photos.request().isGranted) {
-      return true;
+  Future<void> refreshGallery(String path) async {
+    try {
+      await _galleryChannel.invokeMethod('scanFile', {'path': path});
+    } catch (e) {
+      debugPrint("Gallery refresh error: $e");
     }
+  }
 
-    // Android 10–12 (WRITE_EXTERNAL_STORAGE)
-    if (await Permission.storage.isGranted ||
-        await Permission.storage.request().isGranted) {
-      return true;
-    }
-
-    return false;
+  Future<void> _saveImageToGallery(String tempPath, String fileName) async {
+    await _galleryChannel.invokeMethod('saveToGallery', {
+      'path': tempPath,
+      'fileName': fileName,
+    });
   }
 
   Future<void> downloadImage(String fileName) async {
     try {
-      final granted = await requestMediaPermission();
-      if (!granted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Permission denied")),
-        );
-        return;
-      }
-
       final dio = Dio();
-      final dir = await getExternalStorageDirectory();
-      final savePath = "${dir!.path}/$fileName";
 
-      await dio.download("$url/$fileName", savePath);
-      print("Saved at: $savePath");
+      // 1️⃣ Download to TEMP directory (allowed)
+      final tempDir = await getTemporaryDirectory();
+      final tempPath = "${tempDir.path}/$fileName";
+
+      await dio.download("$url/$fileName", tempPath);
+
+      // 2️⃣ Save to Gallery using MediaStore
+      await _saveImageToGallery(tempPath, fileName);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Image downloaded successfully"),
+          content: Text("Image downloaded & saved to Gallery"),
           backgroundColor: Colors.green,
         ),
       );
