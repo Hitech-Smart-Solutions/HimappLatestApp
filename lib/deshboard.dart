@@ -906,7 +906,12 @@ class _DashboardPageState extends State<DashboardPage> {
     // final grouped = groupByModule(pagePermissions);
     final grouped = moduleWisePages;
     debugPrint("MODULE KEYS = ${moduleWisePages.keys.toList()}");
-
+    final allowedModules = ["Safety", "Quality"];
+    final allowedPrograms = ["Safety Observation", "Quality Observation"];
+    final filteredModules = moduleWisePages.entries
+        .where((entry) => allowedModules.contains(entry.key))
+        .map((entry) => MapEntry(entry.key, entry.value))
+        .toList();
     return Drawer(
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
@@ -922,27 +927,56 @@ class _DashboardPageState extends State<DashboardPage> {
 
           // final grouped = moduleWisePages;
 
-          ...grouped.entries.map((entry) {
+          // ...grouped.entries.map((entry) {
+          //   return ExpansionTile(
+          //     title: Text(entry.key),
+          //     children: entry.value.map((p) {
+          //       return _subTile(
+          //         icon: getPageIcon(p.programName),
+          //         color: Colors.orange,
+          //         title: p.programName,
+          //         onTap: () {
+          //           Navigator.pop(context);
+          //           Navigator.push(
+          //             context,
+          //             MaterialPageRoute(
+          //               builder: (_) => resolvePage(p),
+          //             ),
+          //           );
+          //         },
+          //       );
+          //     }).toList(),
+          //   );
+          // }),
+
+          ...moduleWisePages.entries
+              // 🔹 Filter modules
+              .where((entry) => allowedModules.contains(entry.key))
+              .map((entry) {
             return ExpansionTile(
               title: Text(entry.key),
-              children: entry.value.map((p) {
+              children: entry.value
+                  // 🔹 Filter pages inside module
+                  .where((p) => allowedPrograms.contains(p.programName))
+                  .map((p) {
+                final isDisabled = !p.canView; // grey + disable if no view
                 return _subTile(
                   icon: getPageIcon(p.programName),
-                  color: Colors.orange,
+                  color: isDisabled ? Colors.grey : Colors.orange,
                   title: p.programName,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => resolvePage(p),
-                      ),
-                    );
-                  },
+                  onTap: isDisabled
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => resolvePage(p)),
+                          );
+                        },
                 );
               }).toList(),
             );
-          }),
+          }).toList(),
 
           const Divider(),
           _drawerTile(
@@ -1087,11 +1121,32 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  // Widget _subTile({
+  //   required IconData icon,
+  //   required Color color,
+  //   required String title,
+  //   required VoidCallback onTap,
+  // }) {
+  //   return Container(
+  //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  //     decoration: BoxDecoration(
+  //       color: Colors.grey.shade100,
+  //       borderRadius: BorderRadius.circular(14),
+  //     ),
+  //     child: ListTile(
+  //       leading: _iconBox(icon, color),
+  //       title: Text(title,
+  //           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+  //       trailing: const Icon(Icons.arrow_forward_ios, size: 12),
+  //       onTap: onTap,
+  //     ),
+  //   );
+  // }
   Widget _subTile({
     required IconData icon,
     required Color color,
     required String title,
-    required VoidCallback onTap,
+    VoidCallback? onTap, // 🔹 nullable
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1104,7 +1159,7 @@ class _DashboardPageState extends State<DashboardPage> {
         title: Text(title,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 12),
-        onTap: onTap,
+        onTap: onTap, // null allowed
       ),
     );
   }
