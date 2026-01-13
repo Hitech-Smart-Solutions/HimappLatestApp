@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:himappnew/constants.dart';
+import 'package:himappnew/model/page_permission.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/model/company_model.dart';
 import 'package:himappnew/model/project_model.dart';
@@ -32,11 +33,14 @@ class SiteObservationQuality extends StatefulWidget {
   final ProjectService _projectService;
   final SiteObservationService _siteObservationService;
 
+  final PagePermission pagePermission;
+
   const SiteObservationQuality({
     super.key,
     required this.companyName,
     required ProjectService projectService,
     required SiteObservationService siteObservationService,
+    required this.pagePermission, // 🔥
   })  : _projectService = projectService,
         _siteObservationService = siteObservationService;
 
@@ -206,6 +210,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     // userItems = userList
     //     .map((user) => MultiSelectItem<User>(user, user.userName))
     //     .toList();
+    debugPrint("🔐 canAdd = ${widget.pagePermission.canAdd}");
+    debugPrint("🔐 canEdit = ${widget.pagePermission.canEdit}");
+    debugPrint("🔐 canView = ${widget.pagePermission.canView}");
   }
 
   Future<void> _initializeData() async {
@@ -2802,41 +2809,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       ),
                                                     ),
                                                     SizedBox(height: 8),
-                                                    // Wrap(
-                                                    //   spacing: 16,
-                                                    //   runSpacing: 12,
-                                                    //   children: [
-                                                    //     _infoBox(
-                                                    //         "ObservationType",
-                                                    //         observation
-                                                    //             .observationType,
-                                                    //         isDark: isDark),
-                                                    //     _infoBox(
-                                                    //         "IssueType",
-                                                    //         observation
-                                                    //             .issueType,
-                                                    //         isDark: isDark),
-                                                    //     _infoBox(
-                                                    //         "Status",
-                                                    //         observation
-                                                    //             .observationStatus,
-                                                    //         isDark: isDark),
-                                                    //     _infoBox(
-                                                    //         "Project",
-                                                    //         observation
-                                                    //             .projectName,
-                                                    //         isDark: isDark),
-                                                    //     _infoBox(
-                                                    //       "Date",
-                                                    //       observation
-                                                    //           .transactionDate
-                                                    //           .toLocal()
-                                                    //           .toString()
-                                                    //           .split(' ')[0],
-                                                    //       isDark: isDark,
-                                                    //     ),
-                                                    //   ],
-                                                    // ),
                                                     Row(
                                                       children: [
                                                         Expanded(
@@ -2974,18 +2946,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                         ),
                                                       ],
                                                     ),
-                                                    // Row(
-                                                    //   children: [
-                                                    //     Expanded(
-                                                    //       child: Text(
-                                                    //           'Status: ${observation.observationStatus ?? "N/A"}'),
-                                                    //     ),
-                                                    //     Expanded(
-                                                    //       child: Text(
-                                                    //           'Project: ${observation.projectName}'),
-                                                    //     ),
-                                                    //   ],
-                                                    // ),
                                                     const SizedBox(height: 4),
                                                     Row(
                                                       children: [
@@ -3059,44 +3019,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                         ),
                                                       ],
                                                     ),
-
-                                                    // Row(
-                                                    //   children: [
-                                                    //     Expanded(
-                                                    //       child: RichText(
-                                                    //         text: TextSpan(
-                                                    //           children: [
-                                                    //             TextSpan(
-                                                    //               text:
-                                                    //                   'Created By: ',
-                                                    //               style:
-                                                    //                   TextStyle(
-                                                    //                 fontWeight:
-                                                    //                     FontWeight
-                                                    //                         .w600,
-                                                    //                 color: Theme.of(
-                                                    //                         context)
-                                                    //                     .textTheme
-                                                    //                     .bodyMedium
-                                                    //                     ?.color,
-                                                    //               ),
-                                                    //             ),
-                                                    //             TextSpan(
-                                                    //               text: observation
-                                                    //                       .observationRaisedBy ??
-                                                    //                   'N/A',
-                                                    //               style: Theme.of(
-                                                    //                       context)
-                                                    //                   .textTheme
-                                                    //                   .bodyMedium,
-                                                    //             ),
-                                                    //           ],
-                                                    //         ),
-                                                    //       ),
-                                                    //     ),
-                                                    //   ],
-                                                    // ),
-
                                                     SizedBox(height: 8),
                                                     Text(
                                                       observation
@@ -3979,90 +3901,190 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               ],
                                             ),
 
+                                            // Row(
+                                            //   mainAxisAlignment:
+                                            //       MainAxisAlignment
+                                            //           .spaceBetween,
+                                            //   children: [
+                                            //     Expanded(
+                                            //       child: ElevatedButton(
+                                            //         onPressed: _isSubmitting
+                                            //             ? null
+                                            //             : () {
+                                            //                 if (_formKey
+                                            //                         .currentState
+                                            //                         ?.validate() ??
+                                            //                     false) {
+                                            //                   _submitForm(
+                                            //                       isDraft:
+                                            //                           true);
+                                            //                 }
+                                            //               },
+                                            //         style: ElevatedButton
+                                            //             .styleFrom(
+                                            //           backgroundColor:
+                                            //               Colors.grey,
+                                            //           shape:
+                                            //               RoundedRectangleBorder(
+                                            //             borderRadius:
+                                            //                 BorderRadius
+                                            //                     .circular(8),
+                                            //           ),
+                                            //         ),
+                                            //         child: _isSubmitting
+                                            //             ? const SizedBox(
+                                            //                 height: 20,
+                                            //                 width: 20,
+                                            //                 child:
+                                            //                     CircularProgressIndicator(
+                                            //                   strokeWidth: 2,
+                                            //                   color:
+                                            //                       Colors.white,
+                                            //                 ),
+                                            //               )
+                                            //             : const Text(
+                                            //                 'Save as Draft'),
+                                            //       ),
+                                            //     ),
+                                            //     const SizedBox(width: 12),
+                                            //     Expanded(
+                                            //       child: ElevatedButton(
+                                            //         onPressed: _isSubmitting
+                                            //             ? null
+                                            //             : () {
+                                            //                 if (_formKey
+                                            //                         .currentState
+                                            //                         ?.validate() ??
+                                            //                     false) {
+                                            //                   _submitForm(
+                                            //                       isDraft:
+                                            //                           false);
+                                            //                 }
+                                            //               },
+                                            //         style: ElevatedButton
+                                            //             .styleFrom(
+                                            //           backgroundColor:
+                                            //               Colors.blue,
+                                            //           shape:
+                                            //               RoundedRectangleBorder(
+                                            //             borderRadius:
+                                            //                 BorderRadius
+                                            //                     .circular(8),
+                                            //           ),
+                                            //         ),
+                                            //         child: _isSubmitting
+                                            //             ? const SizedBox(
+                                            //                 height: 20,
+                                            //                 width: 20,
+                                            //                 child:
+                                            //                     CircularProgressIndicator(
+                                            //                   strokeWidth: 2,
+                                            //                   color:
+                                            //                       Colors.white,
+                                            //                 ),
+                                            //               )
+                                            //             : const Text('Submit'),
+                                            //       ),
+                                            //     ),
+                                            //   ],
+                                            // ),
                                             Row(
                                               mainAxisAlignment:
                                                   MainAxisAlignment
                                                       .spaceBetween,
                                               children: [
+                                                // Save as Draft
                                                 Expanded(
-                                                  child: ElevatedButton(
-                                                    onPressed: _isSubmitting
-                                                        ? null
-                                                        : () {
-                                                            if (_formKey
-                                                                    .currentState
-                                                                    ?.validate() ??
-                                                                false) {
-                                                              _submitForm(
-                                                                  isDraft:
-                                                                      true);
-                                                            }
-                                                          },
-                                                    style: ElevatedButton
-                                                        .styleFrom(
-                                                      backgroundColor:
-                                                          Colors.grey,
-                                                      shape:
-                                                          RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(8),
-                                                      ),
-                                                    ),
-                                                    child: _isSubmitting
-                                                        ? const SizedBox(
-                                                            height: 20,
-                                                            width: 20,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              strokeWidth: 2,
-                                                              color:
-                                                                  Colors.white,
-                                                            ),
-                                                          )
-                                                        : const Text(
-                                                            'Save as Draft'),
-                                                  ),
+                                                  child:
+                                                      widget.pagePermission
+                                                              .canAdd
+                                                          ? ElevatedButton(
+                                                              onPressed:
+                                                                  _isSubmitting
+                                                                      ? null
+                                                                      : () {
+                                                                          if (_formKey.currentState?.validate() ??
+                                                                              false) {
+                                                                            _submitForm(isDraft: true);
+                                                                          }
+                                                                        },
+                                                              style:
+                                                                  ElevatedButton
+                                                                      .styleFrom(
+                                                                backgroundColor:
+                                                                    Colors.grey,
+                                                                shape:
+                                                                    RoundedRectangleBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8),
+                                                                ),
+                                                              ),
+                                                              child: _isSubmitting
+                                                                  ? const SizedBox(
+                                                                      height:
+                                                                          20,
+                                                                      width: 20,
+                                                                      child:
+                                                                          CircularProgressIndicator(
+                                                                        strokeWidth:
+                                                                            2,
+                                                                        color: Colors
+                                                                            .white,
+                                                                      ),
+                                                                    )
+                                                                  : const Text('Save as Draft'),
+                                                            )
+                                                          : const SizedBox(),
                                                 ),
+
                                                 const SizedBox(width: 12),
+
+                                                // Submit
                                                 Expanded(
-                                                  child: ElevatedButton(
-                                                    onPressed: _isSubmitting
-                                                        ? null
-                                                        : () {
-                                                            if (_formKey
-                                                                    .currentState
-                                                                    ?.validate() ??
-                                                                false) {
-                                                              _submitForm(
-                                                                  isDraft:
-                                                                      false);
-                                                            }
-                                                          },
-                                                    style: ElevatedButton
-                                                        .styleFrom(
-                                                      backgroundColor:
-                                                          Colors.blue,
-                                                      shape:
-                                                          RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(8),
-                                                      ),
-                                                    ),
-                                                    child: _isSubmitting
-                                                        ? const SizedBox(
-                                                            height: 20,
-                                                            width: 20,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              strokeWidth: 2,
-                                                              color:
-                                                                  Colors.white,
-                                                            ),
-                                                          )
-                                                        : const Text('Submit'),
-                                                  ),
+                                                  child:
+                                                      widget.pagePermission
+                                                              .canAdd
+                                                          ? ElevatedButton(
+                                                              onPressed:
+                                                                  _isSubmitting
+                                                                      ? null
+                                                                      : () {
+                                                                          if (_formKey.currentState?.validate() ??
+                                                                              false) {
+                                                                            _submitForm(isDraft: false);
+                                                                          }
+                                                                        },
+                                                              style:
+                                                                  ElevatedButton
+                                                                      .styleFrom(
+                                                                backgroundColor:
+                                                                    Colors.blue,
+                                                                shape:
+                                                                    RoundedRectangleBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8),
+                                                                ),
+                                                              ),
+                                                              child: _isSubmitting
+                                                                  ? const SizedBox(
+                                                                      height:
+                                                                          20,
+                                                                      width: 20,
+                                                                      child:
+                                                                          CircularProgressIndicator(
+                                                                        strokeWidth:
+                                                                            2,
+                                                                        color: Colors
+                                                                            .white,
+                                                                      ),
+                                                                    )
+                                                                  : const Text('Submit'),
+                                                            )
+                                                          : const SizedBox(),
                                                 ),
                                               ],
                                             ),
@@ -4077,26 +4099,28 @@ class _SiteObservationState extends State<SiteObservationQuality> {
               ),
               Align(
                 alignment: Alignment.bottomRight,
-                child: FloatingActionButton(
-                  onPressed: () {
-                    setState(() {
-                      if (!showObservations) {
-                        // We're on form, going back to list → reset the form
-                        _resetForm();
-                        isEditMode = false;
-                        isDraftObservation = false;
-                      } else {
-                        isEditMode = true;
-                        isDraftObservation = false;
-                        _dateController.text = DateFormat('yyyy-MM-dd HH:mm')
-                            .format(DateTime.now());
-                      }
-                      showObservations = !showObservations;
-                    });
-                  },
-                  child: Icon(showObservations ? Icons.add : Icons.list),
-                  backgroundColor: Colors.blue,
-                ),
+                child: widget.pagePermission.canAdd
+                    ? FloatingActionButton(
+                        onPressed: () {
+                          setState(() {
+                            if (!showObservations) {
+                              _resetForm();
+                              isEditMode = false;
+                              isDraftObservation = false;
+                            } else {
+                              isEditMode = true;
+                              isDraftObservation = false;
+                              _dateController.text =
+                                  DateFormat('yyyy-MM-dd HH:mm')
+                                      .format(DateTime.now());
+                            }
+                            showObservations = !showObservations;
+                          });
+                        },
+                        backgroundColor: Colors.blue,
+                        child: Icon(showObservations ? Icons.add : Icons.list),
+                      )
+                    : const SizedBox(), // ❌ Add permission nahi → FAB bhi nahi
               ),
             ],
           ),
