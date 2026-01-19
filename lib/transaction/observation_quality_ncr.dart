@@ -162,7 +162,19 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
               .fetchGetSiteObservationMasterById(observationId),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Dialog(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(width: 16),
+                      Text("Loading observation..."),
+                    ],
+                  ),
+                ),
+              );
             } else if (snapshot.hasError) {
               return AlertDialog(
                 title: const Text("Error"),

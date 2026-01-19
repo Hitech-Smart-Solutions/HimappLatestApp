@@ -1591,16 +1591,27 @@ class SectionModel {
 
 class FloorModel {
   final String floorName;
+  final String labelName; // ✅ add this
+  final int id;
+  final bool selected;
 
-  FloorModel({required this.floorName});
+  FloorModel({
+    required this.floorName,
+    required this.labelName,
+    required this.id,
+    required this.selected,
+  });
 
   factory FloorModel.fromJson(Map<String, dynamic> json) {
-    // print('Parsing Floor JSON: $json');
     return FloorModel(
       floorName: json['floorName'] ?? '',
+      labelName: json['labelName'] ?? 'Floor', // ✅ default fallback
+      id: json['id'] ?? 0,
+      selected: json['selected'] ?? false,
     );
   }
 }
+
 
 class PourModel {
   final String partName;

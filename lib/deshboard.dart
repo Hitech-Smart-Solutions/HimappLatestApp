@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:animated_widgets/widgets/scale_animated.dart';
+import 'package:himappnew/change_password_page.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/labour_registration_page.dart';
 import 'package:himappnew/model/page_permission.dart';
@@ -977,6 +978,37 @@ class _DashboardPageState extends State<DashboardPage> {
               }).toList(),
             );
           }).toList(),
+          const Divider(),
+          _drawerTile(
+            icon: Icons.lock_reset,
+            color: Colors.orange,
+            title: "Change Password",
+            onTap: () async {
+              Navigator.pop(context); // close drawer
+
+              final int? userId = await SharedPrefsHelper.getUserId();
+
+              if (userId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('User not logged in')),
+                );
+                return;
+              }
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChangePasswordPage(
+                    userId: userId,
+                    companyName: widget.companyName,
+                    userName: widget.userName,
+                    isDarkMode: widget.isDarkMode,
+                    onToggleTheme: widget.onToggleTheme,
+                  ),
+                ),
+              );
+            },
+          ),
 
           const Divider(),
           _drawerTile(

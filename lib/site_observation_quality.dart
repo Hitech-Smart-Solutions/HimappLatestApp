@@ -127,6 +127,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   static final MethodChannel _galleryChannel = MethodChannel('gallery_scanner');
 
+  final uiDateFormat = 'dd/MM/yyyy HH:mm';
+
   bool get isToggleEnabled {
     // NCR + IssueTypeId = 1 → always disabled
     if (selectedIssueTypeId == 1 && selectedIssueType == 'NCR') {
@@ -243,13 +245,23 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     });
     if (!isEditMode) {
       _dateController.text =
-          DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()); // Local time
+          DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     }
+
     // futureObservations = widget._siteObservationService
     // _loadObservationFromServer(widget.de);
   }
 
   String formatDateForApi(DateTime date) {
+    return DateFormat("yyyy-MM-dd'T'HH:mm:ss").format(date);
+  }
+
+  String? formatDateForApiNullable(String? dateText) {
+    if (dateText == null || dateText.trim().isEmpty) {
+      return null; // ✅ draft safe
+    }
+
+    final date = DateFormat(uiDateFormat).parse(dateText);
     return DateFormat("yyyy-MM-dd'T'HH:mm:ss").format(date);
   }
 
@@ -866,6 +878,15 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     required bool allowFuture,
   }) async {
     final DateTime now = DateTime.now();
+    DateTime initialDate = now;
+    // ✅ If already selected → use it
+    if (controller.text.isNotEmpty) {
+      try {
+        initialDate = DateFormat('dd/MM/yyyy HH:mm').parse(controller.text);
+      } catch (_) {
+        initialDate = now;
+      }
+    }
 
     // RULES:
     // allowFuture = false  → Start Date
@@ -873,7 +894,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
     final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: initialDate,
       firstDate: allowFuture
           ? now
           : DateTime(2000), // Start Date = allow past, Due Date = block past
@@ -885,7 +906,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     if (pickedDate != null) {
       final TimeOfDay? pickedTime = await showTimePicker(
         context: context,
-        initialTime: TimeOfDay.now(),
+        initialTime: TimeOfDay.fromDateTime(initialDate),
       );
 
       if (pickedTime != null) {
@@ -898,8 +919,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         );
 
         setState(() {
-          controller.text =
-              DateFormat('yyyy-MM-dd HH:mm').format(finalDateTime);
+          controller.text = DateFormat(uiDateFormat).format(finalDateTime);
           // _recalculateDueDate();
         });
       }
@@ -1152,7 +1172,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         observationID: selectedObservationObj.id,
         observationTypeID: selectedObservationTypeObj.id,
         issueTypeID: selectedIssueTypeObj.id,
-        dueDate: dueDateValue,
+        dueDate: formatDateForApiNullable(dueDateValue),
         observationDescription: observationDescription,
         userDescription: '',
         complianceRequired: isComplianceRequired,
@@ -1293,7 +1313,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       // 🔹 Convert UTC date to local for UI
       if (fullObservation.trancationDate != null) {
         final localDate = fullObservation.trancationDate.toLocal();
-        _dateController.text = DateFormat('yyyy-MM-dd HH:mm').format(localDate);
+        _dateController.text = DateFormat(uiDateFormat).format(localDate);
       }
 
       // 🔹 Set initial dropdown ID
@@ -1529,6 +1549,161 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     });
   }
 
+// start date value change reset logic
+  bool _hasStartDateDependentData() {
+    return selectedObservationType != null ||
+        selectedIssueType != null ||
+        selectedObservationTemplateId != null ||
+        observationDescriptionController.text.trim().isNotEmpty ||
+        _dateDueDateController.text.trim().isNotEmpty ||
+        actionToBeTakenController.text.trim().isNotEmpty;
+  }
+
+  void _resetOnStartDateChange() {
+    selectedObservationType = null;
+    selectedObservationTypeId = 0;
+
+    selectedIssueType = null;
+    selectedIssueTypeId = 0;
+
+    selectedObservation = null;
+    selectedObservationTemplateId = null;
+
+    observationsList = [];
+    issueTypes = [];
+
+    observationDescriptionController.clear();
+    _dateDueDateController.clear();
+    actionToBeTakenController.clear();
+
+    isComplianceRequired = false;
+    isEscalationRequired = false;
+  }
+
+  Future<bool> _showStartDateResetAlert(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Change Observation Date'),
+            content: Text(
+              'Changing the Observation Date will reset Observation and related fields.Do you want to continue?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Yes'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _onStartDateTap(BuildContext context) async {
+    String oldValue = _dateController.text;
+
+    await _selectDate(
+      context,
+      _dateController,
+      allowFuture: false,
+    );
+
+    // ⛔ User cancelled OR same date
+    if (_dateController.text.isEmpty || _dateController.text == oldValue) {
+      return;
+    }
+
+    // 🔕 First time OR no dependent data → no alert, no reset
+    if (oldValue.isEmpty || !_hasStartDateDependentData()) {
+      return;
+    }
+
+    // ⚠️ Data exists → alert
+    bool proceed = await _showStartDateResetAlert(context);
+    if (!proceed) {
+      // 🔁 revert old date
+      _dateController.text = oldValue;
+      return;
+    }
+
+    // ✅ User confirmed → reset
+    setState(() {
+      _resetOnStartDateChange();
+    });
+  }
+
+// Issue Type value chnage reset logic
+  bool shouldResetFields() {
+    return !isDraftObservation && isEditMode;
+  }
+
+  bool _hasDependentDataFilled() {
+    return observationDescriptionController.text.trim().isNotEmpty ||
+        _dateDueDateController.text.trim().isNotEmpty ||
+        actionToBeTakenController.text.trim().isNotEmpty;
+  }
+
+  void _applyIssueTypeChange(String? newValue) {
+    setState(() {
+      selectedIssueType = newValue;
+
+      final selectedIssue = issueTypes.firstWhereOrNull(
+        (e) => e.name == newValue,
+      );
+
+      if (selectedIssue != null) {
+        selectedIssueTypeId = selectedIssue.id;
+        fetchObservations();
+      } else {
+        selectedIssueTypeId = 0;
+        observationsList = [];
+      }
+
+      // 🔁 Reset only when NOT draft
+      if (!isDraftObservation && isEditMode) {
+        _resetDependentFields();
+      }
+    });
+  }
+
+  void _resetDependentFields() {
+    _dateDueDateController.clear();
+    observationDescriptionController.clear();
+    actionToBeTakenController.clear();
+
+    isComplianceRequired = false;
+    isEscalationRequired = false;
+
+    selectedObservation = null;
+    selectedObservationTemplateId = null;
+  }
+
+  Future<bool> _showResetAlert(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Change Issue Type'),
+            content: Text(
+                'Changing the Issue Type will reset Observation and related fields. Do you want to continue?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Yes'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
 // 🔧 1. Switch Row: Ek label aur switch
   Widget _buildToggleRow(
       String label, bool value, ValueChanged<bool> onChanged) {
@@ -1558,42 +1733,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // _buildToggleRow("Compliance Required", isComplianceRequired, (value) {
-          //   setState(() {
-          //     isComplianceRequired = value;
-          //     if (!isComplianceRequired) {
-          //       // disable + clear due date
-          //       _dateDueDateController.text = '';
-          //     } else {
-          //       // ✅ compliance ON → auto calculate if possible
-          //       final selected = (selectedObservation != null)
-          //           ? observationsList.firstWhereOrNull(
-          //               (obs) =>
-          //                   obs.observationDisplayText == selectedObservation,
-          //             )
-          //           : null;
-
-          //       if (selected != null &&
-          //           _dateController.text.isNotEmpty &&
-          //           selected.dueTimeInHrs != 0) {
-          //         try {
-          //           DateTime startDate = DateFormat('yyyy-MM-dd HH:mm')
-          //               .parse(_dateController.text);
-          //           DateTime dueDate = startDate.add(
-          //             Duration(hours: selected.dueTimeInHrs),
-          //           );
-          //           _dateDueDateController.text =
-          //               DateFormat('yyyy-MM-dd HH:mm').format(dueDate);
-          //         } catch (e) {
-          //           _dateDueDateController.text = '';
-          //         }
-          //       } else {
-          //         // Agar condition match nahi hui toh blank rehne do
-          //         _dateDueDateController.text = '';
-          //       }
-          //     }
-          //   });
-          // }),
           _buildToggleRow("Compliance Required", isComplianceRequired, (value) {
             setState(() {
               isComplianceRequired = value;
@@ -1627,29 +1766,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                   // disable + clear due date
                   _dateDueDateController.text = '';
                 } else {
-                  // ✅ compliance ON → auto calculate if possible
-                  // final selected = observationsList.firstWhereOrNull(
-                  //   (obs) => obs.observationDisplayText == selectedObservation,
-                  // );
-
-                  // if (selected != null &&
-                  //     _dateController.text.isNotEmpty &&
-                  //     selected.dueTimeInHrs != 0) {
-                  //   try {
-                  //     DateTime startDate = DateFormat('yyyy-MM-dd HH:mm')
-                  //         .parse(_dateController.text);
-                  //     DateTime dueDate = startDate.add(
-                  //       Duration(hours: selected.dueTimeInHrs),
-                  //     );
-                  //     _dateDueDateController.text =
-                  //         DateFormat('yyyy-MM-dd HH:mm').format(dueDate);
-                  //   } catch (e) {
-                  //     _dateDueDateController.text = '';
-                  //   }
-                  // } else {
-                  //   // Agar condition match nahi hui toh blank rehne do
-                  //   _dateDueDateController.text = '';
-                  // }
                   _recalculateDueDate();
                 }
               });
@@ -1990,6 +2106,76 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   //   return users;
   // }
+  int SHIFT_START_HOUR = 9;
+  int SHIFT_END_HOUR = 17;
+  bool isNonWorkingDay(DateTime date) {
+    // Sunday example
+    return date.weekday == DateTime.sunday;
+  }
+
+  DateTime calculateWorkingDueDate(DateTime start, int dueHours) {
+    const int SHIFT_START = 9;
+    const int SHIFT_END = 19;
+    const int FIXED_MINUTE = 0; // 🔥 Angular behaviour
+
+    int remaining = dueHours;
+    DateTime current = start;
+
+    while (remaining > 0) {
+      // Skip Sunday
+      if (current.weekday == DateTime.sunday) {
+        current = DateTime(
+          current.year,
+          current.month,
+          current.day + 1,
+          SHIFT_START,
+          FIXED_MINUTE,
+        );
+        continue;
+      }
+
+      // Before shift
+      if (current.hour < SHIFT_START) {
+        current = DateTime(
+          current.year,
+          current.month,
+          current.day,
+          SHIFT_START,
+          FIXED_MINUTE,
+        );
+      }
+
+      // After shift
+      if (current.hour >= SHIFT_END) {
+        current = DateTime(
+          current.year,
+          current.month,
+          current.day + 1,
+          SHIFT_START,
+          FIXED_MINUTE,
+        );
+        continue;
+      }
+
+      final available = SHIFT_END - current.hour;
+
+      if (remaining <= available) {
+        current = current.add(Duration(hours: remaining));
+        remaining = 0;
+      } else {
+        remaining -= available;
+        current = DateTime(
+          current.year,
+          current.month,
+          current.day + 1,
+          SHIFT_START,
+          FIXED_MINUTE,
+        );
+      }
+    }
+
+    return current;
+  }
 
 //Due Date Logic
   void _recalculateDueDate() {
@@ -2026,19 +2212,19 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
     // 5️⃣ Calculate due date ✅
     try {
-      DateTime startDate =
-          DateFormat('yyyy-MM-dd HH:mm').parse(_dateController.text);
+      DateTime startDate = DateFormat(uiDateFormat).parse(_dateController.text);
 
-      DateTime dueDate = startDate.add(
-        Duration(hours: selectedObs.dueTimeInHrs),
+      DateTime dueDate = calculateWorkingDueDate(
+        startDate,
+        selectedObs.dueTimeInHrs,
       );
 
-      _dateDueDateController.text =
-          DateFormat('yyyy-MM-dd HH:mm').format(dueDate);
+      _dateDueDateController.text = DateFormat(uiDateFormat).format(dueDate);
 
       debugPrint("=== RECALCULATE DUE DATE ===");
       debugPrint("ComplianceRequired: $isComplianceRequired");
       debugPrint("StartDateText: ${_dateController.text}");
+      debugPrint("_dateDueDateController.text: ${_dateDueDateController.text}");
       debugPrint("SelectedTemplateId: $selectedObservationTemplateId");
     } catch (e) {
       _dateDueDateController.text = '';
@@ -2047,7 +2233,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   String _formatDate(DateTime? date) {
     return date != null
-        ? DateFormat('dd/MM/yyyy hh:mm').format(date.toLocal())
+        ? DateFormat('dd/MM/yyyy HH:mm').format(date.toLocal())
         : 'N/A';
   }
 
@@ -2970,12 +3156,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                                 ),
                                                                 TextSpan(
                                                                   text: observation
+                                                                              .transactionDate !=
+                                                                          null
+                                                                      ? DateFormat('MM/dd/yyyy').format(observation
                                                                           .transactionDate
-                                                                          .toLocal()
-                                                                          .toString()
-                                                                          .split(
-                                                                              ' ')[0] ??
-                                                                      'N/A',
+                                                                          .toLocal())
+                                                                      : 'N/A',
                                                                   style: Theme.of(
                                                                           context)
                                                                       .textTheme
@@ -3063,12 +3249,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                   icon: Icon(
                                                       Icons.calendar_today),
                                                   onPressed: isEditMode
-                                                      ? () {
-                                                          _selectDate(context,
-                                                              _dateController,
-                                                              allowFuture:
-                                                                  false);
-                                                        }
+                                                      ? () => _onStartDateTap(
+                                                          context)
                                                       : null,
                                                 ),
                                               ),
@@ -3146,6 +3328,113 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                             ),
                                             SizedBox(height: 20),
 
+                                            // DropdownButtonFormField<String>(
+                                            //   value: issueTypes.any((e) =>
+                                            //           e.name ==
+                                            //           selectedIssueType)
+                                            //       ? selectedIssueType
+                                            //       : null,
+                                            //   onChanged: (!isDraftObservation &&
+                                            //           isEditMode)
+                                            //       ? (String? newValue) {
+                                            //           setState(() {
+                                            //             selectedIssueType =
+                                            //                 newValue;
+
+                                            //             try {
+                                            //               final selectedIssue =
+                                            //                   issueTypes
+                                            //                       .firstWhere(
+                                            //                 (element) =>
+                                            //                     element.name ==
+                                            //                     newValue,
+                                            //               );
+                                            //               selectedIssueTypeId =
+                                            //                   selectedIssue.id;
+                                            //               fetchObservations();
+                                            //             } catch (e) {
+                                            //               selectedIssueTypeId =
+                                            //                   0;
+                                            //               observationsList = [];
+                                            //               selectedObservation =
+                                            //                   null;
+                                            //             }
+                                            //           });
+                                            //         }
+                                            //       : null,
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Issue Type',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   items:
+                                            //       issueTypes.map((issueType) {
+                                            //     return DropdownMenuItem<String>(
+                                            //       value: issueType.name,
+                                            //       child: Text(issueType.name),
+                                            //     );
+                                            //   }).toList(),
+                                            // ),
+                                            // DropdownButtonFormField<String>(
+                                            //   value: issueTypes.any((e) =>
+                                            //           e.name ==
+                                            //           selectedIssueType)
+                                            //       ? selectedIssueType
+                                            //       : null,
+                                            //   onChanged: (!isDraftObservation &&
+                                            //           isEditMode)
+                                            //       ? (String? newValue) async {
+                                            //           bool proceed = true;
+
+                                            //           if (selectedIssueType !=
+                                            //               null) {
+                                            //             proceed =
+                                            //                 await _showResetAlert(
+                                            //                     context);
+                                            //           }
+
+                                            //           if (!proceed) return;
+
+                                            //           setState(() {
+                                            //             selectedIssueType =
+                                            //                 newValue;
+
+                                            //             final selectedIssue =
+                                            //                 issueTypes
+                                            //                     .firstWhereOrNull(
+                                            //               (e) =>
+                                            //                   e.name ==
+                                            //                   newValue,
+                                            //             );
+
+                                            //             if (selectedIssue !=
+                                            //                 null) {
+                                            //               selectedIssueTypeId =
+                                            //                   selectedIssue.id;
+                                            //               fetchObservations();
+                                            //             } else {
+                                            //               selectedIssueTypeId =
+                                            //                   0;
+                                            //               observationsList = [];
+                                            //             }
+
+                                            //             if (shouldResetFields()) {
+                                            //               _resetDependentFields();
+                                            //             }
+                                            //           });
+                                            //         }
+                                            //       : null,
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Issue Type',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   items:
+                                            //       issueTypes.map((issueType) {
+                                            //     return DropdownMenuItem<String>(
+                                            //       value: issueType.name,
+                                            //       child: Text(issueType.name),
+                                            //     );
+                                            //   }).toList(),
+                                            // ),
                                             DropdownButtonFormField<String>(
                                               value: issueTypes.any((e) =>
                                                       e.name ==
@@ -3154,30 +3443,22 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                   : null,
                                               onChanged: (!isDraftObservation &&
                                                       isEditMode)
-                                                  ? (String? newValue) {
-                                                      setState(() {
-                                                        selectedIssueType =
-                                                            newValue;
+                                                  ? (String? newValue) async {
+                                                      // 🔕 First time / empty → no alert
+                                                      if (!_hasDependentDataFilled()) {
+                                                        _applyIssueTypeChange(
+                                                            newValue);
+                                                        return;
+                                                      }
 
-                                                        try {
-                                                          final selectedIssue =
-                                                              issueTypes
-                                                                  .firstWhere(
-                                                            (element) =>
-                                                                element.name ==
-                                                                newValue,
-                                                          );
-                                                          selectedIssueTypeId =
-                                                              selectedIssue.id;
-                                                          fetchObservations();
-                                                        } catch (e) {
-                                                          selectedIssueTypeId =
-                                                              0;
-                                                          observationsList = [];
-                                                          selectedObservation =
-                                                              null;
-                                                        }
-                                                      });
+                                                      // ⚠️ Data filled → show alert
+                                                      bool proceed =
+                                                          await _showResetAlert(
+                                                              context);
+                                                      if (!proceed) return;
+
+                                                      _applyIssueTypeChange(
+                                                          newValue);
                                                     }
                                                   : null,
                                               decoration: InputDecoration(
@@ -3192,6 +3473,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                 );
                                               }).toList(),
                                             ),
+
                                             SizedBox(height: 20),
 
                                             DropdownSearch<Observation>(
@@ -3256,113 +3538,11 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                           .actionToBeTaken ??
                                                       '';
 
-                                                  _recalculateDueDate();
-
                                                   // fetchObservations ke andar
                                                 });
+                                                _recalculateDueDate();
                                               },
                                             ),
-
-                                            // DropdownButtonFormField<String>(
-                                            //   value: (selectedObservation !=
-                                            //               null &&
-                                            //           selectedObservation!
-                                            //               .isNotEmpty &&
-                                            //           observationsList.any((obs) =>
-                                            //               obs.observationDisplayText ==
-                                            //               selectedObservation))
-                                            //       ? selectedObservation
-                                            //       : null,
-                                            //   onChanged: (!isDraftObservation &&
-                                            //           isEditMode)
-                                            //       ? (selectedIssueTypeId ==
-                                            //                   null ||
-                                            //               selectedIssueTypeId ==
-                                            //                   0)
-                                            //           ? null
-                                            //           : (String? newValue) {
-                                            //               setState(() {
-                                            //                 selectedObservation =
-                                            //                     newValue ?? '';
-
-                                            //                 final selected =
-                                            //                     observationsList
-                                            //                         .firstWhere(
-                                            //                   (obs) =>
-                                            //                       obs.observationDisplayText ==
-                                            //                       selectedObservation,
-                                            //                   orElse: () =>
-                                            //                       Observation(
-                                            //                     id: 0,
-                                            //                     observationTypeID:
-                                            //                         0,
-                                            //                     issueTypeID: 0,
-                                            //                     observationDescription:
-                                            //                         '',
-                                            //                     observationDisplayText:
-                                            //                         '',
-                                            //                     complianceRequired:
-                                            //                         false,
-                                            //                     escalationRequired:
-                                            //                         false,
-                                            //                     dueTimeInHrs: 0,
-                                            //                     actionToBeTaken:
-                                            //                         '',
-                                            //                     lastModifiedBy:
-                                            //                         '',
-                                            //                     lastModifiedDate:
-                                            //                         DateTime.now()
-                                            //                             .toIso8601String(),
-                                            //                   ),
-                                            //                 );
-
-                                            //                 // EXISTING ASSIGNMENTS (UNCHANGED)
-                                            //                 observationDescriptionController
-                                            //                         .text =
-                                            //                     selected
-                                            //                         .observationDescription;
-
-                                            //                 isComplianceRequired =
-                                            //                     selected
-                                            //                         .complianceRequired;
-
-                                            //                 isEscalationRequired =
-                                            //                     selected
-                                            //                         .escalationRequired;
-
-                                            //                 actionToBeTakenController
-                                            //                     .text = selected
-                                            //                         .actionToBeTaken ??
-                                            //                     '';
-
-                                            //                 // 🔥 ONLY ADD THIS LINE
-                                            //                 _recalculateDueDate();
-                                            //               });
-                                            //             }
-                                            //       : null,
-                                            //   decoration: const InputDecoration(
-                                            //     labelText: 'Select Observation',
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   items: (selectedIssueTypeId ==
-                                            //               null ||
-                                            //           selectedIssueTypeId == 0)
-                                            //       ? []
-                                            //       : observationsList
-                                            //           .map((observation) {
-                                            //           return DropdownMenuItem<
-                                            //               String>(
-                                            //             value: observation
-                                            //                 .observationDisplayText,
-                                            //             child: Text(
-                                            //               observation
-                                            //                   .observationDisplayText,
-                                            //               overflow: TextOverflow
-                                            //                   .ellipsis,
-                                            //             ),
-                                            //           );
-                                            //         }).toList(),
-                                            // ),
 
                                             SizedBox(height: 20),
                                             TextFormField(
@@ -4111,7 +4291,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                               isEditMode = true;
                               isDraftObservation = false;
                               _dateController.text =
-                                  DateFormat('yyyy-MM-dd HH:mm')
+                                  DateFormat('dd/MM/yyyy HH:mm')
                                       .format(DateTime.now());
                             }
                             showObservations = !showObservations;
@@ -4164,3 +4344,4 @@ bool isImage(String fileName) {
       lower.endsWith('.bmp') ||
       lower.endsWith('.webp');
 }
+// New Code New Code ...

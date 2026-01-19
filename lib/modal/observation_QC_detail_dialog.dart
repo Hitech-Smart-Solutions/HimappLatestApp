@@ -42,11 +42,12 @@ class ObservationQCDetailDialog extends StatefulWidget {
 
 class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   bool isLoading = false;
-  String? selectedStatus;
+  int? selectedStatus;
   List<Map<String, String>> observationStatus = [];
 
   List<RootCause> rootCauses = [];
-  RootCause? selectedRootCause;
+  // RootCause? selectedRootCause;
+  int? selectedRootCauseId;
   bool isStatusEnabled = false;
   bool isEditingRootCause = false;
   bool isButtonDisabled = false;
@@ -92,10 +93,15 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   int fromStatus = SiteObservationStatus.Open;
   int toStatus = SiteObservationStatus.Open;
-  String? areaLabel;
-  String? floorLabel;
-  String? pourLabel;
-  String? elementLabel;
+  // String? areaLabel;
+  // String? floorLabel;
+  // String? pourLabel;
+  // String? elementLabel;
+  String areaLabel = "Block";
+  String floorLabel = "Floor";
+  String pourLabel = "Pour";
+  String elementLabel = "Element";
+
   bool isSending = false;
 
   bool isReopenAction = false;
@@ -119,17 +125,19 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   static final MethodChannel _galleryChannel = MethodChannel('gallery_scanner');
 
   late void Function(void Function()) _activityTabSetState;
-
+  late Future<void> _labelFuture;
   bool isFirstLoad = true;
   @override
   void initState() {
     super.initState();
     currentDetail = widget.detail;
     _setupPage();
-    loadSection();
-    loadFloor();
-    loadPour();
-    loadElement();
+    _labelFuture = Future.wait([
+      loadSection(),
+      loadFloor(),
+      loadPour(),
+      loadElement(),
+    ]);
     // print("created Status 92: ${widget.detail.createdBy}");
     // print('166: ${widget.detail}');
   }
@@ -138,7 +146,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     final statusId = widget.detail.statusID;
 
     if (statusId != 0) {
-      selectedStatus = statusId.toString(); // Dropdown ke liye string chahiye
+      selectedStatus = statusId; // Dropdown ke liye string chahiye
       fromStatus = statusId; // Current status id
       toStatus = statusId;
       await setObservationStatusDropdown(
@@ -306,32 +314,80 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   //       widget.detail.corretiveActionToBeTaken ?? '';
   // }
 
+  // void _initializeFormFields() {
+  //   int rootCauseIDs = widget.detail.rootCauseID ?? 0;
+
+  //   // ✅ Default always null
+  //   selectedRootCause = null;
+
+  //   /// -------- OPEN --------
+  //   if (selectedStatus == SiteObservationStatus.Open.toString()) {
+  //     if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
+  //       try {
+  //         selectedRootCause =
+  //             rootCauses.firstWhere((rc) => rc.id == rootCauseIDs);
+  //       } catch (e) {
+  //         selectedRootCause = null;
+  //       }
+  //     }
+  //   }
+
+  //   /// -------- ReadyToInspect / Closed --------
+  //   if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
+  //       selectedStatus == SiteObservationStatus.Closed.toString()) {
+  //     // 🔥 FORCE NULL – user khud select kare
+  //     selectedRootCause = null;
+  //   }
+
+  //   // ---------- Text fields ----------
+  //   rootcauseDescriptionController.text =
+  //       widget.detail.rootcauseDescription ?? '';
+  //   materialCostController.text = widget.detail.materialCost?.toString() ?? '';
+  //   labourCostController.text = widget.detail.labourCost?.toString() ?? '';
+  //   reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
+  //   preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
+  //   correctiveActionController.text =
+  //       widget.detail.corretiveActionToBeTaken ?? '';
+
+  //   print("DEBUG selectedRootCause => $selectedRootCause");
+  // }
   void _initializeFormFields() {
+    debugPrint("🔥 _initializeFormFields CALLED");
+    debugPrint("🔥 BEFORE INIT rootCauseId => $selectedRootCauseId");
     int rootCauseIDs = widget.detail.rootCauseID ?? 0;
 
-    // ✅ Default always null
-    selectedRootCause = null;
+    // default
+    // selectedRootCauseId = null;
+
+    // selectedStatus is int? now
+    int statusInt = selectedStatus ?? 0;
+
+    debugPrint("selectedRootCauseId => $selectedRootCauseId");
+    for (var cause in rootCauses) {
+      debugPrint(
+          "Dropdown Item => id: ${cause.id}, name: ${cause.rootCauseName}");
+    }
 
     /// -------- OPEN --------
-    if (selectedStatus == SiteObservationStatus.Open.toString()) {
-      if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
-        try {
-          selectedRootCause =
-              rootCauses.firstWhere((rc) => rc.id == rootCauseIDs);
-        } catch (e) {
-          selectedRootCause = null;
-        }
-      }
+    if (statusInt == SiteObservationStatus.Open ||
+        statusInt == SiteObservationStatus.Reopen) {
+      if (rootCauseIDs != 0) selectedRootCauseId = rootCauseIDs;
     }
 
-    /// -------- ReadyToInspect / Closed --------
-    if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-        selectedStatus == SiteObservationStatus.Closed.toString()) {
-      // 🔥 FORCE NULL – user khud select kare
-      selectedRootCause = null;
+    // /// -------- ReadyToInspect / Closed --------
+    // if (statusInt == SiteObservationStatus.ReadyToInspect ||
+    //     statusInt == SiteObservationStatus.Closed) {
+    //   selectedRootCauseId = null; // force reselect
+    // }
+
+    /// -------- Reopen --------
+    if (statusInt == SiteObservationStatus.Reopen) {
+      if (rootCauseIDs != 0) selectedRootCauseId = rootCauseIDs;
     }
 
-    // ---------- Text fields ----------
+    debugPrint("INIT ROOT CAUSE ID => $selectedRootCauseId");
+
+    // text fields
     rootcauseDescriptionController.text =
         widget.detail.rootcauseDescription ?? '';
     materialCostController.text = widget.detail.materialCost?.toString() ?? '';
@@ -341,7 +397,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     correctiveActionController.text =
         widget.detail.corretiveActionToBeTaken ?? '';
 
-    print("DEBUG selectedRootCause => $selectedRootCause");
+    debugPrint("🔥 AFTER INIT rootCauseId => $selectedRootCauseId");
   }
 
   ActivityDTO buildAssignedActivity({
@@ -384,13 +440,33 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Future<void> _loadRootCauses() async {
     setState(() => isLoading = true);
+
     try {
       int? companyId = await SharedPrefsHelper.getCompanyId();
-      if (companyId == null) {
-        return;
-      }
-      rootCauses =
+      if (companyId == null) return;
+
+      final data =
           await SiteObservationService().fatchRootCausesByActivityID(companyId);
+
+      // ✅ STEP 1: dropdown items set
+      setState(() {
+        rootCauses = data;
+      });
+
+      // ✅ STEP 2: backend se aaya hua rootCauseID
+      final backendRootCauseId = widget.detail.rootCauseID;
+
+      debugPrint("BACKEND ROOTCAUSE ID => $backendRootCauseId");
+
+      // ✅ STEP 3: dropdown value TABHI set karo jab item exist kare
+      if (backendRootCauseId != null &&
+          rootCauses.any((e) => e.id == backendRootCauseId)) {
+        setState(() {
+          selectedRootCauseId = backendRootCauseId;
+        });
+      }
+
+      debugPrint("FINAL SELECTED ROOTCAUSE => $selectedRootCauseId");
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load root causes: $e')),
@@ -403,12 +479,11 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
   Future<UpdateSiteObservation> getUpdatedDataFromForm(
       List<String> uploadedFiles) async {
     int id = widget.detail.id;
-    int rootCauseID = selectedRootCause?.id ?? 0;
-
+    int? rootCauseID = selectedRootCauseId;
     List<ActivityDTO> activities = [];
 
     int selectedStatusId =
-        int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
+        int.tryParse(selectedStatus.toString()) ?? SiteObservationStatus.Open;
 
     String? reopenRemarks;
     String? closeRemarks;
@@ -449,6 +524,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           ),
         );
       }
+      debugPrint("rootCauseID452,$rootCauseID");
     }
 
     /// ---------------- REOPEN ----------------
@@ -1112,7 +1188,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
             await widget.siteObservationService.getFloorByProjectID(projectID);
         if (floors.isNotEmpty) {
           setState(() {
-            floorLabel = floors[0].floorName;
+            floorLabel = floors[0].labelName;
+            print("floorLabel,$floorLabel");
           });
         }
       } catch (e) {
@@ -1260,7 +1337,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
     setState(() {
       observationStatus = newStatusList;
-      selectedStatus = fromStatus.toString();
+      selectedStatus = fromStatus;
       isStatusEnabled = newStatusEnabled;
     });
   }
@@ -1325,50 +1402,32 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                       ),
                       const SizedBox(width: 15),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: selectedStatus,
-
-                          hint: const Text(
-                            "-- Status --",
-                            style: TextStyle(color: Colors.white),
-                          ),
-
+                        child: DropdownButtonFormField<int>(
+                          value: selectedStatus, // int type
+                          hint: const Text("-- Status --",
+                              style: TextStyle(color: Colors.white)),
                           isExpanded: true,
-
-                          // ✅ selected value text color
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-
-                          // ✅ dropdown open background
+                              color: Colors.white, fontWeight: FontWeight.w600),
                           dropdownColor: Colors.white,
+                          icon: const Icon(Icons.arrow_drop_down,
+                              color: Colors.white),
 
-                          // ✅ icon color
-                          icon: const Icon(
-                            Icons.arrow_drop_down,
-                            color: Colors.white,
-                          ),
-
-                          // 🔥🔥 THIS FIXES SELECTED VALUE COLOR 🔥🔥
+                          // Selected text builder (same as tumhara)
                           selectedItemBuilder: (BuildContext context) {
                             return observationStatus.map<Widget>((status) {
-                              final idStr = status['id'].toString();
-                              final id = int.tryParse(idStr);
+                              final id =
+                                  int.tryParse(status['id'].toString()) ??
+                                      0; // safe int
                               final name = SiteObservationStatus.idToName[id] ??
                                   status['name'] ??
                                   'Unknown';
-
                               return Align(
                                 alignment: Alignment.centerLeft,
-                                child: Text(
-                                  name,
-                                  style: const TextStyle(
-                                    color:
-                                        Colors.white, // 👈 SELECTED TEXT WHITE
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                                child: Text(name,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600)),
                               );
                             }).toList();
                           },
@@ -1378,108 +1437,64 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 12),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.white),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.white),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                  color: Colors.white, width: 1.5),
-                            ),
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide:
+                                    const BorderSide(color: Colors.white)),
                           ),
 
                           items: observationStatus.map((status) {
-                            final idStr = status['id'].toString();
-                            final id = int.tryParse(idStr);
+                            final id =
+                                int.tryParse(status['id'].toString()) ?? 0;
                             final name = SiteObservationStatus.idToName[id] ??
                                 status['name'] ??
                                 'Unknown';
-
-                            return DropdownMenuItem<String>(
-                              value: idStr,
-                              child: Text(
-                                name,
-                                style: const TextStyle(
-                                    color: Colors.black), // dropdown list
-                              ),
+                            return DropdownMenuItem<int>(
+                              value: id, // int type
+                              child: Text(name,
+                                  style: const TextStyle(color: Colors.black)),
                             );
                           }).toList(),
 
-                          // ❌ LOGIC SAME – EK LINE BHI CHANGE NAHI
                           onChanged: isStatusEnabled
                               ? (newValue) {
+                                  debugPrint(
+                                      "🟡 STATUS CHANGED TO => $newValue");
+                                  debugPrint(
+                                      "🟡 BEFORE STATUS CHANGE rootCauseId => $selectedRootCauseId");
                                   if (newValue == null) return;
-                                  final int selectedStatusInt =
-                                      int.parse(newValue);
 
                                   setState(() {
-                                    selectedStatus = newValue;
-                                    toStatus = selectedStatusInt;
-                                    isUpdateBtnVisible = true;
-                                    collapsed = false;
+                                    selectedStatus = newValue; // now int
+                                    toStatus = newValue;
 
-                                    if (fromStatus != selectedStatusInt) {
-                                      isUpdateBtnVisible = true;
-                                      isRootCauseFileUpdateEnable = true;
-                                    } else {
-                                      isUpdateBtnVisible = false;
-                                      isRootCauseFileUpdateEnable = false;
-                                    }
+                                    isUpdateBtnVisible = fromStatus != newValue;
+                                    isRootCauseFileUpdateEnable =
+                                        fromStatus != newValue;
 
-                                    if (selectedStatusInt ==
-                                        SiteObservationStatus.Reopen) {
-                                      isReopenRemarksVisible = true;
-                                      isCloseRemarksVisible = false;
-                                      inProgessRemarksVisible = false;
-                                      inReadyToInspectRemarksVisible = false;
-                                    } else if (selectedStatusInt ==
-                                        SiteObservationStatus.Closed) {
-                                      isReopenRemarksVisible = false;
-                                      isCloseRemarksVisible = true;
-                                      inProgessRemarksVisible = false;
-                                      inReadyToInspectRemarksVisible = false;
-                                    } else if (selectedStatusInt ==
-                                        SiteObservationStatus.InProgress) {
-                                      inProgessRemarksVisible = true;
-                                      isReopenRemarksVisible = false;
-                                      isCloseRemarksVisible = false;
-                                      inReadyToInspectRemarksVisible = false;
-                                    } else if (selectedStatusInt ==
-                                        SiteObservationStatus.ReadyToInspect) {
-                                      inProgessRemarksVisible = false;
-                                      isReopenRemarksVisible = false;
-                                      isCloseRemarksVisible = false;
-                                      inReadyToInspectRemarksVisible = true;
-                                    } else {
-                                      isReopenRemarksVisible = false;
-                                      isCloseRemarksVisible = false;
-                                      inProgessRemarksVisible = false;
-                                      inReadyToInspectRemarksVisible = false;
-                                    }
+                                    isReopenRemarksVisible = newValue ==
+                                        SiteObservationStatus.Reopen;
+                                    isCloseRemarksVisible = newValue ==
+                                        SiteObservationStatus.Closed;
+                                    inProgessRemarksVisible = newValue ==
+                                        SiteObservationStatus.InProgress;
+                                    inReadyToInspectRemarksVisible = newValue ==
+                                        SiteObservationStatus.ReadyToInspect;
 
-                                    if (selectedStatusInt ==
+                                    canEditRootCause = newValue ==
                                             SiteObservationStatus
                                                 .ReadyToInspect ||
-                                        selectedStatusInt ==
-                                            SiteObservationStatus.Closed) {
-                                      canEditRootCause = true;
-                                    } else {
-                                      canEditRootCause = false;
-                                    }
+                                        newValue ==
+                                            SiteObservationStatus.Closed;
+
+                                    collapsed = false;
                                   });
+                                  debugPrint(
+                                      "🟡 AFTER STATUS CHANGE rootCauseId => $selectedRootCauseId");
                                 }
                               : null,
 
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select a status';
-                            }
-                            return null;
-                          },
+                          validator: (value) =>
+                              value == null ? 'Please select a status' : null,
                         ),
                       ),
                     ],
@@ -1736,8 +1751,8 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 value1: widget.detail.assignedUsersName,
               ),
 
-              buildTextIfNotEmpty(widget.detail.closeRemarks),
-              buildTextIfNotEmpty(widget.detail.reopenRemarks),
+              // buildTextIfNotEmpty(widget.detail.closeRemarks),
+              // buildTextIfNotEmpty(widget.detail.reopenRemarks),
 
               // ⭐ NEW FIELDS — 2-per-row with condition
               buildPairRow(
@@ -1774,6 +1789,34 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 value1: widget.detail.corretiveActionToBeTaken,
               ),
 
+              buildPairRow(
+                context,
+                label1: "Close Remarks :",
+                value1: widget.detail.closeRemarks,
+                value1Color: Colors.green,
+              ),
+
+              // buildPairRow(
+              //   context,
+              //   label1: "Reopen Remarks :",
+              //   value1: widget.detail.reopenRemarks,
+              //   value1Color: Colors.red,
+              // ),
+              Column(
+                children: [
+                  if (widget.detail.reopenRemarks != null &&
+                      widget.detail.reopenRemarks!.trim().isNotEmpty &&
+                      widget.detail.statusName.toLowerCase() == 'reopen') ...[
+                    buildPairRow(
+                      context,
+                      label1: "Reopen Remarks:",
+                      value1: widget.detail.reopenRemarks,
+                      value1Color: Colors.red,
+                    ),
+                  ],
+                ],
+              ),
+
               const SizedBox(height: 24),
 
               // ✅ Your existing form
@@ -1789,11 +1832,16 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     BuildContext context, {
     required String label1,
     String? value1,
+    Color? value1Color, // 👈 ADD
     String? label2,
     String? value2,
+    Color? value2Color, // 👈 ADD
   }) {
-    final has1 = value1?.trim().isNotEmpty == true;
-    // final has2 = value2?.trim().isNotEmpty == true;
+    final has1 = value1 != null &&
+        value1.trim().isNotEmpty &&
+        value1.trim() != '0' &&
+        value1.trim() != '0.0';
+
     final has2 = value2 != null &&
         value2.trim().isNotEmpty &&
         value2.trim() != '0' &&
@@ -1804,26 +1852,48 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
-    // MOBILE → vertical
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (has1) _buildDetailRow(label1, value1!),
-          if (has2) _buildDetailRow(label2!, value2!),
+          if (has1)
+            _buildDetailRow(
+              label1,
+              value1!,
+              valueColor: value1Color,
+            ),
+          if (has2)
+            _buildDetailRow(
+              label2!,
+              value2!,
+              valueColor: value2Color,
+            ),
           const SizedBox(height: 8),
         ],
       );
     }
 
-    // TABLET → horizontal
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          if (has1) Expanded(child: _buildDetailRow(label1, value1!)),
+          if (has1)
+            Expanded(
+              child: _buildDetailRow(
+                label1,
+                value1!,
+                valueColor: value1Color,
+              ),
+            ),
           if (has1 && has2) const SizedBox(width: 10),
-          if (has2) Expanded(child: _buildDetailRow(label2!, value2!)),
+          if (has2)
+            Expanded(
+              child: _buildDetailRow(
+                label2!,
+                value2!,
+                valueColor: value2Color,
+              ),
+            ),
         ],
       ),
     );
@@ -1900,7 +1970,11 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(
+    String label,
+    String value, {
+    Color? valueColor,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1909,7 +1983,14 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(width: 6),
-        Expanded(child: Text(value)),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: valueColor ?? Colors.black, // 👈 DEFAULT SAFE
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1958,21 +2039,21 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
             if (isRootCauseFileUpdateEnable &&
                 canEditRootCause &&
                 !collapsed) ...[
-              DropdownButtonFormField<RootCause>(
-                value: selectedRootCause,
+              DropdownButtonFormField<int>(
+                value: selectedRootCauseId,
                 decoration: const InputDecoration(
                   labelText: 'Select Root Cause',
                   border: OutlineInputBorder(),
                 ),
                 items: rootCauses.map((cause) {
-                  return DropdownMenuItem<RootCause>(
-                    value: cause,
+                  return DropdownMenuItem<int>(
+                    value: int.tryParse(cause.id.toString()), // ensure int
                     child: Text(cause.rootCauseName),
                   );
                 }).toList(),
-                onChanged: (newValue) {
+                onChanged: (newId) {
                   setState(() {
-                    selectedRootCause = newValue;
+                    selectedRootCauseId = newId;
                   });
                 },
                 validator: (value) =>
@@ -2250,10 +2331,17 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                 isButtonDisabled = true;
                                 isEditingRootCause = false;
                               });
-
+                              // return;
                               UpdateSiteObservation updatedData =
                                   await getUpdatedDataFromForm(uploadedFiles);
 
+                              /// 🔍 DEBUG 3 – Payload check
+                              // 🔍 STEP 2: DEBUG (important)
+                              debugPrint(
+                                  'FINAL ROOTCAUSE => ${updatedData.rootCauseID}');
+                              debugPrint(
+                                  'FINAL STATUS => ${updatedData.statusID}');
+                              // return;
                               bool success = await SiteObservationService()
                                   .updateSiteObservationByID(updatedData);
 
@@ -3104,3 +3192,5 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         lower.endsWith('.webp');
   }
 }
+
+// New Code
