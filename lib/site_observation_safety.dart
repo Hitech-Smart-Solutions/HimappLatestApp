@@ -1169,6 +1169,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
           observedBy: commonFields.observedBy,
           // violationTypeID: commonFields.violationTypeID!,
           violationTypeID: violationTypeToSend,
+          // violationTypeID: violationTypeToSend!,
           statusID: commonFields.statusID,
           lastModifiedBy: commonFields.lastModifiedBy,
           lastModifiedDate: commonFields.lastModifiedDate,
@@ -1368,13 +1369,19 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     );
     observedById = matchedObservedBy['id'] as int;
 
-    final violationTypeName = observation.violationTypeName;
+    final violationTypeName = observation.violationTypeName ?? '';
+    print("Violation Type Name: $violationTypeName");
+
     final matchedViolationType =
         ObservationViolationTypeConstants.violationType.firstWhere(
       (item) =>
-          (item['violationType'] as String).toLowerCase() == violationTypeName,
+          (item['violationType'] as String).trim().toLowerCase() ==
+          violationTypeName.trim().toLowerCase(),
       orElse: () => const {"id": 0, "violationType": ""},
     );
+
+    print("matchedViolationType: $matchedViolationType");
+
     violationTypeId = matchedViolationType['id'] as int;
 
     selectedAreaId = areaList.any((a) => a.id == observation.sectionID)
@@ -2464,7 +2471,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
   Widget _rootCauseSection(GetSiteObservationMasterById observation) {
     final widgets = <Widget>[];
-    print("observation.reworkCost:${observation.reworkCost}");
+    // print("observation.reworkCost:${observation.reworkCost}");
     void addIfValid(String label, dynamic value) {
       if (value == null) return;
 

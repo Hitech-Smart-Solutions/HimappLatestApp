@@ -82,7 +82,7 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              DateFormat('MM/dd/yyyy')
+                              DateFormat('dd/MM/yyyy')
                                   .format(obs.trancationDate.toLocal()),
                               style:
                                   const TextStyle(fontWeight: FontWeight.bold),

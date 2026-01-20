@@ -409,10 +409,26 @@ class _DashboardPageState extends State<DashboardPage> {
       //   color: Color(0xFF3A86FF),
       // ),
       GestureDetector(
+        // onTap: () async {
+        //   final userId = await SharedPrefsHelper.getUserId();
+        //   if (userId != null) {
+        //     Navigator.push(
+        //       context,
+        //       MaterialPageRoute(
+        //         builder: (_) => ObservationSafetyNCRPage(
+        //           userId: userId,
+        //           siteObservationService: SiteObservationService(),
+        //           siteObservationId: 0,
+        //         ),
+        //       ),
+        //     );
+        //   }
+        // },
+
         onTap: () async {
           final userId = await SharedPrefsHelper.getUserId();
           if (userId != null) {
-            Navigator.push(
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => ObservationSafetyNCRPage(
@@ -422,6 +438,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
             );
+
+            if (result == true) {
+              _loadStats(); // 🔁 dashboard count refresh
+            }
           }
         },
         child: _buildNeonGlassCard(

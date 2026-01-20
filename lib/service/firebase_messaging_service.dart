@@ -19,7 +19,7 @@ class FirebaseMessagingService {
 
     // Get FCM token
     final token = await messaging.getToken();
-    print('FCM Token: $token');
+    // print('FCM Token: $token');
 
     if (token != null) {
       await SharedPrefsHelper.saveFcmToken(token);
