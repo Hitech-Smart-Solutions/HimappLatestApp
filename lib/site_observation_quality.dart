@@ -1025,6 +1025,32 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       _isSubmitting = true;
     });
 
+    // 🔴 START vs DUE TIME VALIDATION
+    if (_dateController.text.isNotEmpty &&
+        _dateDueDateController.text.isNotEmpty) {
+      try {
+        DateTime startDate =
+            DateFormat(uiDateFormat).parse(_dateController.text);
+        DateTime dueDate =
+            DateFormat(uiDateFormat).parse(_dateDueDateController.text);
+
+        if (dueDate.isBefore(startDate)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Due time can not be less than observation time',
+              ),
+            ),
+          );
+
+          setState(() => _isSubmitting = false);
+          return; // ⛔ STOP SUBMIT
+        }
+      } catch (_) {
+        // ignore parse error
+      }
+    }
+
     try {
       String observationDescription = observationDescriptionController.text;
       String actionToBeTaken = actionToBeTakenController.text;

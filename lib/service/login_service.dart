@@ -42,17 +42,17 @@ class LoginService {
         'token': token,
       };
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
+      final statusCode = e.response?.statusCode;
+      // ❌ Wrong username or password
+      if (statusCode == 401 || statusCode == 404) {
         return {
           'success': false,
-          'message': 'Unauthorized. Please check your credentials.',
+          'message': 'Invalid username or password',
         };
       }
-
       return {
         'success': false,
-        'message':
-            'Login failed: ${e.response?.statusCode} - ${e.response?.data}',
+        'message': 'Login failed. Please try again later.',
       };
     } catch (e) {
       return {

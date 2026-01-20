@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:himappnew/modal/observation_QC_detail_dialog.dart';
+import 'package:himappnew/modal/observation_Safety_detail_dialog.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/service/site_observation_service.dart';
-// import 'modal/observation_detail_dialog.dart'; // 🔁 Dialog widget import
+import 'package:intl/intl.dart';
 
 class ObservationSafetyNCRPage extends StatefulWidget {
   final SiteObservationService siteObservationService;
@@ -33,6 +33,11 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
     // print("Future Observations: ${futureObservations.toString()}");
   }
 
+  String formatDate(DateTime? date) {
+    if (date == null) return 'N/A';
+    return DateFormat('MM/dd/yyyy').format(date.toLocal());
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -52,7 +57,7 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
           }
 
           final observations = snapshot.data!;
-          // print("Observations: ${snapshot.data!}");
+          print("Observations: ${snapshot.data!}");
           return ListView.builder(
             itemCount: observations.length,
             itemBuilder: (context, index) {
@@ -77,8 +82,10 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '${obs.trancationDate.toLocal().toString().split(' ')[0]}',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              DateFormat('MM/dd/yyyy')
+                                  .format(obs.trancationDate.toLocal()),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -163,7 +170,19 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
               .fetchGetSiteObservationMasterById(observationId),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Dialog(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(width: 16),
+                      Text("Loading observation..."),
+                    ],
+                  ),
+                ),
+              );
             } else if (snapshot.hasError) {
               return AlertDialog(
                 title: const Text("Error"),
@@ -190,9 +209,17 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
               final detail = snapshot.data!.first;
               // print("🔍 Raw Detail: $detail");
 
-              return ObservationQCDetailDialog(
+              // return ObservationQCDetailDialog(
+              //   detail: detail,
+              //   siteObservationService: SiteObservationService(),
+              //   siteObservationId: detail.id,
+              //   createdBy: detail.createdBy?.toString() ?? '',
+              //   activityId: detail.activityID,
+              //   projectID: detail.projectID,
+              // );
+              return ObservationSafetyDetailDialog(
                 detail: detail,
-                siteObservationService: SiteObservationService(),
+                siteObservationService: widget.siteObservationService,
                 siteObservationId: detail.id,
                 createdBy: detail.createdBy?.toString() ?? '',
                 activityId: detail.activityID,
@@ -203,6 +230,7 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
         );
       },
     );
+    print("Returned from page => $result");
     if (result == true) {
       // 🔁 Reload list OR remove item manually from the local list
       setState(() {
@@ -210,11 +238,8 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
             .fetchNCRSafetyObservations(
                 widget.userId); // 🔄 Refresh list from API
       });
-
-      // ✅ ALTERNATIVELY: If you want to just remove the updated card locally:
-      // setState(() {
-      //   observations.removeWhere((obs) => obs.id == observationId);
-      // });
+      // Use the PAGE context to pop
+      Navigator.of(this.context).pop(true); // ✅ dashboard ko result send
     }
   }
 }

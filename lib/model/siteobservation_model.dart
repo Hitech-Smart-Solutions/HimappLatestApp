@@ -1066,7 +1066,7 @@ class GetSiteObservationMasterById {
   final int projectID; // Assuming projectId is a String
   final String observedByName;
   final int? violationTypeID;
-  final String violationTypeName;
+  final String? violationTypeName;
   final String closeRemarks;
   final String reopenRemarks;
   final String assignedUsersName;
@@ -1118,7 +1118,7 @@ class GetSiteObservationMasterById {
     required this.projectID,
     required this.observedByName,
     this.violationTypeID,
-    this.violationTypeName = '',
+    this.violationTypeName,
     required this.activityDTO,
     required this.assignmentStatusDTO,
     required this.closeRemarks,
@@ -1129,7 +1129,9 @@ class GetSiteObservationMasterById {
   });
 
   factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
-    // print('GetSiteObservationMasterById.fromJson: $json');
+    print('GetSiteObservationMasterById.fromJson: $json');
+    print("🔍 RAW violationTypeName => ${json['violationTypeName']}");
+    print("🔍 ALL KEYS => ${json.keys}");
     return GetSiteObservationMasterById(
       id: json['id'] ?? 0,
       observationCode: json['siteObservationCode'] ?? '',
@@ -1175,7 +1177,7 @@ class GetSiteObservationMasterById {
       projectID: json['projectID'] != null ? json['projectID'] as int : 0,
       observedByName: json["observedByName"],
       violationTypeID: json['violationTypeID'] as int?,
-      violationTypeName: json['violationTypeName'] ?? '',
+      violationTypeName: json['violationTypeName'],
       activityDTO: (json['activityDTO'] as List<dynamic>?)
               ?.map((item) => ActivityDTO.fromJson(item))
               .toList() ??
@@ -1228,9 +1230,10 @@ GetSiteObservationMasterById(
   createdBy: $createdBy,
   activityID: $activityID,
   projectID: $projectID,
-  activityDTO: $activityDTO
-  closeRemarks: $closeRemarks
-  reopenRemarks: $reopenRemarks
+  activityDTO: $activityDTO,
+  closeRemarks: $closeRemarks,
+  reopenRemarks: $reopenRemarks,
+  violationTypeName: $violationTypeName,
 )
 ''';
   }
@@ -1611,7 +1614,6 @@ class FloorModel {
     );
   }
 }
-
 
 class PourModel {
   final String partName;

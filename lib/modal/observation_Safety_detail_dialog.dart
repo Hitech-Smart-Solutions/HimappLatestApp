@@ -10,14 +10,10 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_portal/flutter_portal.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 
-class ObservationQCDetailDialog extends StatefulWidget {
+class ObservationSafetyDetailDialog extends StatefulWidget {
   final GetSiteObservationMasterById detail;
   final SiteObservationService siteObservationService;
   final int siteObservationId;
@@ -25,7 +21,7 @@ class ObservationQCDetailDialog extends StatefulWidget {
   final int? activityId;
   final int projectID;
 
-  const ObservationQCDetailDialog({
+  const ObservationSafetyDetailDialog({
     super.key,
     required this.detail,
     required this.siteObservationService,
@@ -36,11 +32,12 @@ class ObservationQCDetailDialog extends StatefulWidget {
   });
 
   @override
-  _ObservationQCDetailDialogState createState() =>
-      _ObservationQCDetailDialogState();
+  _ObservationSafetyDetailDialogState createState() =>
+      _ObservationSafetyDetailDialogState();
 }
 
-class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
+class _ObservationSafetyDetailDialogState
+    extends State<ObservationSafetyDetailDialog> {
   bool isLoading = false;
   int? selectedStatus;
   List<Map<String, String>> observationStatus = [];
@@ -140,6 +137,9 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     ]);
     // print("created Status 92: ${widget.detail.createdBy}");
     // print('166: ${widget.detail}');
+    debugPrint(
+        "🧠 DETAIL INIT violationTypeName => ${widget.detail.violationTypeName}");
+    print("widget.detail.violationTypeName,${widget.detail.violationTypeName}");
   }
 
   Future<void> _setupPage() async {
@@ -456,7 +456,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       // ✅ STEP 2: backend se aaya hua rootCauseID
       final backendRootCauseId = widget.detail.rootCauseID;
 
-      debugPrint("BACKEND ROOTCAUSE ID => $backendRootCauseId");
+      // debugPrint("BACKEND ROOTCAUSE ID => $backendRootCauseId");
 
       // ✅ STEP 3: dropdown value TABHI set karo jab item exist kare
       if (backendRootCauseId != null &&
@@ -1672,7 +1672,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
   Widget _buildDetailTab(BuildContext context) {
     // final media = MediaQuery.of(context);
-    // print("widget.detail.reworkCost,${widget.detail.reworkCost}");
+    print("widget.detail.violationTypeName,${widget.detail.violationTypeName}");
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12.0),
       child: ConstrainedBox(
@@ -1724,17 +1724,42 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                   widget.detail.elementName ?? 'N/A',
                   "Contractor :",
                   widget.detail.contractorName ?? 'N/A'),
+              // _buildResponsiveRow(
+              //     context,
+              //     "Compliance Required :",
+              //     widget.detail.complianceRequired ? 'Yes' : 'No',
+              //     "Escalation Required :",
+              //     widget.detail.escalationRequired ? 'Yes' : 'No'),
+              // buildPairRow(
+              //   context,
+              //   label1: "Observed By :",
+              //   value1: widget.detail.observedByName,
+              // ),
               _buildResponsiveRow(
-                  context,
-                  "Compliance Required :",
-                  widget.detail.complianceRequired ? 'Yes' : 'No',
-                  "Escalation Required :",
-                  widget.detail.escalationRequired ? 'Yes' : 'No'),
-              buildPairRow(
                 context,
-                label1: "Observed By :",
-                value1: widget.detail.observedByName,
+                "Observed By :",
+                widget.detail.observedByName,
+                "Violation Type :",
+                widget.detail.violationTypeName ?? 'N/A',
               ),
+
+              // buildPairRow(
+              //   context,
+              //   label1: "Observed By :",
+              //   value1: widget.detail.observedByName,
+              //   label2: "Violation Type :",
+              //   value2: widget.detail.violationTypeName ?? 'N/A',
+              // ),
+              // buildPairRow(
+              //   context,
+              //   label1: "Observed By :",
+              //   value1: widget.detail.observedByName,
+              // ),
+              // buildPairRow(
+              //   context,
+              //   label1: "Violation Type :",
+              //   value1: widget.detail.violationTypeName ?? 'N/A',
+              // ),
               buildPairRow(
                 context,
                 label1: "Observation Description :",
@@ -2787,13 +2812,13 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                     String userName = first.createdByName ?? "Unknown";
                     // final date =
                     //     first.createdDate.toLocal().toString().split(' ')[0];
-                    final dateTime = first.createdDate.toLocal();
-                    final date =
-                        DateFormat('MM/dd/yyyy HH:mm').format(dateTime);
+                    // final dateTime = first.createdDate.toLocal();
                     // final date =
                     //     "${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} "
                     //     "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-
+                    final dateTime = first.createdDate.toLocal();
+                    final date =
+                        DateFormat('MM/dd/yyyy HH:mm').format(dateTime);
                     String nameToShow =
                         (userName.trim().isNotEmpty ? userName.trim()[0] : '?')
                             .toUpperCase();

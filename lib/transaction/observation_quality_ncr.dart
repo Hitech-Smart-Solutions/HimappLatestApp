@@ -3,6 +3,7 @@ import 'package:himappnew/modal/observation_QC_detail_dialog.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 // import 'modal/observation_detail_dialog.dart'; // 🔁 Dialog widget import
+import 'package:intl/intl.dart';
 
 class ObservationQCNCRPage extends StatefulWidget {
   final SiteObservationService siteObservationService;
@@ -30,6 +31,11 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
     futureObservations = widget.siteObservationService
         .fetchNCRQualityObservations(widget.userId);
     // print("Future Observations: ${futureObservations.toString()}");
+  }
+
+  String formatDate(DateTime? date) {
+    if (date == null) return 'N/A';
+    return DateFormat('MM/dd/yyyy').format(date.toLocal());
   }
 
   @override
@@ -76,8 +82,10 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '${obs.trancationDate.toLocal().toString().split(' ')[0]}',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              DateFormat('MM/dd/yyyy')
+                                  .format(obs.trancationDate.toLocal()),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -214,6 +222,7 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
         );
       },
     );
+    print("Returned from page => $result");
     if (result == true) {
       // 🔁 Reload list OR remove item manually from the local list
       setState(() {
@@ -221,11 +230,8 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
             .fetchNCRQualityObservations(
                 widget.userId); // 🔄 Refresh list from API
       });
-
-      // ✅ ALTERNATIVELY: If you want to just remove the updated card locally:
-      // setState(() {
-      //   observations.removeWhere((obs) => obs.id == observationId);
-      // });
+      // Use the PAGE context to pop
+      Navigator.of(this.context).pop(true); // ✅ dashboard ko result send
     }
   }
 }

@@ -70,6 +70,19 @@ class ObservationConstants {
   ];
 }
 
+class ObservationViolationTypeConstants {
+  static const List<Map<String, Object>> violationType = [
+    {
+      "id": 1,
+      "violationType": "Unsafe Condition",
+    },
+    {
+      "id": 2,
+      "violationType": "Unsafe Act",
+    },
+  ];
+}
+
 //  class SiteObservationActions {
 //    static const int Created = 1;
 //    static const int Assigned = 2;

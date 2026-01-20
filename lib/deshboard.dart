@@ -77,29 +77,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   late Map<String, Widget Function()> appPages;
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   isLoading = true;
-  //   _loadStats();
-  //   _fetchUnreadCount(); // to show badge on start
-  //   appPages = {
-  //     "Quality Observation": () => SiteObservationQuality(
-  //           companyName: widget.companyName,
-  //           projectService: widget.projectService,
-  //           siteObservationService: widget.siteObservationService,
-  //           required PagePermission pagePermission
-  //           // pagePermission: p,
-  //         ),
-  //     "Safety Observation": () => SiteObservationSafety(
-  //           companyName: widget.companyName,
-  //           projectService: widget.projectService,
-  //           siteObservationService: widget.siteObservationService,
-  //         ),
-  //   };
-  //   _loadPermissions();
-  // }
-
   @override
   void initState() {
     super.initState();
@@ -135,30 +112,28 @@ class _DashboardPageState extends State<DashboardPage> {
             companyName: widget.companyName,
             projectService: widget.projectService,
             siteObservationService: widget.siteObservationService,
+            pagePermission: PagePermission(
+              programId: 0,
+              companyId: 0,
+              moduleId: 0,
+              programName: '',
+              isModuleAdmin: false,
+              canAdd: false,
+              canView: false,
+              canEdit: false,
+              canDelete: false,
+              canExport: false,
+              pageName: '',
+              moduleName: '',
+              iconName: '',
+              moduleIconName: '',
+              projectId: 0,
+            ),
           ),
     };
 
     _loadPermissions();
   }
-
-  // List<PagePermission> allowedPermissions = permissions
-  //     .where((p) => p.canView) // sirf viewable pages
-  //     .where((p) =>
-  //         ["Safety", "Quality"].contains(p.moduleName)) // allowed modules
-  //     .toList();
-
-  // final Map<String, Widget Function()> appPages = {
-  //   "Quality Observation": () => SiteObservationQuality(
-  //         companyName: widget.companyName,
-  //         projectService: widget.projectService,
-  //         siteObservationService: widget.siteObservationService,
-  //       ),
-  //   "Safety Observation": () => SiteObservationSafety(
-  //         companyName: widget.companyName,
-  //         projectService: widget.projectService,
-  //         siteObservationService: widget.siteObservationService,
-  //       ),
-  // };
 
   Map<String, List<PagePermission>> _groupByModule(
       List<PagePermission> permissions) {
@@ -187,44 +162,10 @@ class _DashboardPageState extends State<DashboardPage> {
     try {
       final userId = await SharedPrefsHelper.getUserId() ?? 0;
       final permissions = await _permissionService.fetchPagePermissions(userId);
-      for (final p in permissions) {
-        debugPrint(
-          "DEBUG → ${p.moduleName} / ${p.programName} | canView = ${p.canView} (${p.canView.runtimeType})",
-        );
-      }
-
-      debugPrint(
-          "Permissions fetched: ${permissions.map((p) => p.moduleName + ' / ' + p.programName).toList()}");
-      // 🔹 sirf viewable pages
-      // sirf wahi permission rakho jinka page Flutter me exist karta ho
-      // final filtered = permissions.where((p) {
-      //   return p.canView && allowedPrograms.contains(p.programName.trim());
-      // }).toList();
-      // final filtered = permissions.where((p) => p.canView).toList();
-      // final filtered = permissions.where((p) => p.canView == true).toList();
-      // final filtered = permissions.where((p) {
-      //   return p.canView == true || p.canView == 1;
-      // }).toList();
-
-// group by module
-      // final grouped = _groupByModule(filtered);
-
       final filtered = permissions.toList(); // canView ignore kar rahe hain
       final grouped = _groupByModule(filtered);
-      // 🔹 group by module
-      // final grouped = _groupByModule(allowedPermissions);
 
       setState(() {
-        // pagePermissions = allowedPermissions;
-        // moduleWisePages = grouped;
-        // List<PagePermission> filteredPermissions = permissions
-        //     .where((p) => p.canView) // sirf viewable pages
-        //     .where((p) =>
-        //         allowedModules.contains(p.moduleName)) // Safety / Quality
-        //     .where((p) =>
-        //         allowedPrograms.contains(p.programName)) // sirf tumhare 2 pages
-        //     .toList();
-
         moduleWisePages = grouped;
         permissionLoading = false;
       });
@@ -280,36 +221,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   @override
-  // Widget resolvePage(PagePermission p) {
-  //   switch (p.pageName) {
-  //     case "/safety/site-observation":
-  //       return SiteObservationSafety(
-  //         companyName: widget.companyName,
-  //         projectService: widget.projectService,
-  //         siteObservationService: widget.siteObservationService,
-  //       );
-
-  //     case "/quality/quality-observation":
-  //       return SiteObservationQuality(
-  //         companyName: widget.companyName,
-  //         projectService: widget.projectService,
-  //         siteObservationService: widget.siteObservationService,
-  //       );
-
-  //     case "/admin/labour-registration":
-  //       return LabourRegistrationPage(
-  //         companyName: widget.companyName,
-  //         projectService: widget.projectService,
-  //         labourRegistrationService: LabourRegistrationService(),
-  //       );
-
-  //     default:
-  //       return const Scaffold(
-  //         body: Center(child: Text("Page not mapped")),
-  //       );
-  //   }
-  // }
-
   Widget build(BuildContext context) {
     List<NotificationModel> _dialogNotifications = [];
     return Scaffold(
@@ -515,7 +426,7 @@ class _DashboardPageState extends State<DashboardPage> {
         },
         child: _buildNeonGlassCard(
           icon: Icons.visibility,
-          title: "SiteObservations Safety",
+          title: "Site Observations Safety",
           value: "$safetyObservationsCount",
           color: Color(0xFFFFB703),
         ),
@@ -530,7 +441,7 @@ class _DashboardPageState extends State<DashboardPage> {
         onTap: () async {
           final userId = await SharedPrefsHelper.getUserId();
           if (userId != null) {
-            Navigator.push(
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => ObservationQCNCRPage(
@@ -540,6 +451,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
             );
+
+            if (result == true) {
+              _loadStats(); // 🔁 dashboard count refresh
+            }
           }
         },
         child: _buildNeonGlassCard(
@@ -712,199 +627,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildDrawer(BuildContext context) {
-    // return Drawer(
-    //   shape: const RoundedRectangleBorder(
-    //     borderRadius: BorderRadius.only(
-    //       topRight: Radius.circular(30),
-    //       bottomRight: Radius.circular(30),
-    //     ),
-    //   ),
-    //   child: FutureBuilder<String?>(
-    //     future: SharedPrefsHelper.getUserName(),
-    //     builder: (context, snapshot) {
-    //       String userName = snapshot.data ?? "User";
-
-    //       return ListView(
-    //         padding: EdgeInsets.zero,
-    //         children: [
-    //           // ================= HEADER =================
-    //           DrawerHeader(
-    //             decoration: const BoxDecoration(
-    //               gradient: LinearGradient(
-    //                 colors: [Color(0xFF379AE6), Color(0xFF62C1FF)],
-    //                 begin: Alignment.topLeft,
-    //                 end: Alignment.bottomRight,
-    //               ),
-    //             ),
-    //             child: Column(
-    //               crossAxisAlignment: CrossAxisAlignment.start,
-    //               children: [
-    //                 const CircleAvatar(
-    //                   radius: 30,
-    //                   backgroundImage: AssetImage("assets/images/profile.png"),
-    //                 ),
-    //                 const SizedBox(height: 10),
-    //                 Text(userName,
-    //                     style:
-    //                         const TextStyle(color: Colors.white, fontSize: 16)),
-    //                 Text(widget.companyName,
-    //                     style: const TextStyle(
-    //                         color: Colors.white70, fontSize: 14)),
-    //               ],
-    //             ),
-    //           ),
-
-    //           // ================= DASHBOARD =================
-    //           _drawerTile(
-    //             icon: Icons.dashboard,
-    //             color: Colors.blue,
-    //             title: "Dashboard",
-    //             onTap: () => Navigator.pop(context),
-    //           ),
-
-    //           // ================= SAFETY MODULE =================
-    //           Theme(
-    //             data: Theme.of(context)
-    //                 .copyWith(dividerColor: Colors.transparent),
-    //             child: ExpansionTile(
-    //               tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-    //               childrenPadding: const EdgeInsets.only(left: 12, bottom: 8),
-    //               leading: _iconBox(Icons.health_and_safety, Colors.deepOrange),
-    //               title: const Text(
-    //                 "Safety",
-    //                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-    //               ),
-    //               children: [
-    //                 _subTile(
-    //                   icon: Icons.visibility,
-    //                   color: Colors.orange,
-    //                   title: "Site Observation",
-    //                   onTap: () {
-    //                     Navigator.pop(context);
-    //                     Navigator.push(
-    //                       context,
-    //                       MaterialPageRoute(
-    // builder: (_) => SiteObservationSafety(
-    //   companyName: widget.companyName,
-    //   projectService: widget.projectService,
-    //   siteObservationService:
-    //       widget.siteObservationService,
-    // ),
-    //                       ),
-    //                     );
-    //                   },
-    //                 ),
-    //               ],
-    //             ),
-    //           ),
-
-    //           // ================= QUALITY =================
-    //           Theme(
-    //             data: Theme.of(context)
-    //                 .copyWith(dividerColor: Colors.transparent),
-    //             child: ExpansionTile(
-    //               tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-    //               childrenPadding: const EdgeInsets.only(left: 12, bottom: 8),
-    //               leading: _iconBox(Icons.science, Colors.pink),
-    //               title: const Text(
-    //                 "Quality",
-    //                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-    //               ),
-    //               children: [
-    //                 _subTile(
-    //                   icon: Icons.fact_check,
-    //                   color: Colors.orange,
-    //                   title: "Site Observation",
-    //                   onTap: () {
-    //                     Navigator.pop(context);
-    //                     Navigator.push(
-    //                       context,
-    //                       MaterialPageRoute(
-    //                         builder: (_) => SiteObservationQuality(
-    //                           companyName: widget.companyName,
-    //                           projectService: widget.projectService,
-    //                           siteObservationService:
-    //                               widget.siteObservationService,
-    //                         ),
-    //                       ),
-    //                     );
-    //                   },
-    //                 ),
-    //               ],
-    //             ),
-    //           ),
-
-    //           // ================= ADMIN =================
-    //           Theme(
-    //             data: Theme.of(context)
-    //                 .copyWith(dividerColor: Colors.transparent),
-    //             child: ExpansionTile(
-    //               tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-    //               childrenPadding: const EdgeInsets.only(left: 12, bottom: 8),
-    //               leading: _iconBox(Icons.person_add_alt_1, Colors.green),
-    //               title: const Text(
-    //                 "Admin",
-    //                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-    //               ),
-    //               children: [
-    //                 _subTile(
-    //                   icon: Icons.person_add_alt_1,
-    //                   color: Colors.orange,
-    //                   title: "Labour Registration",
-    //                   onTap: () {
-    //                     Navigator.pop(context);
-    //                     Navigator.push(
-    //                       context,
-    //                       MaterialPageRoute(
-    //                         builder: (_) => LabourRegistrationPage(
-    //                           companyName: widget.companyName,
-    //                           projectService: widget.projectService,
-    //                           labourRegistrationService:
-    //                               LabourRegistrationService(),
-    //                         ),
-    //                       ),
-    //                     );
-    //                   },
-    //                 ),
-    //               ],
-    //             ),
-    //           ),
-
-    //           // ================= P & M =================
-    //           _drawerTile(
-    //             icon: Icons.home_repair_service,
-    //             color: Colors.purple,
-    //             title: "P & M Service Request",
-    //             onTap: () {},
-    //           ),
-
-    //           const Divider(),
-
-    //           // ================= LOGOUT =================
-    //           _drawerTile(
-    //             icon: Icons.logout,
-    //             color: Colors.red,
-    //             title: "Logout",
-    //             onTap: () async {
-    //               await SharedPrefsHelper.clear();
-    //               Navigator.pushAndRemoveUntil(
-    //                 context,
-    //                 MaterialPageRoute(
-    //                   builder: (_) => MyCustomForm(
-    //                     isDarkMode: widget.isDarkMode,
-    //                     onToggleTheme: widget.onToggleTheme,
-    //                   ),
-    //                 ),
-    //                 (route) => false,
-    //               );
-    //             },
-    //           ),
-    //         ],
-    //       );
-    //     },
-    //   ),
-    // );
-    // final grouped = groupByModule(pagePermissions);
     final grouped = moduleWisePages;
     debugPrint("MODULE KEYS = ${moduleWisePages.keys.toList()}");
     final allowedModules = ["Safety", "Quality"];
@@ -924,32 +646,6 @@ class _DashboardPageState extends State<DashboardPage> {
         padding: EdgeInsets.zero,
         children: [
           _buildHeader(widget.userName),
-          // _buildDashboard(),
-
-          // final grouped = moduleWisePages;
-
-          // ...grouped.entries.map((entry) {
-          //   return ExpansionTile(
-          //     title: Text(entry.key),
-          //     children: entry.value.map((p) {
-          //       return _subTile(
-          //         icon: getPageIcon(p.programName),
-          //         color: Colors.orange,
-          //         title: p.programName,
-          //         onTap: () {
-          //           Navigator.pop(context);
-          //           Navigator.push(
-          //             context,
-          //             MaterialPageRoute(
-          //               builder: (_) => resolvePage(p),
-          //             ),
-          //           );
-          //         },
-          //       );
-          //     }).toList(),
-          //   );
-          // }),
-
           ...moduleWisePages.entries
               // 🔹 Filter modules
               .where((entry) => allowedModules.contains(entry.key))
@@ -1009,7 +705,6 @@ class _DashboardPageState extends State<DashboardPage> {
               );
             },
           ),
-
           const Divider(),
           _drawerTile(
             icon: Icons.logout,
@@ -1064,40 +759,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Widget resolvePage(PagePermission p) {
-  //   switch (p.programName) {
-  //     case "Site Observation":
-  //       if (p.moduleName == "Safety") {
-  //         return SiteObservationSafety(
-  //           companyName: widget.companyName,
-  //           projectService: widget.projectService,
-  //           siteObservationService: widget.siteObservationService,
-  //         );
-  //       } else if (p.moduleName == "Quality") {
-  //         return SiteObservationQuality(
-  //           companyName: widget.companyName,
-  //           projectService: widget.projectService,
-  //           siteObservationService: widget.siteObservationService,
-  //         );
-  //       }
-  //       break;
-
-  //     case "Labour Registration":
-  //       return LabourRegistrationPage(
-  //         companyName: widget.companyName,
-  //         projectService: widget.projectService,
-  //         labourRegistrationService: LabourRegistrationService(),
-  //       );
-
-  //     // case "P & M Service Request":
-  //     //   return PMServiceRequestPage(
-  //     //     companyName: widget.companyName,
-  //     //     projectService: widget.projectService,
-  //     //   );
-  //   }
-  //   return SizedBox(); // fallback
-  // }
-
   Widget resolvePage(PagePermission p) {
     print("Resolving page for program: ${p.programName}");
     switch (p.programName) {
@@ -1106,6 +767,7 @@ class _DashboardPageState extends State<DashboardPage> {
           companyName: widget.companyName,
           projectService: widget.projectService,
           siteObservationService: widget.siteObservationService,
+          pagePermission: p,
         );
       case "Quality Observation": // 🔥 updated
         return SiteObservationQuality(
@@ -1153,27 +815,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // Widget _subTile({
-  //   required IconData icon,
-  //   required Color color,
-  //   required String title,
-  //   required VoidCallback onTap,
-  // }) {
-  //   return Container(
-  //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-  //     decoration: BoxDecoration(
-  //       color: Colors.grey.shade100,
-  //       borderRadius: BorderRadius.circular(14),
-  //     ),
-  //     child: ListTile(
-  //       leading: _iconBox(icon, color),
-  //       title: Text(title,
-  //           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-  //       trailing: const Icon(Icons.arrow_forward_ios, size: 12),
-  //       onTap: onTap,
-  //     ),
-  //   );
-  // }
   Widget _subTile({
     required IconData icon,
     required Color color,
