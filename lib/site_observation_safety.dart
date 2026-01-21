@@ -515,6 +515,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     if (isFormValid && (!isUserValidationRequired || isUserSelected)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+            duration: Duration(seconds: 2),
             content: Text(isDraft ? 'Saving as Draft...' : 'Submitting...')),
       );
 
@@ -938,11 +939,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   }
 
   Future<void> submitForm({bool isDraft = false}) async {
-    if (_isSubmitting) return;
-    setState(() {
-      _isSubmitting = true;
-    });
-
     // 🔴 START vs DUE TIME VALIDATION
     if (_dateController.text.isNotEmpty &&
         _dateDueDateController.text.isNotEmpty) {
@@ -955,6 +951,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         if (dueDate.isBefore(startDate)) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 2),
               content: Text(
                 'Due time can not be less than observation time',
               ),
@@ -964,10 +961,18 @@ class _SiteObservationState extends State<SiteObservationSafety> {
           setState(() => _isSubmitting = false);
           return; // ⛔ STOP SUBMIT
         }
-      } catch (_) {
-        // ignore parse error
+      } catch (e) {
+        debugPrint('❌ DATE PARSE ERROR: $e');
+        setState(() => _isSubmitting = false);
+        return;
       }
     }
+
+    // 🔐 NOW lock submit
+    if (_isSubmitting) return;
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
       String observationDescription = observationDescriptionController.text;
@@ -2691,9 +2696,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             },
                                             child: Card(
                                               color: isDark
-                                                  ? Colors.grey[900]
-                                                  : Colors.white,
-                                              elevation: 0,
+                                                  ? Colors.grey.shade800
+                                                  : Colors.grey.shade100,
+                                              elevation: 3,
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(12),

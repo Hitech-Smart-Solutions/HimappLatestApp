@@ -583,6 +583,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     if (isFormValid && (!isUserValidationRequired || isUserSelected)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+            duration: Duration(seconds: 2),
             content: Text(isDraft ? 'Saving as Draft...' : 'Submitting...')),
       );
 
@@ -921,6 +922,27 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         setState(() {
           controller.text = DateFormat(uiDateFormat).format(finalDateTime);
           // _recalculateDueDate();
+
+          // // 🔴 DEBUG ONLY WHEN DUE DATE CHANGES
+          // if (controller == _dateDueDateController) {
+          //   debugPrint('========== DUE DATE CHANGED ==========');
+          //   debugPrint('DUE RAW: ${controller.text}');
+          //   debugPrint('START RAW: ${_dateController.text}');
+
+          //   try {
+          //     final start =
+          //         DateFormat(uiDateFormat).parse(_dateController.text);
+          //     final due = DateFormat(uiDateFormat).parse(controller.text);
+
+          //     debugPrint('START PARSED: $start');
+          //     debugPrint('DUE PARSED: $due');
+          //     debugPrint('isDueBeforeStart: ${due.isBefore(start)}');
+          //   } catch (e) {
+          //     debugPrint('❌ DATE PARSE ERROR: $e');
+          //   }
+
+          //   debugPrint('=====================================');
+          // }
         });
       }
     }
@@ -1020,36 +1042,40 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   }
 
   Future<void> submitForm({bool isDraft = false}) async {
-    if (_isSubmitting) return;
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    // 🔴 START vs DUE TIME VALIDATION
+    // 🔒 SUBMIT TIME DATE VALIDATION ONLY
     if (_dateController.text.isNotEmpty &&
         _dateDueDateController.text.isNotEmpty) {
+      // ✅ clear any "Submitting..." snackbar instantly
+      ScaffoldMessenger.of(context).clearSnackBars();
       try {
-        DateTime startDate =
-            DateFormat(uiDateFormat).parse(_dateController.text);
-        DateTime dueDate =
+        final startDate = DateFormat(uiDateFormat).parse(_dateController.text);
+        final dueDate =
             DateFormat(uiDateFormat).parse(_dateDueDateController.text);
 
         if (dueDate.isBefore(startDate)) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
+              duration: Duration(seconds: 2), // ⚡ fast
               content: Text(
                 'Due time can not be less than observation time',
               ),
             ),
           );
-
           setState(() => _isSubmitting = false);
-          return; // ⛔ STOP SUBMIT
+          return; // ⛔ HARD STOP – API CALL NAHI JAYEGI
         }
-      } catch (_) {
-        // ignore parse error
+      } catch (e) {
+        debugPrint('❌ DATE PARSE ERROR: $e');
+        setState(() => _isSubmitting = false);
+        return;
       }
     }
+
+    // 🔐 NOW lock submit
+    if (_isSubmitting) return;
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
       String observationDescription = observationDescriptionController.text;
@@ -2476,160 +2502,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                     ),
                   ),
                   const Divider(height: 1),
-
-                  // 🔹 Body Scroll
-                  // Flexible(
-                  //   child: SingleChildScrollView(
-                  //     padding: const EdgeInsets.all(16),
-                  //     child: Column(
-                  //       crossAxisAlignment: CrossAxisAlignment.start,
-                  //       children: [
-                  //         // Observation info table
-                  //         Text(
-                  //           detail.observationNameWithCategory,
-                  //           style: const TextStyle(
-                  //               fontSize: 14, fontWeight: FontWeight.w500),
-                  //         ),
-                  //         // const SizedBox(height: 12),
-                  //         Text(
-                  //           "Observation Date: ",
-                  //           style: const TextStyle(
-                  //               fontSize: 14, fontWeight: FontWeight.w500),
-                  //         ),
-                  //         Text(_formatDate(detail.trancationDate)),
-                  //         Table(
-                  //           columnWidths: const {
-                  //             0: FlexColumnWidth(1),
-                  //             1: FlexColumnWidth(1),
-                  //           },
-                  //           defaultVerticalAlignment:
-                  //               TableCellVerticalAlignment.top,
-                  //           children: [
-                  //             // _tableRow(
-                  //             //   _popupRow("Status", detail.statusName),
-                  //             //   _popupRow(
-                  //             //       "Observation Code", detail.observationCode),
-                  //             // ),
-                  //             _tableRow(
-                  //               // _popupDateRowIfValid(
-                  //               //     "Observation Date", detail.trancationDate),
-                  //               Row(
-                  //                 children: [
-                  //                   Text(
-                  //                     "Observation Date: ",
-                  //                     style: TextStyle(
-                  //                         fontWeight: FontWeight.bold),
-                  //                   ),
-                  //                   Text(_formatDate(detail.trancationDate)),
-                  //                 ],
-                  //               ),
-                  //               Row(
-                  //                 children: [
-                  //                   Text(
-                  //                     "Created Date: ",
-                  //                     style: TextStyle(
-                  //                         fontWeight: FontWeight.bold),
-                  //                   ),
-                  //                   Text(_formatDate(detail.createdDate)),
-                  //                 ],
-                  //               ),
-                  //               // _popupDateRowIfValid(
-                  //               //     "Created Date", detail.createdDate),
-                  //             ),
-                  //             _tableRow(
-                  //               _popupRow(
-                  //                   "Observation Type", detail.observationType),
-                  //               // _formatDate("Due Date", detail.dueDate),
-                  //               _popupRow("Issue Type", detail.issueType),
-                  //             ),
-                  //             _tableRow(
-                  //                 _popupRow("Created By",
-                  //                     detail.observationRaisedBy ?? 'N/A'),
-                  //                 // _formatDate("Due Date", detail.dueDate),
-                  //                 Row(
-                  //                   children: [
-                  //                     Text(
-                  //                       "Due Date: ",
-                  //                       style: TextStyle(
-                  //                           fontWeight: FontWeight.bold),
-                  //                     ),
-                  //                     Text(_formatDate(detail.dueDate)),
-                  //                   ],
-                  //                 )),
-                  //             _tableRow(
-                  //               _popupRow("Activity", detail.activityName),
-                  //               _popupRow("Block", detail.sectionName),
-                  //             ),
-                  //             _tableRow(
-                  //               _popupRow("Floor", detail.floorName),
-                  //               _popupRow("Pour", detail.partName),
-                  //             ),
-                  //             _tableRow(
-                  //               _popupRow("Element", detail.elementName),
-                  //               _popupRow("Contractor", detail.contractorName),
-                  //             ),
-                  //             _tableRow(
-                  //               _popupRow("Compliance Required",
-                  //                   detail.complianceRequired ? 'Yes' : 'No'),
-                  //               _popupRow("Escalation Required",
-                  //                   detail.escalationRequired ? 'Yes' : 'No'),
-                  //             ),
-                  //             _tableRow(
-                  //               _popupRow("Observed By", detail.observedByName),
-                  //               const SizedBox.shrink(),
-                  //             ),
-                  //             _tableRow(
-                  //               _popupRow("Observation Description",
-                  //                   detail.description),
-                  //               const SizedBox.shrink(),
-                  //             ),
-                  //             _tableRow(
-                  //               _popupRow("Action To Be Taken",
-                  //                   detail.actionToBeTaken),
-                  //               const SizedBox.shrink(),
-                  //             ),
-                  //           ],
-                  //         ),
-
-                  //         // 🔹 Root cause section
-                  //         _rootCauseSection(detail),
-
-                  //         const SizedBox(height: 12),
-
-                  //         // 🔹 Attachments
-                  //         ExpansionTile(
-                  //           title: Text(
-                  //             "Attachments (${detail.activityDTO.where((a) => a.documentName.isNotEmpty).length})",
-                  //             style:
-                  //                 const TextStyle(fontWeight: FontWeight.bold),
-                  //           ),
-                  //           initiallyExpanded: false,
-                  //           children: detail.activityDTO
-                  //               .where((activity) =>
-                  //                   activity.documentName.isNotEmpty)
-                  //               .map((activity) =>
-                  //                   _buildAttachmentItem(activity, detail))
-                  //               .toList(),
-                  //         ),
-
-                  //         const SizedBox(height: 12),
-
-                  //         // 🔹 Activities
-                  //         ExpansionTile(
-                  //           title: Text(
-                  //             "Activities (${detail.activityDTO.length})",
-                  //             style:
-                  //                 const TextStyle(fontWeight: FontWeight.bold),
-                  //           ),
-                  //           children: groupedActivities.values
-                  //               .map((acts) => _buildActivityItem(acts))
-                  //               .toList(),
-                  //         ),
-                  //       ],
-                  //     ),
-                  //   ),
-                  // ),
-
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
@@ -2993,9 +2865,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                             },
                                             child: Card(
                                               color: isDark
-                                                  ? Colors.grey[900]
-                                                  : Colors.white,
-                                              elevation: 0,
+                                                  ? Colors.grey.shade800
+                                                  : Colors.grey.shade100,
+                                              elevation: 3,
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(12),
