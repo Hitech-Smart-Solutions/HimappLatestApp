@@ -139,10 +139,6 @@ class _DashboardPageState extends State<DashboardPage> {
       List<PagePermission> permissions) {
     final Map<String, List<PagePermission>> map = {};
     for (final p in permissions) {
-      debugPrint("RAW MODULE = '${p.moduleName}'");
-    }
-
-    for (final p in permissions) {
       if (!map.containsKey(p.moduleName)) {
         map[p.moduleName] = [p];
       } else {
@@ -648,7 +644,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildDrawer(BuildContext context) {
     final grouped = moduleWisePages;
-    debugPrint("MODULE KEYS = ${moduleWisePages.keys.toList()}");
     final allowedModules = ["Safety", "Quality"];
     final allowedPrograms = ["Safety Observation", "Quality Observation"];
     final filteredModules = moduleWisePages.entries

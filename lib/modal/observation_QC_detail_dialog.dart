@@ -196,164 +196,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     currentUserName = await SharedPrefsHelper.getUserName();
   }
 
-  // void _initializeFormFields() {
-  //   if (selectedStatus == SiteObservationStatus.Open.toString()) {
-  //     try {
-  //       if (widget.detail.rootCauseID != null &&
-  //           widget.detail.rootCauseID != 0) {
-  //         selectedRootCause = rootCauses.firstWhere(
-  //           (rc) => rc.id == widget.detail.rootCauseID,
-  //         );
-  //       } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-  //         selectedRootCause = rootCauses.first;
-  //       } else {
-  //         selectedRootCause = null;
-  //       }
-  //     } catch (e) {
-  //       selectedRootCause = null;
-  //     }
-  //     // print(
-  //     //     'widget.detail.rootcauseDescription 185: ${widget.detail.rootcauseDescription}');
-  //     rootcauseDescriptionController.text =
-  //         widget.detail.rootcauseDescription ?? '';
-  //     materialCostController.text = widget.detail.materialCost.toString();
-  //     labourCostController.text = widget.detail.labourCost.toString();
-  //     reworkCostController.text = widget.detail.reworkCost.toString();
-  //     preventiveActionController.text =
-  //         widget.detail.preventiveActionTaken ?? '';
-  //     correctiveActionController.text =
-  //         widget.detail.corretiveActionToBeTaken ?? '';
-  //   }
-  //   if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-  //       selectedStatus == SiteObservationStatus.Closed.toString()) {
-  //     // try {
-  //     //   if (widget.detail.rootCauseID != null &&
-  //     //       widget.detail.rootCauseID != 0) {
-  //     //     selectedRootCause = rootCauses.firstWhere(
-  //     //       (rc) => rc.id == widget.detail.rootCauseID,
-  //     //     );
-  //     //   } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-  //     //     selectedRootCause = rootCauses.first;
-  //     //   } else {
-  //     //     selectedRootCause = null;
-  //     //   }
-  //     // } catch (e) {
-  //     //   selectedRootCause = null;
-  //     // }
-  //     try {
-  //       if (widget.detail.rootCauseID != null &&
-  //           widget.detail.rootCauseID != 0) {
-  //         selectedRootCause = rootCauses.firstWhere(
-  //           (rc) => rc.id == widget.detail.rootCauseID,
-  //         );
-  //       } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-  //         selectedRootCause = rootCauses.first;
-  //       } else {
-  //         selectedRootCause = null;
-  //       }
-  //     } catch (e) {
-  //       selectedRootCause = null;
-  //     }
-  //     print(
-  //         'widget.detail.rootcauseDescription 225: ${widget.detail.rootcauseDescription}');
-  //     rootcauseDescriptionController.text =
-  //         widget.detail.rootcauseDescription ?? '';
-  //     materialCostController.text = widget.detail.materialCost.toString();
-  //     labourCostController.text = widget.detail.labourCost.toString();
-  //     reworkCostController.text = widget.detail.reworkCost.toString();
-  //     preventiveActionController.text =
-  //         widget.detail.preventiveActionTaken ?? '';
-  //     correctiveActionController.text =
-  //         widget.detail.corretiveActionToBeTaken ?? '';
-  //   }
-  //   int rootCauseIDs = widget.detail.rootCauseID ?? 0;
-
-  //   // print("Initializing form for observation ID: $rootCauseIDs");
-
-  //   // ---------- Root Cause selection ----------
-  //   // if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
-  //   //   try {
-  //   //     selectedRootCause = rootCauses.firstWhere(
-  //   //       (rc) => rc.id == rootCauseIDs, // ✅ correct field
-  //   //     );
-  //   //   } catch (e) {
-  //   //     selectedRootCause = null;
-  //   //   }
-  //   // } else if (rootCauseIDs == 0 && rootCauses.isNotEmpty) {
-  //   //   selectedRootCause = rootCauses.first;
-  //   // } else {
-  //   //   selectedRootCause = null;
-  //   // }
-
-  //   // ---------- Root Cause selection ----------
-  //   if (rootCauses.isNotEmpty) {
-  //     selectedRootCause = rootCauses.firstWhere(
-  //       (rc) => rc.id == rootCauseIDs,
-  //       orElse: () => rootCauses.first,
-  //     );
-  //   } else {
-  //     selectedRootCause = null;
-  //   }
-
-  //   print("DEBUG RootCause -> rootCauses length: ${rootCauses.length}");
-  //   print(
-  //       "DEBUG RootCause -> widget.detail.rootCauseID: ${widget.detail.rootCauseID}");
-  //   print("DEBUG RootCause -> selectedRootCause: $selectedRootCause");
-
-  //   // print("DEBUG: acts length = ${acts.length}");
-  //   // ---------- Text fields ----------
-  //   // print(
-  //   // 'widget.detail.rootcauseDescription 259: ${widget.detail.rootcauseDescription}');
-  //   rootcauseDescriptionController.text =
-  //       widget.detail.rootcauseDescription ?? '';
-  //   materialCostController.text = widget.detail.materialCost?.toString() ?? '';
-  //   labourCostController.text = widget.detail.labourCost?.toString() ?? '';
-  //   reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
-  //   preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
-  //   correctiveActionController.text =
-  //       widget.detail.corretiveActionToBeTaken ?? '';
-  // }
-
-  // void _initializeFormFields() {
-  //   int rootCauseIDs = widget.detail.rootCauseID ?? 0;
-
-  //   // ✅ Default always null
-  //   selectedRootCause = null;
-
-  //   /// -------- OPEN --------
-  //   if (selectedStatus == SiteObservationStatus.Open.toString()) {
-  //     if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
-  //       try {
-  //         selectedRootCause =
-  //             rootCauses.firstWhere((rc) => rc.id == rootCauseIDs);
-  //       } catch (e) {
-  //         selectedRootCause = null;
-  //       }
-  //     }
-  //   }
-
-  //   /// -------- ReadyToInspect / Closed --------
-  //   if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-  //       selectedStatus == SiteObservationStatus.Closed.toString()) {
-  //     // 🔥 FORCE NULL – user khud select kare
-  //     selectedRootCause = null;
-  //   }
-
-  //   // ---------- Text fields ----------
-  //   rootcauseDescriptionController.text =
-  //       widget.detail.rootcauseDescription ?? '';
-  //   materialCostController.text = widget.detail.materialCost?.toString() ?? '';
-  //   labourCostController.text = widget.detail.labourCost?.toString() ?? '';
-  //   reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
-  //   preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
-  //   correctiveActionController.text =
-  //       widget.detail.corretiveActionToBeTaken ?? '';
-
-  //   print("DEBUG selectedRootCause => $selectedRootCause");
-  // }
   void _initializeFormFields() {
-    debugPrint("🔥 _initializeFormFields CALLED");
-    debugPrint("🔥 BEFORE INIT rootCauseId => $selectedRootCauseId");
     int rootCauseIDs = widget.detail.rootCauseID ?? 0;
 
     // default
@@ -362,30 +205,16 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     // selectedStatus is int? now
     int statusInt = selectedStatus ?? 0;
 
-    // debugPrint("selectedRootCauseId => $selectedRootCauseId");
-    // for (var cause in rootCauses) {
-    //   debugPrint(
-    //       "Dropdown Item => id: ${cause.id}, name: ${cause.rootCauseName}");
-    // }
-
     /// -------- OPEN --------
     if (statusInt == SiteObservationStatus.Open ||
         statusInt == SiteObservationStatus.Reopen) {
       if (rootCauseIDs != 0) selectedRootCauseId = rootCauseIDs;
     }
 
-    // /// -------- ReadyToInspect / Closed --------
-    // if (statusInt == SiteObservationStatus.ReadyToInspect ||
-    //     statusInt == SiteObservationStatus.Closed) {
-    //   selectedRootCauseId = null; // force reselect
-    // }
-
     /// -------- Reopen --------
     if (statusInt == SiteObservationStatus.Reopen) {
       if (rootCauseIDs != 0) selectedRootCauseId = rootCauseIDs;
     }
-
-    debugPrint("INIT ROOT CAUSE ID => $selectedRootCauseId");
 
     // text fields
     rootcauseDescriptionController.text =
@@ -396,8 +225,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
     correctiveActionController.text =
         widget.detail.corretiveActionToBeTaken ?? '';
-
-    debugPrint("🔥 AFTER INIT rootCauseId => $selectedRootCauseId");
   }
 
   ActivityDTO buildAssignedActivity({
@@ -456,8 +283,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       // ✅ STEP 2: backend se aaya hua rootCauseID
       final backendRootCauseId = widget.detail.rootCauseID;
 
-      debugPrint("BACKEND ROOTCAUSE ID => $backendRootCauseId");
-
       // ✅ STEP 3: dropdown value TABHI set karo jab item exist kare
       if (backendRootCauseId != null &&
           rootCauses.any((e) => e.id == backendRootCauseId)) {
@@ -465,8 +290,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           selectedRootCauseId = backendRootCauseId;
         });
       }
-
-      // debugPrint("FINAL SELECTED ROOTCAUSE => $selectedRootCauseId");
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load root causes: $e')),
@@ -524,7 +347,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           ),
         );
       }
-      debugPrint("rootCauseID452,$rootCauseID");
     }
 
     /// ---------------- REOPEN ----------------
@@ -622,136 +444,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     );
   }
 
-  // Future<UpdateSiteObservation> getUpdatedDataFromForm(
-  //     List<String> uploadedFiles) async {
-  //   int id = widget.detail.id;
-  //   int rootCauseID = selectedRootCause?.id ?? 0;
-
-  //   String? reopenRemarks;
-  //   String? closeRemarks;
-  //   String? inprogressRemarks;
-  //   String? readytoinspectRemarks;
-
-  //   List<ActivityDTO> activities = [];
-  //   int selectedStatusId =
-  //       int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
-
-  //   if (selectedStatusId == SiteObservationStatus.Reopen) {
-  //     reopenRemarks = reopenRemarksController.text;
-  //   }
-
-  //   if (selectedStatusId == SiteObservationStatus.Closed) {
-  //     closeRemarks = closeRemarksController.text;
-  //   }
-
-  //   if (selectedStatusId == SiteObservationStatus.InProgress) {
-  //     inprogressRemarks = inProgessRemarksController.text;
-  //   }
-
-  //   if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
-  //     readytoinspectRemarks = inReadyToInspectRemarksController.text;
-  //   }
-
-  //   if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
-  //     activities.add(
-  //       ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: id,
-  //         actionID: SiteObservationActions.Assigned,
-  //         actionName: 'Assigned',
-  //         comments: '',
-  //         documentName: '',
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         assignedUserID: widget.detail.createdBy,
-  //         assignedUserName: null,
-  //         createdBy: userId,
-  //         createdDate: DateTime.now(),
-  //       ),
-  //     );
-
-  //     activities.add(
-  //       ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: id,
-  //         actionID: SiteObservationActions.Assigned,
-  //         actionName: 'Assigned',
-  //         comments: '',
-  //         documentName: '',
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         assignedUserID: widget.detail.createdBy,
-  //         assignedUserName: null,
-  //         createdBy: userId,
-  //         createdDate: DateTime.now(),
-  //       ),
-  //     );
-  //   } else if (selectedStatusId == SiteObservationStatus.Reopen) {
-  //     final assignedUsers =
-  //         await SiteObservationService().fetchGetassignedusersforReopen(id);
-
-  //     // Add an activity for each assigned user
-  //     for (var user in assignedUsers) {
-  //       activities.add(
-  //         ActivityDTO(
-  //           id: 0,
-  //           siteObservationID: id,
-  //           actionID: SiteObservationActions.Assigned,
-  //           actionName: 'Assigned',
-  //           comments: '',
-  //           documentName: '',
-  //           fromStatusID: fromStatus,
-  //           toStatusID: toStatus,
-  //           assignedUserID: user.assignedUserID,
-  //           createdBy: userId,
-  //           createdDate: DateTime.now(),
-  //         ),
-  //       );
-  //     }
-  //   }
-
-  //   // Add file uploads if available
-  //   for (String fileName in uploadedFiles) {
-  //     activities.add(
-  //       ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: id,
-  //         actionID: SiteObservationActions.DocUploaded,
-  //         actionName: 'DocUploaded',
-  //         comments: '',
-  //         documentName: fileName,
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         assignedUserID: userId!,
-  //         assignedUserName: null,
-  //         createdBy: userId,
-  //         createdDate: DateTime.now(),
-  //       ),
-  //     );
-  //   }
-
-  //   print("inprogressRemarks,$inprogressRemarks");
-
-  //   return UpdateSiteObservation(
-  //     id: id,
-  //     rootCauseID: rootCauseID,
-  //     rootcauseDescription: rootcauseDescriptionController.text,
-  //     corretiveActionToBeTaken: correctiveActionController.text,
-  //     preventiveActionTaken: preventiveActionController.text,
-  //     materialCost: double.tryParse(materialCostController.text) ?? 0.0,
-  //     labourCost: double.tryParse(labourCostController.text) ?? 0.0,
-  //     reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
-  //     statusID: selectedStatusId,
-  //     reopenRemarks: reopenRemarks,
-  //     closeRemarks: closeRemarks,
-  //     inprogressRemarks: inprogressRemarks,
-  //     readytoinspectRemarks: readytoinspectRemarks,
-  //     lastModifiedBy: userId!,
-  //     lastModifiedDate: DateTime.now(),
-  //     activityDTO: activities,
-  //   );
-  // }
-
   String getAttachmentStatusName(ActivityDTO activity) {
     final relatedActivities = widget.detail.activityDTO
         .where((a) => a.documentName == activity.documentName)
@@ -775,176 +467,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     return status['name'] ?? 'Unknown';
   }
 
-  // Future<void> _sendActivityComment() async {
-  //   if (isSending) return;
-  //   setState(() {
-  //     isSending = true; // send start hone pe disable kar do
-  //   });
-  //   try {
-  //     final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
-  //     final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
-  //     final Iterable<RegExpMatch> matches = mentionRegex.allMatches(markupText);
-
-  //     List<User> selectedUsers = matches.map((match) {
-  //       String rawIdStr = match.group(1)!;
-  //       String rawUserName = match.group(2)!;
-
-  //       String cleanedIdStr = rawIdStr.replaceAll('_', '');
-  //       String cleanedUserName = rawUserName.replaceAll('_', '');
-
-  //       int userId = int.tryParse(cleanedIdStr) ?? 0;
-
-  //       // final matchedUser = allUsers.firstWhere(
-  //       //   (user) => user.id == userId,
-  //       //   orElse: () => User(id: 0, userName: ''),
-  //       // );
-
-  //       final matchedUser = allUsers.firstWhere(
-  //         (user) => user.id == userId,
-  //         orElse: () => User(
-  //             id: userId,
-  //             userName: cleanedUserName), // ✅ fallback me bhi name jaaye
-  //       );
-
-  //       String finalUserName = matchedUser.userName.isNotEmpty
-  //           ? matchedUser.userName
-  //           : cleanedUserName;
-
-  //       return User(id: userId, userName: finalUserName);
-  //     }).toList();
-
-  //     // ✅ Fix is here — get int userId only
-  //     // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
-  //     // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-  //     // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-  //     int createdById = await SharedPrefsHelper.getUserId() ?? 0;
-  //     String createdByName = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-
-  //     // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
-  //     List<ActivityDTO> activities = [];
-
-  //     final commentText =
-  //         mentionsKey.currentState?.controller?.text.trim() ?? "";
-  //     final plainComment =
-  //         commentText.replaceAll(RegExp(r'\@\[(.*?)\]\((.*?)\)'), '').trim();
-
-  //     bool hasMentions = selectedUsers.isNotEmpty;
-  //     bool hasComment = plainComment.isNotEmpty;
-  //     // CASE 1 — Only mention(s)
-  //     if (hasMentions && !hasComment) {
-  //       for (var user in selectedUsers) {
-  //         activities.add(ActivityDTO(
-  //           id: 0,
-  //           siteObservationID: editingUserId,
-  //           actionID: SiteObservationActions.Assigned,
-  //           actionName: "Assigned",
-  //           comments: "",
-  //           documentName: "",
-  //           fromStatusID: fromStatus,
-  //           toStatusID: toStatus,
-  //           toStatusName: SiteObservationStatus.idToName[toStatus] ??
-  //               "Unknown", // ✅ Add this
-  //           assignedUserID: user.id,
-  //           assignedUserName: user.userName,
-  //           createdBy: createdById, // ✅ send as integer
-  //           createdByName: createdByName,
-  //           createdDate: DateTime.now(),
-  //         ));
-  //       }
-  //     }
-
-  //     // CASE 2 — Only comment
-  //     else if (!hasMentions && hasComment) {
-  //       activities.add(ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: editingUserId,
-  //         actionID: SiteObservationActions.Commented,
-  //         actionName: "Commented",
-  //         comments: plainComment,
-  //         documentName: "",
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         toStatusName: SiteObservationStatus.idToName[toStatus] ??
-  //             "Unknown", // ✅ Add this
-  //         assignedUserID: 0,
-  //         // assignedUserName: '',
-  //         // createdBy: createdBy, // ✅ integer
-  //         createdBy: createdById,
-  //         createdByName: createdByName,
-  //         assignedUserName: createdByName,
-  //         createdDate: DateTime.now(),
-  //       ));
-  //     }
-
-  //     // CASE 3 — Both mention(s) and comment
-  //     else if (hasMentions && hasComment) {
-  //       for (var user in selectedUsers) {
-  //         activities.add(ActivityDTO(
-  //           id: 0,
-  //           siteObservationID: editingUserId,
-  //           actionID: SiteObservationActions.Assigned,
-  //           actionName: "Assigned",
-  //           comments: "",
-  //           documentName: "",
-  //           fromStatusID: fromStatus,
-  //           toStatusID: toStatus,
-  //           toStatusName: SiteObservationStatus.idToName[toStatus] ??
-  //               "Unknown", // ✅ Add this
-  //           assignedUserID: user.id,
-  //           assignedUserName: user.userName,
-  //           createdBy: createdById, // ✅ integer
-  //           createdByName: createdByName,
-  //           createdDate: DateTime.now(),
-  //         ));
-  //       }
-
-  //       activities.add(ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: editingUserId,
-  //         actionID: SiteObservationActions.Commented,
-  //         actionName: "Commented",
-  //         comments: plainComment,
-  //         documentName: "",
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         toStatusName: SiteObservationStatus.idToName[toStatus] ??
-  //             "Unknown", // ✅ Add this
-  //         assignedUserID: 0,
-  //         assignedUserName: '',
-  //         createdBy: createdById, // ✅ integer
-  //         createdByName: createdByName,
-  //         createdDate: DateTime.now(),
-  //       ));
-  //     }
-
-  //     if (activities.isEmpty) {
-  //       return;
-  //     }
-
-  //     bool success = await SiteObservationService().sendSiteObservationActivity(
-  //       activities: activities,
-  //       siteObservationID: editingUserId,
-  //     );
-
-  //     if (success) {
-  //       mentionsKey.currentState?.controller?.clear();
-  //       _activityCommentController.clear();
-
-  //       setState(() {
-  //         widget.detail.activityDTO.insertAll(0, activities);
-  //       });
-  //     } else {
-  //       print("❌ Failed to post activity!");
-  //     }
-  //   } catch (e, st) {
-  //     print(st);
-  //   } finally {
-  //     setState(() {
-  //       isSending = false; // send complete hone ke baad enable kar do
-  //     });
-  //   }
-  // }
-
   Future<void> _sendActivityComment() async {
     if (isSending) return;
     setState(() => isSending = true);
@@ -967,11 +489,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         final name = m.group(2)?.replaceAll('_', '') ?? '';
         return User(id: id, userName: name);
       }).toList();
-
-      // --- 4. Build readable comment text ---
-      // String commentText = markupText.replaceAllMapped(mentionRegex, (m) {
-      //   return '@${m.group(2)}';
-      // }).trim();
       String commentText = markupText
           // convert @[id](name) → @name
           .replaceAllMapped(mentionRegex, (m) {
@@ -1065,42 +582,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     }
   }
 
-  // fetchUsers() async {
-  //   setState(() {
-  //     isLoading = true;
-  //   });
-
-  //   try {
-  //     int projectID = widget.projectID;
-  //     int? currentUserId =
-  //         await SharedPrefsHelper.getUserId(); // 👈 Get logged-in user ID
-  //     int? creatorId = widget.detail.createdBy; // 👈 Observation creator ID
-  //     // print("CreatorID: $creatorId  Logged-in: $currentUserId");
-  //     final response = await SiteObservationService().fetchUsersForList(
-  //       projectId: projectID,
-  //     );
-
-  //     setState(() {
-  //       userList = response
-  //           .where((u) => u.id != currentUserId) // 👈 Exclude current user
-  //           .where((u) => currentUserId == creatorId || u.id != creatorId)
-  //           .map((u) => {
-  //                 'id': u.id.toString(),
-  //                 'display': u.userName,
-  //                 'full_name': '${u.firstName} ${u.lastName}',
-  //               })
-  //           .toList();
-  //       // print('userlist606: $userList');
-  //     });
-  //   } catch (e) {
-  //     print('Error fetching users: $e');
-  //   } finally {
-  //     setState(() {
-  //       isLoading = false;
-  //     });
-  //   }
-  // }
-
   Future<void> fetchUsers() async {
     try {
       final response =
@@ -1152,10 +633,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         // 🔥 Force FlutterMentions rebuild to reflect new data
         mentionsKey = GlobalKey<FlutterMentionsState>();
       });
-
-      debugPrint("ACTION: $selectedActionType");
-      debugPrint("Assigned Names: $assignedUserNames");
-      debugPrint("Users shown: ${userList.map((e) => e['display'])}");
     } catch (e) {
       debugPrint("fetchUsers error: $e");
     }
@@ -1457,10 +934,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
                           onChanged: isStatusEnabled
                               ? (newValue) {
-                                  // debugPrint(
-                                  //     "🟡 STATUS CHANGED TO => $newValue");
-                                  // debugPrint(
-                                  //     "🟡 BEFORE STATUS CHANGE rootCauseId => $selectedRootCauseId");
                                   if (newValue == null) return;
 
                                   setState(() {
@@ -1488,8 +961,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
 
                                     collapsed = false;
                                   });
-                                  debugPrint(
-                                      "🟡 AFTER STATUS CHANGE rootCauseId => $selectedRootCauseId");
                                 }
                               : null,
 
@@ -1500,125 +971,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                     ],
                   ),
                 ),
-
-                // Padding(
-                //   padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                //   child: Row(
-                //     children: [
-                //       Expanded(
-                //         child: Text(
-                //           widget.detail.observationCode ?? 'No Code',
-                //           style: const TextStyle(fontWeight: FontWeight.bold),
-                //         ),
-                //       ),
-                //       const SizedBox(width: 15),
-                //       Expanded(
-                //         child: DropdownButtonFormField<String>(
-                //           value: selectedStatus,
-                //           hint: const Text("-- Status --"),
-                //           isExpanded: true,
-                //           items: observationStatus.map((status) {
-                //             final idStr = status['id'].toString();
-                //             final id = int.tryParse(idStr);
-                //             final name = SiteObservationStatus.idToName[id] ??
-                //                 status['name'] ??
-                //                 'Unknown';
-
-                //             return DropdownMenuItem<String>(
-                //               value: idStr,
-                //               child: Text(name),
-                //             );
-                //           }).toList(),
-                //           onChanged: isStatusEnabled
-                //               ? (newValue) {
-                //                   if (newValue == null) return;
-
-                //                   final int selectedStatusInt =
-                //                       int.parse(newValue);
-
-                //                   setState(() {
-                //                     // ✅ THIS IS IMPORTANT
-                //                     // print('newValue861: $newValue');
-                //                     selectedStatus = newValue;
-
-                //                     // fromStatus = toStatus;
-                //                     toStatus = selectedStatusInt;
-
-                //                     isUpdateBtnVisible = true;
-                //                     collapsed = false;
-                //                     // print('fromStatus868: $fromStatus');
-                //                     // print('toStatus869: $toStatus');
-
-                //                     if (fromStatus != selectedStatusInt) {
-                //                       print("in");
-                //                       isUpdateBtnVisible = true;
-                //                       isRootCauseFileUpdateEnable = true;
-                //                     } else {
-                //                       print("out");
-                //                       isUpdateBtnVisible = false;
-                //                       isRootCauseFileUpdateEnable = false;
-                //                     }
-
-                //                     if (selectedStatusInt ==
-                //                         SiteObservationStatus.Reopen) {
-                //                       isReopenRemarksVisible = true;
-                //                       isCloseRemarksVisible = false;
-                //                       inProgessRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = false;
-                //                     } else if (selectedStatusInt ==
-                //                         SiteObservationStatus.Closed) {
-                //                       isReopenRemarksVisible = false;
-                //                       isCloseRemarksVisible = true;
-                //                       inProgessRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = false;
-                //                     } else if (selectedStatusInt ==
-                //                         SiteObservationStatus.InProgress) {
-                //                       // print("In Progress Selected");
-                //                       inProgessRemarksVisible = true;
-                //                       isReopenRemarksVisible = false;
-                //                       isCloseRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = false;
-                //                     } else if (selectedStatusInt ==
-                //                         SiteObservationStatus.ReadyToInspect) {
-                //                       // print("In Progress Selected");
-                //                       inProgessRemarksVisible = false;
-                //                       isReopenRemarksVisible = false;
-                //                       isCloseRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = true;
-                //                     } else {
-                //                       isReopenRemarksVisible = false;
-                //                       isCloseRemarksVisible = false;
-                //                       inProgessRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = false;
-                //                     }
-
-                //                     if (selectedStatusInt ==
-                //                             SiteObservationStatus
-                //                                 .ReadyToInspect ||
-                //                         selectedStatusInt ==
-                //                             SiteObservationStatus.Closed) {
-                //                       print("ReadyToInspect/Closed IN");
-                //                       canEditRootCause = true;
-                //                       // isRootCauseFileUpdateEnable = true;
-                //                     } else {
-                //                       print("ReadyToInspect/Closed etc... OUT");
-                //                       canEditRootCause = false;
-                //                       // isRootCauseFileUpdateEnable = false;
-                //                     }
-                //                   });
-                //                 }
-                //               : null,
-                //           validator: (value) {
-                //             if (value == null || value.isEmpty) {
-                //               return 'Please select a status';
-                //             }
-                //             return null;
-                //           },
-                //         ),
-                //       ),
-                //     ],
-                //   ),
-                // ),
 
                 const SizedBox(height: 16),
 
@@ -1750,11 +1102,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 label1: "Assigned Users :",
                 value1: widget.detail.assignedUsersName,
               ),
-
-              // buildTextIfNotEmpty(widget.detail.closeRemarks),
-              // buildTextIfNotEmpty(widget.detail.reopenRemarks),
-
-              // ⭐ NEW FIELDS — 2-per-row with condition
               buildPairRow(
                 context,
                 label1: "Root Cause :",
@@ -1762,14 +1109,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                 label2: "Rework Cost :",
                 value2: widget.detail.reworkCost,
               ),
-
-              // buildPairRow(
-              //   context,
-              //   label1: "Preventive Action To Be Taken :",
-              //   value1: widget.detail.preventiveActionTaken,
-              //   label2: "Corrective Action To Be Taken :",
-              //   value2: widget.detail.corretiveActionToBeTaken,
-              // ),
 
               buildPairRow(
                 context,
@@ -1899,41 +1238,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     );
   }
 
-  // Widget _buildResponsiveRow(
-  //   BuildContext context,
-  //   String label1,
-  //   String value1,
-  //   String label2,
-  //   String value2,
-  // ) {
-  //   final screenWidth = MediaQuery.of(context).size.width;
-  //   final isMobile = screenWidth < 600;
-
-  //   if (isMobile) {
-  //     // MOBILE: 1 item per row (stacked vertically)
-  //     return Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         _buildDetailRow(label1, value1),
-  //         const SizedBox(height: 6), // consistent vertical spacing
-  //         _buildDetailRow(label2, value2),
-  //         const SizedBox(height: 6),
-  //       ],
-  //     );
-  //   } else {
-  //     // TABLET: 2 items in a row (like table)
-  //     return Padding(
-  //       padding: const EdgeInsets.symmetric(vertical: 6.0),
-  //       child: Row(
-  //         children: [
-  //           Expanded(child: _buildDetailRow(label1, value1)),
-  //           const SizedBox(width: 12),
-  //           Expanded(child: _buildDetailRow(label2, value2)),
-  //         ],
-  //       ),
-  //     );
-  //   }
-  // }
   Widget _buildResponsiveRow(
     BuildContext context,
     String label1,
@@ -2334,13 +1638,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                               // return;
                               UpdateSiteObservation updatedData =
                                   await getUpdatedDataFromForm(uploadedFiles);
-
-                              /// 🔍 DEBUG 3 – Payload check
-                              // 🔍 STEP 2: DEBUG (important)
-                              debugPrint(
-                                  'FINAL ROOTCAUSE => ${updatedData.rootCauseID}');
-                              debugPrint(
-                                  'FINAL STATUS => ${updatedData.statusID}');
                               // return;
                               bool success = await SiteObservationService()
                                   .updateSiteObservationByID(updatedData);
@@ -2374,7 +1671,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                   const SnackBar(
                                       content: Text('Update successful!')),
                                 );
-                                debugPrint("✅ DIALOG POP WITH TRUE");
                                 Navigator.of(context)
                                     .pop(true); // ✅ dialog result
                               } else {

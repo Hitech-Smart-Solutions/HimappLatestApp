@@ -204,18 +204,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   String url = AppSettings.url;
 
-  // List<ActivityDTO> activities = detail.activityDTO;
-
   @override
   void initState() {
     super.initState();
     _initializeData();
-    // userItems = userList
-    //     .map((user) => MultiSelectItem<User>(user, user.userName))
-    //     .toList();
-    debugPrint("🔐 canAdd = ${widget.pagePermission.canAdd}");
-    debugPrint("🔐 canEdit = ${widget.pagePermission.canEdit}");
-    debugPrint("🔐 canView = ${widget.pagePermission.canView}");
   }
 
   Future<void> _initializeData() async {
@@ -248,9 +240,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       _dateController.text =
           DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     }
-
-    // futureObservations = widget._siteObservationService
-    // _loadObservationFromServer(widget.de);
   }
 
   String formatDateForApi(DateTime date) {
@@ -348,10 +337,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         // 🛑 Do NOT auto-select first observation
         selectedObservation = null;
         selectedObservationTemplateId = null;
-
-        // print("Fetched Observations count: ${fetchedObservations.length}");
-        // fetchedObservations.forEach(
-        //     (obs) => print("Observation: ${obs.observationDisplayText}"));
       });
     } catch (e) {
       print('Error fetching Observation: $e');
@@ -361,44 +346,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       });
     }
   }
-
-  // Future<void> fetchObservations() async {
-  //   int? companyId = await SharedPrefsHelper.getCompanyId();
-  //   if (companyId == null) return;
-
-  //   setState(() => isLoading = true);
-
-  //   try {
-  //     List<Observation> fetchedObservations =
-  //         await widget._siteObservationService.fetchObservations(
-  //       companyId,
-  //       ScreenTypes.Quality,
-  //       selectedIssueTypeId ?? 0,
-  //     );
-
-  //     setState(() {
-  //       observationsList = fetchedObservations;
-
-  //       // ✅ First-time selection set karo
-  //       if (observationsList.isNotEmpty) {
-  //         selectedObservationTemplateId = observationsList[0].id;
-  //         selectedObservation = observationsList[0].observationDescription;
-  //         selectedObservationText = observationsList[0].observationDisplayText;
-  //         isComplianceRequired = observationsList[0].complianceRequired;
-  //         isEscalationRequired = observationsList[0].escalationRequired;
-  //         actionToBeTakenController.text =
-  //             observationsList[0].actionToBeTaken ?? '';
-  //       } else {
-  //         selectedObservationTemplateId = null;
-  //         selectedObservation = null;
-  //       }
-  //     });
-  //   } catch (e) {
-  //     print('Error fetching Observations: $e');
-  //   } finally {
-  //     setState(() => isLoading = false);
-  //   }
-  // }
 
 // Fetch ObservationsType from the service
   Future<void> fetchObservationType() async {
@@ -559,29 +506,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     }
   }
 
-  // Future<List<User>> fetchUserList() async {
-  //   try {
-  //     int? currentUserId = await SharedPrefsHelper.getUserId();
-
-  //     List<User> fetchedUsers =
-  //         await widget._siteObservationService.fetchUserList();
-
-  //     List<User> uniqueUsers = [];
-  //     Set<String> userNames = {};
-
-  //     for (var user in fetchedUsers) {
-  //       if (!userNames.contains(user.userName) && user.id != currentUserId) {
-  //         uniqueUsers.add(user);
-  //         userNames.add(user.userName);
-  //       }
-  //     }
-
-  //     return uniqueUsers; // ✅ return the list instead of setting state
-  //   } catch (e) {
-  //     return [];
-  //   }
-  // }
-
   // New code
   Future<List<UserList>> fetchUserList() async {
     try {
@@ -593,10 +517,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         siteObservationId: siteObservationId ?? 0,
         flag: 2, // assign = 2, comment = 1
       );
-
-      debugPrint('🟢 API USERS COUNT => ${fetchedUsers.length}');
-      debugPrint('👤 currentUserId => $currentUserId');
-      debugPrint('👑 creatorId => $localCreatorId');
 
       final List<UserList> filteredUsers = [];
 
@@ -612,7 +532,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         filteredUsers.add(user);
       }
 
-      debugPrint('🟡 FINAL USERS COUNT => ${filteredUsers.length}');
       return filteredUsers;
     } catch (e) {
       debugPrint('❌ fetchUserList ERROR => $e');
@@ -767,13 +686,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     return null;
   }
 
-  // String? _validateUser(String? value) {
-  //   if (value == null || value.isEmpty) {
-  //     return 'User Description is required';
-  //   }
-  //   return null;
-  // }
-
   String? _validateDueDate(String? value) {
     if (value == null || value.isEmpty) {
       return 'Due Date is required';
@@ -830,19 +742,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     return null;
   }
 
-  // Future<bool> requestMediaPermission() async {
-  //   if (!Platform.isAndroid) return true;
-
-  //   // Android 13+ and even below: safe to proceed
-  //   final status = await Permission.storage.status;
-
-  //   if (status.isGranted || status.isLimited) {
-  //     return true;
-  //   }
-
-  //   final result = await Permission.storage.request();
-  //   return result.isGranted;
-  // }
   Future<bool> requestMediaPermission() async {
     // 🔥 Android + iOS sab ke liye
     return true;
@@ -936,10 +835,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       }
     }
 
-    // RULES:
-    // allowFuture = false  → Start Date
-    // allowFuture = true   → Due Date
-
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -968,28 +863,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
         setState(() {
           controller.text = DateFormat(uiDateFormat).format(finalDateTime);
-          // _recalculateDueDate();
-
-          // // 🔴 DEBUG ONLY WHEN DUE DATE CHANGES
-          // if (controller == _dateDueDateController) {
-          //   debugPrint('========== DUE DATE CHANGED ==========');
-          //   debugPrint('DUE RAW: ${controller.text}');
-          //   debugPrint('START RAW: ${_dateController.text}');
-
-          //   try {
-          //     final start =
-          //         DateFormat(uiDateFormat).parse(_dateController.text);
-          //     final due = DateFormat(uiDateFormat).parse(controller.text);
-
-          //     debugPrint('START PARSED: $start');
-          //     debugPrint('DUE PARSED: $due');
-          //     debugPrint('isDueBeforeStart: ${due.isBefore(start)}');
-          //   } catch (e) {
-          //     debugPrint('❌ DATE PARSE ERROR: $e');
-          //   }
-
-          //   debugPrint('=====================================');
-          // }
         });
       }
     }
@@ -1001,7 +874,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
     if (projectID != null) {
       try {
-        // List<SectionModel> sections = await getSectionsByProjectID(projectID);
         List<SectionModel> sections = await widget._siteObservationService
             .getSectionsByProjectID(projectID);
 
@@ -1578,17 +1450,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       selectedObservationId = observation.id;
       isUserSelectionEnabled = observation.observationTypeID != 1;
     });
-
-    // ================= DEBUG =================
-    debugPrint("✔ Dropdown IDs: ${observationsList.map((e) => e.id).toList()}");
-    debugPrint("✔ Selected ID: $selectedObservationTemplateId");
-    debugPrint("✔ Selected Text: $selectedObservationText");
-
-    debugPrint("=== EDIT PREFILL ===");
-    debugPrint("TemplateId: $selectedObservationTemplateId");
-    debugPrint("Text: $selectedObservationText");
-    debugPrint("Compliance: $isComplianceRequired");
-    debugPrint("Escalation: $isEscalationRequired");
   }
 
   void populateActivityListFromDTO(List<ActivityDTO> dtoList) {
@@ -2296,9 +2157,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       (obs) => obs.id == selectedObservationTemplateId,
     );
 
-    debugPrint("Matched Observation: ${selectedObs?.observationDisplayText}");
-    debugPrint("Matched DueHrs: ${selectedObs?.dueTimeInHrs}");
-
     if (selectedObs == null) {
       _dateDueDateController.text = '';
       return;
@@ -2320,12 +2178,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       );
 
       _dateDueDateController.text = DateFormat(uiDateFormat).format(dueDate);
-
-      debugPrint("=== RECALCULATE DUE DATE ===");
-      debugPrint("ComplianceRequired: $isComplianceRequired");
-      debugPrint("StartDateText: ${_dateController.text}");
-      debugPrint("_dateDueDateController.text: ${_dateDueDateController.text}");
-      debugPrint("SelectedTemplateId: $selectedObservationTemplateId");
     } catch (e) {
       _dateDueDateController.text = '';
     }
@@ -2474,18 +2326,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       if (observationList.isEmpty || !mounted) return;
 
       final detail = observationList.first;
-      debugPrint("Observation Detail: $detail", wrapWidth: 1024);
-
-      // 2️⃣ Fetch all users for this observation (UserList)
-      // final userMasterList =
-      //     await widget._siteObservationService.getUsersForSiteObservation(
-      //   siteObservationId: detail.id,
-      //   flag: 1, // backend me kya flag expect ho raha hai, uske hisaab se
-      // );
-      // for (var a in detail.activityDTO) {
-      //   debugPrint(
-      //       "Activity: ${a.actionName}, AssignedUserID: ${a.assignedUserID}, CreatedBy: ${a.createdBy}");
-      // }
 
       // 3️⃣ Local function to get assigned users for an activity
       Map<String, List<ActivityDTO>> groupedActivities = {};
@@ -3273,114 +3113,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               }).toList(),
                                             ),
                                             SizedBox(height: 20),
-
-                                            // DropdownButtonFormField<String>(
-                                            //   value: issueTypes.any((e) =>
-                                            //           e.name ==
-                                            //           selectedIssueType)
-                                            //       ? selectedIssueType
-                                            //       : null,
-                                            //   onChanged: (!isDraftObservation &&
-                                            //           isEditMode)
-                                            //       ? (String? newValue) {
-                                            //           setState(() {
-                                            //             selectedIssueType =
-                                            //                 newValue;
-
-                                            //             try {
-                                            //               final selectedIssue =
-                                            //                   issueTypes
-                                            //                       .firstWhere(
-                                            //                 (element) =>
-                                            //                     element.name ==
-                                            //                     newValue,
-                                            //               );
-                                            //               selectedIssueTypeId =
-                                            //                   selectedIssue.id;
-                                            //               fetchObservations();
-                                            //             } catch (e) {
-                                            //               selectedIssueTypeId =
-                                            //                   0;
-                                            //               observationsList = [];
-                                            //               selectedObservation =
-                                            //                   null;
-                                            //             }
-                                            //           });
-                                            //         }
-                                            //       : null,
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'Issue Type',
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   items:
-                                            //       issueTypes.map((issueType) {
-                                            //     return DropdownMenuItem<String>(
-                                            //       value: issueType.name,
-                                            //       child: Text(issueType.name),
-                                            //     );
-                                            //   }).toList(),
-                                            // ),
-                                            // DropdownButtonFormField<String>(
-                                            //   value: issueTypes.any((e) =>
-                                            //           e.name ==
-                                            //           selectedIssueType)
-                                            //       ? selectedIssueType
-                                            //       : null,
-                                            //   onChanged: (!isDraftObservation &&
-                                            //           isEditMode)
-                                            //       ? (String? newValue) async {
-                                            //           bool proceed = true;
-
-                                            //           if (selectedIssueType !=
-                                            //               null) {
-                                            //             proceed =
-                                            //                 await _showResetAlert(
-                                            //                     context);
-                                            //           }
-
-                                            //           if (!proceed) return;
-
-                                            //           setState(() {
-                                            //             selectedIssueType =
-                                            //                 newValue;
-
-                                            //             final selectedIssue =
-                                            //                 issueTypes
-                                            //                     .firstWhereOrNull(
-                                            //               (e) =>
-                                            //                   e.name ==
-                                            //                   newValue,
-                                            //             );
-
-                                            //             if (selectedIssue !=
-                                            //                 null) {
-                                            //               selectedIssueTypeId =
-                                            //                   selectedIssue.id;
-                                            //               fetchObservations();
-                                            //             } else {
-                                            //               selectedIssueTypeId =
-                                            //                   0;
-                                            //               observationsList = [];
-                                            //             }
-
-                                            //             if (shouldResetFields()) {
-                                            //               _resetDependentFields();
-                                            //             }
-                                            //           });
-                                            //         }
-                                            //       : null,
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'Issue Type',
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   items:
-                                            //       issueTypes.map((issueType) {
-                                            //     return DropdownMenuItem<String>(
-                                            //       value: issueType.name,
-                                            //       child: Text(issueType.name),
-                                            //     );
-                                            //   }).toList(),
-                                            // ),
                                             DropdownButtonFormField<String>(
                                               value: issueTypes.any((e) =>
                                                       e.name ==
@@ -3526,20 +3258,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                               readOnly: true,
                                               // validator: _validateDueDate,
                                             ),
-                                            // TextFormField(
-                                            //   controller:
-                                            //       _dateDueDateController,
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'Due Date',
-                                            //     border: OutlineInputBorder(
-                                            //       borderRadius:
-                                            //           BorderRadius.circular(8),
-                                            //     ),
-                                            //   ),
-                                            //   // validator: _validateDescription,
-                                            //   enabled:
-                                            //       actionToBeTakenEnabled, // 🔑 Use your flag here
-                                            // ),
                                             SizedBox(height: 20),
 
                                             _buildToggleSwitches(context),
@@ -3705,31 +3423,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                             ),
 
                                             SizedBox(height: 20),
-                                            // Dropdown for Select Contractor Name
-                                            // DropdownButtonFormField<int>(
-                                            //   value: selectedContractorId,
-                                            //   onChanged: (int? newValue) {
-                                            //     setState(() {
-                                            //       selectedContractorId =
-                                            //           newValue;
-                                            //     });
-                                            //   },
-                                            //   decoration: InputDecoration(
-                                            //     labelText: 'Contractor Name',
-                                            //     border: OutlineInputBorder(),
-                                            //   ),
-                                            //   validator: _validateContractor,
-                                            //   items: ContractorList.map<
-                                            //           DropdownMenuItem<int>>(
-                                            //       (Party contractor) {
-                                            //     return DropdownMenuItem<int>(
-                                            //       value: contractor
-                                            //           .id, // Ensure this is a String
-                                            //       child: Text(
-                                            //           contractor.partyName),
-                                            //     );
-                                            //   }).toList(),
-                                            // ),
 
                                             DropdownSearch<Party>(
                                               items: ContractorList,
@@ -4032,94 +3725,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                 ],
                                               ],
                                             ),
-
-                                            // Row(
-                                            //   mainAxisAlignment:
-                                            //       MainAxisAlignment
-                                            //           .spaceBetween,
-                                            //   children: [
-                                            //     Expanded(
-                                            //       child: ElevatedButton(
-                                            //         onPressed: _isSubmitting
-                                            //             ? null
-                                            //             : () {
-                                            //                 if (_formKey
-                                            //                         .currentState
-                                            //                         ?.validate() ??
-                                            //                     false) {
-                                            //                   _submitForm(
-                                            //                       isDraft:
-                                            //                           true);
-                                            //                 }
-                                            //               },
-                                            //         style: ElevatedButton
-                                            //             .styleFrom(
-                                            //           backgroundColor:
-                                            //               Colors.grey,
-                                            //           shape:
-                                            //               RoundedRectangleBorder(
-                                            //             borderRadius:
-                                            //                 BorderRadius
-                                            //                     .circular(8),
-                                            //           ),
-                                            //         ),
-                                            //         child: _isSubmitting
-                                            //             ? const SizedBox(
-                                            //                 height: 20,
-                                            //                 width: 20,
-                                            //                 child:
-                                            //                     CircularProgressIndicator(
-                                            //                   strokeWidth: 2,
-                                            //                   color:
-                                            //                       Colors.white,
-                                            //                 ),
-                                            //               )
-                                            //             : const Text(
-                                            //                 'Save as Draft'),
-                                            //       ),
-                                            //     ),
-                                            //     const SizedBox(width: 12),
-                                            //     Expanded(
-                                            //       child: ElevatedButton(
-                                            //         onPressed: _isSubmitting
-                                            //             ? null
-                                            //             : () {
-                                            //                 if (_formKey
-                                            //                         .currentState
-                                            //                         ?.validate() ??
-                                            //                     false) {
-                                            //                   _submitForm(
-                                            //                       isDraft:
-                                            //                           false);
-                                            //                 }
-                                            //               },
-                                            //         style: ElevatedButton
-                                            //             .styleFrom(
-                                            //           backgroundColor:
-                                            //               Colors.blue,
-                                            //           shape:
-                                            //               RoundedRectangleBorder(
-                                            //             borderRadius:
-                                            //                 BorderRadius
-                                            //                     .circular(8),
-                                            //           ),
-                                            //         ),
-                                            //         child: _isSubmitting
-                                            //             ? const SizedBox(
-                                            //                 height: 20,
-                                            //                 width: 20,
-                                            //                 child:
-                                            //                     CircularProgressIndicator(
-                                            //                   strokeWidth: 2,
-                                            //                   color:
-                                            //                       Colors.white,
-                                            //                 ),
-                                            //               )
-                                            //             : const Text('Submit'),
-                                            //       ),
-                                            //     ),
-                                            //   ],
-                                            // ),
                                             Row(
                                               mainAxisAlignment:
                                                   MainAxisAlignment
