@@ -86,10 +86,10 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
   // String? selectedUser;
   List<String> selectedUsers = [];
-  List<User> userList = [];
-  List<User> selectedMultiUsers = []; // Selected users (multi-select)
-  List<User> selectedUserObjects = [];
-  List<MultiSelectItem<User>> userItems = [];
+  List<UserList> userList = [];
+  List<UserList> selectedMultiUsers = []; // Selected users (multi-select)
+  List<UserList> selectedUserObjects = [];
+  List<MultiSelectItem<UserList>> userItems = [];
   List<AssignmentStatusDTO> assignmentList = [];
 
   bool isComplianceRequired = false; // Compliance toggle state
@@ -119,6 +119,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   static final MethodChannel _galleryChannel = MethodChannel('gallery_scanner');
 
   final uiDateFormat = 'dd/MM/yyyy HH:mm';
+  int? creatorId;
 
   bool get isToggleEnabled {
     // NCR + IssueTypeId = 1 → always disabled
@@ -221,7 +222,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     setState(() {
       userList = fetchedUsers;
       userItems = userList
-          .map((user) => MultiSelectItem<User>(user, user.userName))
+          .map((user) => MultiSelectItem<UserList>(user, user.userName))
           .toList();
     });
     if (!isEditMode) {
@@ -457,24 +458,32 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     });
 
     try {
-      List<Party> fetchedContractor =
+      final fetchedContractor =
           await widget._siteObservationService.fetchContractorList();
+
+      // ✅ A–Z sort by partyName
+      fetchedContractor.sort(
+        (a, b) =>
+            a.partyName.toLowerCase().compareTo(b.partyName.toLowerCase()),
+      );
+
+      Party? matchedContractor;
+
+      if (selectedContractorId != null) {
+        for (final c in fetchedContractor) {
+          if (c.id == selectedContractorId) {
+            matchedContractor = c;
+            break;
+          }
+        }
+      }
 
       setState(() {
         ContractorList = fetchedContractor;
-
-        // ❗ IMPORTANT: selected value ko blindly null mat karo
-        if (selectedContractorId != null) {
-          final exists =
-              ContractorList.any((c) => c.id == selectedContractorId);
-
-          if (!exists) {
-            selectedContractorId = null;
-          }
-        }
+        selectedContractor = matchedContractor; // ✅ safe
       });
     } catch (e) {
-      debugPrint('Error fetching Contractor: $e');
+      debugPrint('❌ Error fetching Contractor: $e');
     } finally {
       setState(() {
         isLoading = false;
@@ -482,25 +491,63 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
-  Future<List<User>> fetchUserList() async {
+  // Future<List<User>> fetchUserList() async {
+  //   try {
+  //     int? currentUserId = await SharedPrefsHelper.getUserId();
+
+  //     List<User> fetchedUsers =
+  //         await widget._siteObservationService.fetchUserList();
+
+  //     List<User> uniqueUsers = [];
+  //     Set<String> userNames = {};
+
+  //     for (var user in fetchedUsers) {
+  //       if (!userNames.contains(user.userName) && user.id != currentUserId) {
+  //         uniqueUsers.add(user);
+  //         userNames.add(user.userName);
+  //       }
+  //     }
+
+  //     return uniqueUsers; // ✅ return the list instead of setting state
+  //   } catch (e) {
+  //     return [];
+  //   }
+  // }
+
+  // New code
+  Future<List<UserList>> fetchUserList() async {
     try {
-      int? currentUserId = await SharedPrefsHelper.getUserId();
+      final int? currentUserId = await SharedPrefsHelper.getUserId();
+      final int? localCreatorId = creatorId;
 
-      List<User> fetchedUsers =
-          await widget._siteObservationService.fetchUserList();
+      final fetchedUsers =
+          await widget._siteObservationService.getUsersForSiteObservation(
+        siteObservationId: siteObservationId ?? 0,
+        flag: 2, // assign = 2, comment = 1
+      );
 
-      List<User> uniqueUsers = [];
-      Set<String> userNames = {};
+      debugPrint('🟢 API USERS COUNT => ${fetchedUsers.length}');
+      debugPrint('👤 currentUserId => $currentUserId');
+      debugPrint('👑 creatorId => $localCreatorId');
 
-      for (var user in fetchedUsers) {
-        if (!userNames.contains(user.userName) && user.id != currentUserId) {
-          uniqueUsers.add(user);
-          userNames.add(user.userName);
-        }
+      final List<UserList> filteredUsers = [];
+
+      for (final user in fetchedUsers) {
+        // remove logged-in user
+        if (user.id == currentUserId) continue;
+
+        // remove creator (Angular logic match)
+        if (localCreatorId != null &&
+            currentUserId != localCreatorId &&
+            user.id == localCreatorId) continue;
+
+        filteredUsers.add(user);
       }
 
-      return uniqueUsers; // ✅ return the list instead of setting state
+      debugPrint('🟡 FINAL USERS COUNT => ${filteredUsers.length}');
+      return filteredUsers;
     } catch (e) {
+      debugPrint('❌ fetchUserList ERROR => $e');
       return [];
     }
   }
@@ -1269,6 +1316,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
       // 🔹 Set initial dropdown ID
       setState(() {
+        creatorId = fullObservation.createdBy; // ✅ SAFE
         siteObservationId = fullObservation.id;
         selectedObservationTemplateId = fullObservation.id;
         showObservations = false;
@@ -3419,27 +3467,33 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                     ? 1.0
                                                     : 0.5,
                                                 child: MultiSelectDialogField<
-                                                    User>(
+                                                    UserList>(
                                                   items: userList
-                                                      .map((user) =>
-                                                          MultiSelectItem<User>(
-                                                              user,
-                                                              user.userName))
+                                                      .map(
+                                                        (user) =>
+                                                            MultiSelectItem<
+                                                                UserList>(
+                                                          user,
+                                                          user.userName,
+                                                        ),
+                                                      )
                                                       .toList(),
                                                   initialValue:
                                                       selectedUserObjects,
-                                                  title: Text("Assigned To"),
+                                                  title:
+                                                      const Text("Assigned To"),
                                                   selectedItemsTextStyle:
-                                                      TextStyle(
+                                                      const TextStyle(
                                                           fontWeight:
                                                               FontWeight.bold),
                                                   itemsTextStyle:
-                                                      TextStyle(fontSize: 16),
+                                                      const TextStyle(
+                                                          fontSize: 16),
                                                   searchable: true,
-                                                  buttonText:
-                                                      Text("Select Users"),
-                                                  onConfirm:
-                                                      (List<User> selected) {
+                                                  buttonText: const Text(
+                                                      "Select Users"),
+                                                  onConfirm: (List<UserList>
+                                                      selected) {
                                                     setState(() {
                                                       selectedUserObjects =
                                                           selected;
@@ -3451,7 +3505,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                   },
                                                   chipDisplay:
                                                       MultiSelectChipDisplay(
-                                                    onTap: (User user) {
+                                                    onTap: (UserList user) {
                                                       setState(() {
                                                         selectedUserObjects
                                                             .remove(user);

@@ -95,10 +95,10 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   // String? selectedUser;
   List<String> selectedUsers = [];
-  List<User> userList = [];
-  List<User> selectedMultiUsers = []; // Selected users (multi-select)
-  List<User> selectedUserObjects = [];
-  List<MultiSelectItem<User>> userItems = [];
+  List<UserList> userList = [];
+  List<UserList> selectedMultiUsers = []; // Selected users (multi-select)
+  List<UserList> selectedUserObjects = [];
+  List<MultiSelectItem<UserList>> userItems = [];
   List<AssignmentStatusDTO> assignmentList = [];
 
   bool isComplianceRequired = false; // Compliance toggle state
@@ -128,6 +128,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   static final MethodChannel _galleryChannel = MethodChannel('gallery_scanner');
 
   final uiDateFormat = 'dd/MM/yyyy HH:mm';
+  int? creatorId;
 
   bool get isToggleEnabled {
     // NCR + IssueTypeId = 1 → always disabled
@@ -240,7 +241,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     setState(() {
       userList = fetchedUsers;
       userItems = userList
-          .map((user) => MultiSelectItem<User>(user, user.userName))
+          .map((user) => MultiSelectItem<UserList>(user, user.userName))
           .toList();
     });
     if (!isEditMode) {
@@ -525,24 +526,32 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     });
 
     try {
-      List<Party> fetchedContractor =
+      final fetchedContractor =
           await widget._siteObservationService.fetchContractorList();
+
+      // ✅ A–Z sort by partyName
+      fetchedContractor.sort(
+        (a, b) =>
+            a.partyName.toLowerCase().compareTo(b.partyName.toLowerCase()),
+      );
+
+      Party? matchedContractor;
+
+      if (selectedContractorId != null) {
+        for (final c in fetchedContractor) {
+          if (c.id == selectedContractorId) {
+            matchedContractor = c;
+            break;
+          }
+        }
+      }
 
       setState(() {
         ContractorList = fetchedContractor;
-
-        // ❗ IMPORTANT: selected value ko blindly null mat karo
-        if (selectedContractorId != null) {
-          final exists =
-              ContractorList.any((c) => c.id == selectedContractorId);
-
-          if (!exists) {
-            selectedContractorId = null;
-          }
-        }
+        selectedContractor = matchedContractor; // ✅ safe
       });
     } catch (e) {
-      debugPrint('Error fetching Contractor: $e');
+      debugPrint('❌ Error fetching Contractor: $e');
     } finally {
       setState(() {
         isLoading = false;
@@ -550,25 +559,63 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     }
   }
 
-  Future<List<User>> fetchUserList() async {
+  // Future<List<User>> fetchUserList() async {
+  //   try {
+  //     int? currentUserId = await SharedPrefsHelper.getUserId();
+
+  //     List<User> fetchedUsers =
+  //         await widget._siteObservationService.fetchUserList();
+
+  //     List<User> uniqueUsers = [];
+  //     Set<String> userNames = {};
+
+  //     for (var user in fetchedUsers) {
+  //       if (!userNames.contains(user.userName) && user.id != currentUserId) {
+  //         uniqueUsers.add(user);
+  //         userNames.add(user.userName);
+  //       }
+  //     }
+
+  //     return uniqueUsers; // ✅ return the list instead of setting state
+  //   } catch (e) {
+  //     return [];
+  //   }
+  // }
+
+  // New code
+  Future<List<UserList>> fetchUserList() async {
     try {
-      int? currentUserId = await SharedPrefsHelper.getUserId();
+      final int? currentUserId = await SharedPrefsHelper.getUserId();
+      final int? localCreatorId = creatorId;
 
-      List<User> fetchedUsers =
-          await widget._siteObservationService.fetchUserList();
+      final fetchedUsers =
+          await widget._siteObservationService.getUsersForSiteObservation(
+        siteObservationId: siteObservationId ?? 0,
+        flag: 2, // assign = 2, comment = 1
+      );
 
-      List<User> uniqueUsers = [];
-      Set<String> userNames = {};
+      debugPrint('🟢 API USERS COUNT => ${fetchedUsers.length}');
+      debugPrint('👤 currentUserId => $currentUserId');
+      debugPrint('👑 creatorId => $localCreatorId');
 
-      for (var user in fetchedUsers) {
-        if (!userNames.contains(user.userName) && user.id != currentUserId) {
-          uniqueUsers.add(user);
-          userNames.add(user.userName);
-        }
+      final List<UserList> filteredUsers = [];
+
+      for (final user in fetchedUsers) {
+        // remove logged-in user
+        if (user.id == currentUserId) continue;
+
+        // remove creator (Angular logic match)
+        if (localCreatorId != null &&
+            currentUserId != localCreatorId &&
+            user.id == localCreatorId) continue;
+
+        filteredUsers.add(user);
       }
 
-      return uniqueUsers; // ✅ return the list instead of setting state
+      debugPrint('🟡 FINAL USERS COUNT => ${filteredUsers.length}');
+      return filteredUsers;
     } catch (e) {
+      debugPrint('❌ fetchUserList ERROR => $e');
       return [];
     }
   }
@@ -1358,7 +1405,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         );
         return;
       }
-
+      // creatorId = observationList.first.createdBy;
       // 🔹 Take the first observation
       final fullObservation = observationList.first;
 
@@ -1370,6 +1417,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
       // 🔹 Set initial dropdown ID
       setState(() {
+        creatorId = fullObservation.createdBy; // ✅ SAFE
         siteObservationId = fullObservation.id;
         selectedObservationTemplateId = fullObservation.id;
         showObservations = false;
@@ -2429,15 +2477,15 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       debugPrint("Observation Detail: $detail", wrapWidth: 1024);
 
       // 2️⃣ Fetch all users for this observation (UserList)
-      final userMasterList =
-          await widget._siteObservationService.getUsersForSiteObservation(
-        siteObservationId: detail.id,
-        flag: 1, // backend me kya flag expect ho raha hai, uske hisaab se
-      );
-      for (var a in detail.activityDTO) {
-        debugPrint(
-            "Activity: ${a.actionName}, AssignedUserID: ${a.assignedUserID}, CreatedBy: ${a.createdBy}");
-      }
+      // final userMasterList =
+      //     await widget._siteObservationService.getUsersForSiteObservation(
+      //   siteObservationId: detail.id,
+      //   flag: 1, // backend me kya flag expect ho raha hai, uske hisaab se
+      // );
+      // for (var a in detail.activityDTO) {
+      //   debugPrint(
+      //       "Activity: ${a.actionName}, AssignedUserID: ${a.assignedUserID}, CreatedBy: ${a.createdBy}");
+      // }
 
       // 3️⃣ Local function to get assigned users for an activity
       Map<String, List<ActivityDTO>> groupedActivities = {};
@@ -3738,27 +3786,33 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                     ? 1.0
                                                     : 0.5,
                                                 child: MultiSelectDialogField<
-                                                    User>(
+                                                    UserList>(
                                                   items: userList
-                                                      .map((user) =>
-                                                          MultiSelectItem<User>(
-                                                              user,
-                                                              user.userName))
+                                                      .map(
+                                                        (user) =>
+                                                            MultiSelectItem<
+                                                                UserList>(
+                                                          user,
+                                                          user.userName,
+                                                        ),
+                                                      )
                                                       .toList(),
                                                   initialValue:
                                                       selectedUserObjects,
-                                                  title: Text("Assigned To"),
+                                                  title:
+                                                      const Text("Assigned To"),
                                                   selectedItemsTextStyle:
-                                                      TextStyle(
+                                                      const TextStyle(
                                                           fontWeight:
                                                               FontWeight.bold),
                                                   itemsTextStyle:
-                                                      TextStyle(fontSize: 16),
+                                                      const TextStyle(
+                                                          fontSize: 16),
                                                   searchable: true,
-                                                  buttonText:
-                                                      Text("Select Users"),
-                                                  onConfirm:
-                                                      (List<User> selected) {
+                                                  buttonText: const Text(
+                                                      "Select Users"),
+                                                  onConfirm: (List<UserList>
+                                                      selected) {
                                                     setState(() {
                                                       selectedUserObjects =
                                                           selected;
@@ -3770,7 +3824,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                   },
                                                   chipDisplay:
                                                       MultiSelectChipDisplay(
-                                                    onTap: (User user) {
+                                                    onTap: (UserList user) {
                                                       setState(() {
                                                         selectedUserObjects
                                                             .remove(user);
