@@ -44,3 +44,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 config/service-account.json
+lib/network/api_client.dart
+lib/constants.dart
