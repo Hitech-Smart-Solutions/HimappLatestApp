@@ -491,29 +491,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
-  // Future<List<User>> fetchUserList() async {
-  //   try {
-  //     int? currentUserId = await SharedPrefsHelper.getUserId();
-
-  //     List<User> fetchedUsers =
-  //         await widget._siteObservationService.fetchUserList();
-
-  //     List<User> uniqueUsers = [];
-  //     Set<String> userNames = {};
-
-  //     for (var user in fetchedUsers) {
-  //       if (!userNames.contains(user.userName) && user.id != currentUserId) {
-  //         uniqueUsers.add(user);
-  //         userNames.add(user.userName);
-  //       }
-  //     }
-
-  //     return uniqueUsers; // ✅ return the list instead of setting state
-  //   } catch (e) {
-  //     return [];
-  //   }
-  // }
-
   // New code
   Future<List<UserList>> fetchUserList() async {
     try {
@@ -525,10 +502,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         siteObservationId: siteObservationId ?? 0,
         flag: 2, // assign = 2, comment = 1
       );
-
-      debugPrint('🟢 API USERS COUNT => ${fetchedUsers.length}');
-      debugPrint('👤 currentUserId => $currentUserId');
-      debugPrint('👑 creatorId => $localCreatorId');
 
       final List<UserList> filteredUsers = [];
 
@@ -543,8 +516,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
         filteredUsers.add(user);
       }
-
-      debugPrint('🟡 FINAL USERS COUNT => ${filteredUsers.length}');
       return filteredUsers;
     } catch (e) {
       debugPrint('❌ fetchUserList ERROR => $e');
@@ -1492,17 +1463,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       selectedObservationId = observation.id;
       isUserSelectionEnabled = observation.observationTypeID != 1;
     });
-
-    // ================= DEBUG =================
-    debugPrint("✔ Dropdown IDs: ${observationsList.map((e) => e.id).toList()}");
-    debugPrint("✔ Selected ID: $selectedObservationTemplateId");
-    debugPrint("✔ Selected Text: $selectedObservationText");
-
-    debugPrint("=== EDIT PREFILL ===");
-    debugPrint("TemplateId: $selectedObservationTemplateId");
-    debugPrint("Text: $selectedObservationText");
-    debugPrint("Compliance: $isComplianceRequired");
-    debugPrint("Escalation: $isEscalationRequired");
   }
 
   void populateActivityListFromDTO(List<ActivityDTO> dtoList) {
@@ -2146,9 +2106,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     final selectedObs = observationsList.firstWhereOrNull(
       (obs) => obs.id == selectedObservationTemplateId,
     );
-
-    debugPrint("Matched Observation: ${selectedObs?.observationDisplayText}");
-    debugPrint("Matched DueHrs: ${selectedObs?.dueTimeInHrs}");
 
     if (selectedObs == null) {
       _dateDueDateController.text = '';

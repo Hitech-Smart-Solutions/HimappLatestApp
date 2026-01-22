@@ -521,7 +521,6 @@ class SiteObservationService {
 
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
-      debugPrint('🔍 User Data: $data');
       final List<dynamic> users = data['Value']['Table1'] ?? [];
 
       return users.map((e) => UserList.fromJson(e)).toList();
@@ -756,38 +755,12 @@ class SiteObservationService {
     }
   }
 
-//   Future<bool> deleteNotification(
-//       String notificationId, int userId, int deviceId) async {
-//     try {
-//       final response = await ApiClient.dio.put(
-//         '/api/Notification/UpdateNotificationReadFlag/$notificationId/$userId/$deviceId',
-//       );
-
-//       if (response.statusCode == 200 || response.statusCode == 204) {
-//         // 204 ka matlab hai body empty, direct true
-//         if (response.statusCode == 204) return true;
-
-//         final decoded =
-//             response.data is String ? jsonDecode(response.data) : response.data;
-//         if (decoded is bool) return decoded;
-//         if (response.data.toString().toLowerCase() == 'true') return true;
-//         return false;
-//       } else {
-//         print('❌ Failed to delete notification: ${response.statusCode}');
-//         return false;
-//       }
-//     } catch (e) {
-//       print('❌ Error deleting notification: $e');
-//       return false;
-//     }
-//   }
-// }
   Future<bool> deleteNotification(
       String notificationId, int userId, int deviceId) async {
     String? token = await SharedPrefsHelper.getToken();
 
     final url = Uri.parse(
-        'https://d94acvrm8bvo5.cloudfront.net/api/Notification/UpdateNotificationReadFlag/$notificationId/$userId/$deviceId');
+        '${ApiClient.dio}/api/Notification/UpdateNotificationReadFlag/$notificationId/$userId/$deviceId');
 
     final response = await http.put(
       url,
@@ -796,8 +769,6 @@ class SiteObservationService {
         'Content-Type': 'application/json',
       },
     );
-    print('Response status: ${response.statusCode}');
-    print('Response body: ${response.body}');
     if (response.statusCode == 200 || response.statusCode == 204) {
       // 204 ke case me body empty hota hai, to directly true return karo
       if (response.statusCode == 204) {

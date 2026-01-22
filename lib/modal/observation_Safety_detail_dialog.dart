@@ -135,11 +135,6 @@ class _ObservationSafetyDetailDialogState
       loadPour(),
       loadElement(),
     ]);
-    // print("created Status 92: ${widget.detail.createdBy}");
-    // print('166: ${widget.detail}');
-    debugPrint(
-        "🧠 DETAIL INIT violationTypeName => ${widget.detail.violationTypeName}");
-    print("widget.detail.violationTypeName,${widget.detail.violationTypeName}");
   }
 
   Future<void> _setupPage() async {
@@ -196,164 +191,7 @@ class _ObservationSafetyDetailDialogState
     currentUserName = await SharedPrefsHelper.getUserName();
   }
 
-  // void _initializeFormFields() {
-  //   if (selectedStatus == SiteObservationStatus.Open.toString()) {
-  //     try {
-  //       if (widget.detail.rootCauseID != null &&
-  //           widget.detail.rootCauseID != 0) {
-  //         selectedRootCause = rootCauses.firstWhere(
-  //           (rc) => rc.id == widget.detail.rootCauseID,
-  //         );
-  //       } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-  //         selectedRootCause = rootCauses.first;
-  //       } else {
-  //         selectedRootCause = null;
-  //       }
-  //     } catch (e) {
-  //       selectedRootCause = null;
-  //     }
-  //     // print(
-  //     //     'widget.detail.rootcauseDescription 185: ${widget.detail.rootcauseDescription}');
-  //     rootcauseDescriptionController.text =
-  //         widget.detail.rootcauseDescription ?? '';
-  //     materialCostController.text = widget.detail.materialCost.toString();
-  //     labourCostController.text = widget.detail.labourCost.toString();
-  //     reworkCostController.text = widget.detail.reworkCost.toString();
-  //     preventiveActionController.text =
-  //         widget.detail.preventiveActionTaken ?? '';
-  //     correctiveActionController.text =
-  //         widget.detail.corretiveActionToBeTaken ?? '';
-  //   }
-  //   if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-  //       selectedStatus == SiteObservationStatus.Closed.toString()) {
-  //     // try {
-  //     //   if (widget.detail.rootCauseID != null &&
-  //     //       widget.detail.rootCauseID != 0) {
-  //     //     selectedRootCause = rootCauses.firstWhere(
-  //     //       (rc) => rc.id == widget.detail.rootCauseID,
-  //     //     );
-  //     //   } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-  //     //     selectedRootCause = rootCauses.first;
-  //     //   } else {
-  //     //     selectedRootCause = null;
-  //     //   }
-  //     // } catch (e) {
-  //     //   selectedRootCause = null;
-  //     // }
-  //     try {
-  //       if (widget.detail.rootCauseID != null &&
-  //           widget.detail.rootCauseID != 0) {
-  //         selectedRootCause = rootCauses.firstWhere(
-  //           (rc) => rc.id == widget.detail.rootCauseID,
-  //         );
-  //       } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-  //         selectedRootCause = rootCauses.first;
-  //       } else {
-  //         selectedRootCause = null;
-  //       }
-  //     } catch (e) {
-  //       selectedRootCause = null;
-  //     }
-  //     print(
-  //         'widget.detail.rootcauseDescription 225: ${widget.detail.rootcauseDescription}');
-  //     rootcauseDescriptionController.text =
-  //         widget.detail.rootcauseDescription ?? '';
-  //     materialCostController.text = widget.detail.materialCost.toString();
-  //     labourCostController.text = widget.detail.labourCost.toString();
-  //     reworkCostController.text = widget.detail.reworkCost.toString();
-  //     preventiveActionController.text =
-  //         widget.detail.preventiveActionTaken ?? '';
-  //     correctiveActionController.text =
-  //         widget.detail.corretiveActionToBeTaken ?? '';
-  //   }
-  //   int rootCauseIDs = widget.detail.rootCauseID ?? 0;
-
-  //   // print("Initializing form for observation ID: $rootCauseIDs");
-
-  //   // ---------- Root Cause selection ----------
-  //   // if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
-  //   //   try {
-  //   //     selectedRootCause = rootCauses.firstWhere(
-  //   //       (rc) => rc.id == rootCauseIDs, // ✅ correct field
-  //   //     );
-  //   //   } catch (e) {
-  //   //     selectedRootCause = null;
-  //   //   }
-  //   // } else if (rootCauseIDs == 0 && rootCauses.isNotEmpty) {
-  //   //   selectedRootCause = rootCauses.first;
-  //   // } else {
-  //   //   selectedRootCause = null;
-  //   // }
-
-  //   // ---------- Root Cause selection ----------
-  //   if (rootCauses.isNotEmpty) {
-  //     selectedRootCause = rootCauses.firstWhere(
-  //       (rc) => rc.id == rootCauseIDs,
-  //       orElse: () => rootCauses.first,
-  //     );
-  //   } else {
-  //     selectedRootCause = null;
-  //   }
-
-  //   print("DEBUG RootCause -> rootCauses length: ${rootCauses.length}");
-  //   print(
-  //       "DEBUG RootCause -> widget.detail.rootCauseID: ${widget.detail.rootCauseID}");
-  //   print("DEBUG RootCause -> selectedRootCause: $selectedRootCause");
-
-  //   // print("DEBUG: acts length = ${acts.length}");
-  //   // ---------- Text fields ----------
-  //   // print(
-  //   // 'widget.detail.rootcauseDescription 259: ${widget.detail.rootcauseDescription}');
-  //   rootcauseDescriptionController.text =
-  //       widget.detail.rootcauseDescription ?? '';
-  //   materialCostController.text = widget.detail.materialCost?.toString() ?? '';
-  //   labourCostController.text = widget.detail.labourCost?.toString() ?? '';
-  //   reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
-  //   preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
-  //   correctiveActionController.text =
-  //       widget.detail.corretiveActionToBeTaken ?? '';
-  // }
-
-  // void _initializeFormFields() {
-  //   int rootCauseIDs = widget.detail.rootCauseID ?? 0;
-
-  //   // ✅ Default always null
-  //   selectedRootCause = null;
-
-  //   /// -------- OPEN --------
-  //   if (selectedStatus == SiteObservationStatus.Open.toString()) {
-  //     if (rootCauseIDs != 0 && rootCauses.isNotEmpty) {
-  //       try {
-  //         selectedRootCause =
-  //             rootCauses.firstWhere((rc) => rc.id == rootCauseIDs);
-  //       } catch (e) {
-  //         selectedRootCause = null;
-  //       }
-  //     }
-  //   }
-
-  //   /// -------- ReadyToInspect / Closed --------
-  //   if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-  //       selectedStatus == SiteObservationStatus.Closed.toString()) {
-  //     // 🔥 FORCE NULL – user khud select kare
-  //     selectedRootCause = null;
-  //   }
-
-  //   // ---------- Text fields ----------
-  //   rootcauseDescriptionController.text =
-  //       widget.detail.rootcauseDescription ?? '';
-  //   materialCostController.text = widget.detail.materialCost?.toString() ?? '';
-  //   labourCostController.text = widget.detail.labourCost?.toString() ?? '';
-  //   reworkCostController.text = widget.detail.reworkCost?.toString() ?? '';
-  //   preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
-  //   correctiveActionController.text =
-  //       widget.detail.corretiveActionToBeTaken ?? '';
-
-  //   print("DEBUG selectedRootCause => $selectedRootCause");
-  // }
   void _initializeFormFields() {
-    debugPrint("🔥 _initializeFormFields CALLED");
-    debugPrint("🔥 BEFORE INIT rootCauseId => $selectedRootCauseId");
     int rootCauseIDs = widget.detail.rootCauseID ?? 0;
 
     // default
@@ -361,12 +199,6 @@ class _ObservationSafetyDetailDialogState
 
     // selectedStatus is int? now
     int statusInt = selectedStatus ?? 0;
-
-    // debugPrint("selectedRootCauseId => $selectedRootCauseId");
-    // for (var cause in rootCauses) {
-    //   debugPrint(
-    //       "Dropdown Item => id: ${cause.id}, name: ${cause.rootCauseName}");
-    // }
 
     /// -------- OPEN --------
     if (statusInt == SiteObservationStatus.Open ||
@@ -385,8 +217,6 @@ class _ObservationSafetyDetailDialogState
       if (rootCauseIDs != 0) selectedRootCauseId = rootCauseIDs;
     }
 
-    debugPrint("INIT ROOT CAUSE ID => $selectedRootCauseId");
-
     // text fields
     rootcauseDescriptionController.text =
         widget.detail.rootcauseDescription ?? '';
@@ -396,8 +226,6 @@ class _ObservationSafetyDetailDialogState
     preventiveActionController.text = widget.detail.preventiveActionTaken ?? '';
     correctiveActionController.text =
         widget.detail.corretiveActionToBeTaken ?? '';
-
-    debugPrint("🔥 AFTER INIT rootCauseId => $selectedRootCauseId");
   }
 
   ActivityDTO buildAssignedActivity({
@@ -456,8 +284,6 @@ class _ObservationSafetyDetailDialogState
       // ✅ STEP 2: backend se aaya hua rootCauseID
       final backendRootCauseId = widget.detail.rootCauseID;
 
-      // debugPrint("BACKEND ROOTCAUSE ID => $backendRootCauseId");
-
       // ✅ STEP 3: dropdown value TABHI set karo jab item exist kare
       if (backendRootCauseId != null &&
           rootCauses.any((e) => e.id == backendRootCauseId)) {
@@ -465,8 +291,6 @@ class _ObservationSafetyDetailDialogState
           selectedRootCauseId = backendRootCauseId;
         });
       }
-
-      // debugPrint("FINAL SELECTED ROOTCAUSE => $selectedRootCauseId");
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load root causes: $e')),
@@ -524,7 +348,6 @@ class _ObservationSafetyDetailDialogState
           ),
         );
       }
-      debugPrint("rootCauseID452,$rootCauseID");
     }
 
     /// ---------------- REOPEN ----------------
@@ -1065,42 +888,6 @@ class _ObservationSafetyDetailDialogState
     }
   }
 
-  // fetchUsers() async {
-  //   setState(() {
-  //     isLoading = true;
-  //   });
-
-  //   try {
-  //     int projectID = widget.projectID;
-  //     int? currentUserId =
-  //         await SharedPrefsHelper.getUserId(); // 👈 Get logged-in user ID
-  //     int? creatorId = widget.detail.createdBy; // 👈 Observation creator ID
-  //     // print("CreatorID: $creatorId  Logged-in: $currentUserId");
-  //     final response = await SiteObservationService().fetchUsersForList(
-  //       projectId: projectID,
-  //     );
-
-  //     setState(() {
-  //       userList = response
-  //           .where((u) => u.id != currentUserId) // 👈 Exclude current user
-  //           .where((u) => currentUserId == creatorId || u.id != creatorId)
-  //           .map((u) => {
-  //                 'id': u.id.toString(),
-  //                 'display': u.userName,
-  //                 'full_name': '${u.firstName} ${u.lastName}',
-  //               })
-  //           .toList();
-  //       // print('userlist606: $userList');
-  //     });
-  //   } catch (e) {
-  //     print('Error fetching users: $e');
-  //   } finally {
-  //     setState(() {
-  //       isLoading = false;
-  //     });
-  //   }
-  // }
-
   Future<void> fetchUsers() async {
     try {
       final response =
@@ -1152,18 +939,12 @@ class _ObservationSafetyDetailDialogState
         // 🔥 Force FlutterMentions rebuild to reflect new data
         mentionsKey = GlobalKey<FlutterMentionsState>();
       });
-
-      debugPrint("ACTION: $selectedActionType");
-      debugPrint("Assigned Names: $assignedUserNames");
-      debugPrint("Users shown: ${userList.map((e) => e['display'])}");
     } catch (e) {
       debugPrint("fetchUsers error: $e");
     }
   }
 
   Future<void> loadSection() async {
-    // SharedPreferences prefs = await SharedPreferences.getInstance();
-    // int? projectID = prefs.getInt('projectID');
     int projectID = widget.projectID;
     if (projectID != null) {
       try {
@@ -1457,10 +1238,6 @@ class _ObservationSafetyDetailDialogState
 
                           onChanged: isStatusEnabled
                               ? (newValue) {
-                                  // debugPrint(
-                                  //     "🟡 STATUS CHANGED TO => $newValue");
-                                  // debugPrint(
-                                  //     "🟡 BEFORE STATUS CHANGE rootCauseId => $selectedRootCauseId");
                                   if (newValue == null) return;
 
                                   setState(() {
@@ -1488,8 +1265,6 @@ class _ObservationSafetyDetailDialogState
 
                                     collapsed = false;
                                   });
-                                  debugPrint(
-                                      "🟡 AFTER STATUS CHANGE rootCauseId => $selectedRootCauseId");
                                 }
                               : null,
 
@@ -2359,13 +2134,6 @@ class _ObservationSafetyDetailDialogState
                               // return;
                               UpdateSiteObservation updatedData =
                                   await getUpdatedDataFromForm(uploadedFiles);
-
-                              /// 🔍 DEBUG 3 – Payload check
-                              // 🔍 STEP 2: DEBUG (important)
-                              debugPrint(
-                                  'FINAL ROOTCAUSE => ${updatedData.rootCauseID}');
-                              debugPrint(
-                                  'FINAL STATUS => ${updatedData.statusID}');
                               // return;
                               bool success = await SiteObservationService()
                                   .updateSiteObservationByID(updatedData);
@@ -2399,7 +2167,6 @@ class _ObservationSafetyDetailDialogState
                                   const SnackBar(
                                       content: Text('Update successful!')),
                                 );
-                                debugPrint("✅ DIALOG POP WITH TRUE");
                                 Navigator.of(context)
                                     .pop(true); // ✅ dialog result
                               } else {

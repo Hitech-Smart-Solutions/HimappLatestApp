@@ -24,7 +24,7 @@
         tools:node="remove"/>
 
     <application
-        android:label="himappnew"
+        android:label="Himapp 2.0"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true">
