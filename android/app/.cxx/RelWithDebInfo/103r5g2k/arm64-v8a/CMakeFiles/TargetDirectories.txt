@@ -1,0 +1,2 @@
+C:/Users/hardik.solanki/Desktop/BookHitech/android/app/.cxx/RelWithDebInfo/103r5g2k/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/hardik.solanki/Desktop/BookHitech/android/app/.cxx/RelWithDebInfo/103r5g2k/arm64-v8a/CMakeFiles/rebuild_cache.dir
