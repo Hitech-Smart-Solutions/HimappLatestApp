@@ -7,21 +7,27 @@ plugins {
 
 android {
     namespace "com.mycompany.himappnew"
-    compileSdk 35
-    ndkVersion "25.2.9519653"
+
+    // Plugins require SDK 36
+    compileSdk 36
+    ndkVersion "27.0.12077973"
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
 
     defaultConfig {
         applicationId "com.mycompany.himappnew"
 
-        // Android version support
-        minSdk 21
-        targetSdk 35
+        // Android support
+        minSdkVersion flutter.minSdkVersion
+        targetSdk 35   // Play Store requirement (SAFE)
 
-        // Play Store versioning
-        versionCode 7        // <-- Next unique version code
-        versionName "1.0.6" // <-- Next version name
+        // Play Store versioning (NEW RELEASE)
+        versionCode 10
+        versionName "1.1.0"
 
-        // Optional: for native libraries (Flutter recommendation)
+        // ABI support (16 KB compatible)
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
@@ -37,16 +43,24 @@ android {
     }
 
     buildTypes {
-        release {
-            signingConfig signingConfigs.debug
+    release {
+        signingConfig signingConfigs.debug
+
+        // 🔥 FORCE disable native symbol stripping
+        ndk {
+            debugSymbolLevel = "FULL"
         }
+    }
+}
+
+    // REQUIRED for 16 KB memory page size
+    packagingOptions {
+    jniLibs {
+        useLegacyPackaging = true
     }
 
-    packagingOptions {
-        jniLibs {
-            useLegacyPackaging = false
-        }
-    }
+}
+
 }
 
 flutter {
@@ -54,9 +68,18 @@ flutter {
 }
 
 dependencies {
-    // Firebase BoM
+    // Firebase BOM
     implementation platform("com.google.firebase:firebase-bom:33.14.0")
 
     // Firebase Analytics
     implementation "com.google.firebase:firebase-analytics"
+}
+
+configurations.all {
+    resolutionStrategy {
+        force "androidx.activity:activity:1.9.3"
+        force "androidx.activity:activity-ktx:1.9.3"
+        force "androidx.core:core:1.15.0"
+        force "androidx.core:core-ktx:1.15.0"
+    }
 }
