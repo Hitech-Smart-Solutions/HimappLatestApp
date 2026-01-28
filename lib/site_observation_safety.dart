@@ -913,20 +913,20 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
     // 🔵 Add to UI list
     final newActivity = SiteObservationActivity(
-      id: 0,
-      siteObservationID: observationIdToSend == 0 ? null : observationIdToSend,
-      actionID: SiteObservationActions.DocUploaded,
-      comments: '',
-      documentName: uploadedFileName,
-      fileName: fileName,
-      fileContentType: fileContentType,
-      filePath: filePath,
-      fromStatusID: statusIdToSend,
-      toStatusID: statusIdToSend,
-      assignedUserID: userID,
-      createdBy: userID,
-      createdDate: formatDateForApi(DateTime.now()),
-    );
+        id: 0,
+        siteObservationID:
+            observationIdToSend == 0 ? null : observationIdToSend,
+        actionID: SiteObservationActions.DocUploaded,
+        comments: '',
+        documentName: uploadedFileName,
+        fileName: fileName,
+        fileContentType: fileContentType,
+        filePath: filePath,
+        fromStatusID: statusIdToSend,
+        toStatusID: statusIdToSend,
+        assignedUserID: userID,
+        createdBy: userID,
+        createdDate: formatDateForApi(DateTime.now().toUtc()));
 
     // 🔵 Add to DTO list (important!)
     final dtoActivity = ActivityDTO(
@@ -945,7 +945,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       assignedUserName: null,
       createdBy: userID,
       createdByName: userID.toString(),
-      createdDate: DateTime.now(),
+      createdDate: DateTime.now().toUtc(),
     );
 
     setState(() {
@@ -1098,7 +1098,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
           toStatusID: toStatusID,
           assignedUserID: userID,
           createdBy: userID,
-          createdDate: formatDateForApi(DateTime.now()),
+          createdDate: formatDateForApi(DateTime.now().toUtc()),
         ));
       }
 
@@ -1118,7 +1118,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
             toStatusID: toStatusID,
             assignedUserID: user.id,
             createdBy: userID,
-            createdDate: formatDateForApi(DateTime.now()),
+            createdDate: formatDateForApi(DateTime.now().toUtc()),
           ));
         }
       }

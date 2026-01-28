@@ -243,7 +243,7 @@ class _ObservationSafetyDetailDialogState
       toStatusID: toStatus,
       assignedUserID: assignedUserID,
       createdBy: userId,
-      createdDate: DateTime.now(),
+      createdDate: DateTime.now().toUtc(),
     );
   }
 
@@ -262,7 +262,7 @@ class _ObservationSafetyDetailDialogState
       toStatusID: toStatus,
       assignedUserID: 0,
       createdBy: userId,
-      createdDate: DateTime.now(),
+      createdDate: DateTime.now().toUtc(),
     );
   }
 
@@ -419,7 +419,7 @@ class _ObservationSafetyDetailDialogState
           toStatusID: toStatus,
           assignedUserID: userId!,
           createdBy: userId,
-          createdDate: DateTime.now(),
+          createdDate: DateTime.now().toUtc(),
         ),
       );
     }
@@ -440,7 +440,7 @@ class _ObservationSafetyDetailDialogState
       inprogressRemarks: inprogressRemarks,
       readytoinspectRemarks: readytoinspectRemarks,
       lastModifiedBy: userId!,
-      lastModifiedDate: DateTime.now(),
+      lastModifiedDate: DateTime.now().toUtc(),
       activityDTO: activities,
     );
   }
@@ -827,7 +827,7 @@ class _ObservationSafetyDetailDialogState
           assignedUserName: '',
           createdBy: currentUserId,
           createdByName: currentUserName,
-          createdDate: DateTime.now(),
+          createdDate: DateTime.now().toUtc(),
           fromStatusID: fromStatus,
           toStatusID: toStatus,
           toStatusName: SiteObservationStatus.idToName[toStatus] ?? "Unknown",
@@ -850,7 +850,7 @@ class _ObservationSafetyDetailDialogState
             assignedUserName: user.userName,
             createdBy: currentUserId,
             createdByName: currentUserName,
-            createdDate: DateTime.now(),
+            createdDate: DateTime.now().toUtc(),
             fromStatusID: fromStatus,
             toStatusID: toStatus,
             toStatusName: SiteObservationStatus.idToName[toStatus] ?? "Unknown",
@@ -2154,7 +2154,7 @@ class _ObservationSafetyDetailDialogState
                                       assignedUserID: 0,
                                       assignedUserName: null,
                                       createdBy: userId,
-                                      createdDate: DateTime.now(),
+                                      createdDate: DateTime.now().toUtc(),
                                     ),
                                   );
                                 }
@@ -2328,7 +2328,7 @@ class _ObservationSafetyDetailDialogState
                           assignedUserID: userId!,
                           assignedUserName: currentUserName,
                           createdByName: currentUserName,
-                          createdDate: DateTime.now(),
+                          createdDate: DateTime.now().toUtc(),
                         ),
                       );
                     });

@@ -929,7 +929,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       toStatusID: statusIdToSend,
       assignedUserID: userID,
       createdBy: userID,
-      createdDate: formatDateForApi(DateTime.now()),
+      createdDate: formatDateForApi(DateTime.now().toUtc()),
     );
 
     // 🔵 Add to DTO list (important!)
@@ -949,7 +949,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       assignedUserName: null,
       createdBy: userID,
       createdByName: userID.toString(),
-      createdDate: DateTime.now(),
+      createdDate: DateTime.now().toUtc(),
     );
 
     setState(() {
@@ -1102,7 +1102,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           toStatusID: toStatusID,
           assignedUserID: userID,
           createdBy: userID,
-          createdDate: formatDateForApi(DateTime.now()),
+          createdDate: formatDateForApi(DateTime.now().toUtc()),
         ));
       }
 
@@ -1122,7 +1122,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
             toStatusID: toStatusID,
             assignedUserID: user.id,
             createdBy: userID,
-            createdDate: formatDateForApi(DateTime.now()),
+            createdDate: formatDateForApi(DateTime.now().toUtc()),
           ));
         }
       }
