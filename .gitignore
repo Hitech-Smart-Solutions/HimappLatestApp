@@ -46,3 +46,5 @@ app.*.map.json
 config/service-account.json
 lib/network/api_client.dart
 lib/constants.dart
+lib/constants.dart
+lib/network/api_client.dart
