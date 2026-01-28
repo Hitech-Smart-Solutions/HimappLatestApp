@@ -242,7 +242,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       toStatusID: toStatus,
       assignedUserID: assignedUserID,
       createdBy: userId,
-      createdDate: DateTime.now(),
+      createdDate: DateTime.now().toUtc(),
     );
   }
 
@@ -261,7 +261,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       toStatusID: toStatus,
       assignedUserID: 0,
       createdBy: userId,
-      createdDate: DateTime.now(),
+      createdDate: DateTime.now().toUtc(),
     );
   }
 
@@ -418,7 +418,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           toStatusID: toStatus,
           assignedUserID: userId!,
           createdBy: userId,
-          createdDate: DateTime.now(),
+          createdDate: DateTime.now().toUtc(),
         ),
       );
     }
@@ -439,7 +439,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
       inprogressRemarks: inprogressRemarks,
       readytoinspectRemarks: readytoinspectRemarks,
       lastModifiedBy: userId!,
-      lastModifiedDate: DateTime.now(),
+      lastModifiedDate: DateTime.now().toUtc(),
       activityDTO: activities,
     );
   }
@@ -521,7 +521,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           assignedUserName: '',
           createdBy: currentUserId,
           createdByName: currentUserName,
-          createdDate: DateTime.now(),
+          createdDate: DateTime.now().toUtc(),
           fromStatusID: fromStatus,
           toStatusID: toStatus,
           toStatusName: SiteObservationStatus.idToName[toStatus] ?? "Unknown",
@@ -544,7 +544,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
             assignedUserName: user.userName,
             createdBy: currentUserId,
             createdByName: currentUserName,
-            createdDate: DateTime.now(),
+            createdDate: DateTime.now().toUtc(),
             fromStatusID: fromStatus,
             toStatusID: toStatus,
             toStatusName: SiteObservationStatus.idToName[toStatus] ?? "Unknown",
@@ -1658,7 +1658,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                       assignedUserID: 0,
                                       assignedUserName: null,
                                       createdBy: userId,
-                                      createdDate: DateTime.now(),
+                                      createdDate: DateTime.now().toUtc(),
                                     ),
                                   );
                                 }
@@ -1832,7 +1832,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                           assignedUserID: userId!,
                           assignedUserName: currentUserName,
                           createdByName: currentUserName,
-                          createdDate: DateTime.now(),
+                          createdDate: DateTime.now().toUtc(),
                         ),
                       );
                     });
