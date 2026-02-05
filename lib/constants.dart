@@ -6,7 +6,7 @@ class ScreenTypes {
 
 class AppSettings {
   static const String url =
-      'https://s3.ap-south-1.amazonaws.com/documents.himapp.test'; //test
+      'https://s3.ap-south-1.amazonaws.com/documents.himapp.live'; //Production
   static const Map<String, int> DEVICEID = {
     'Web': 1,
     'Mobile': 2,
