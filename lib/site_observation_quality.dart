@@ -624,7 +624,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           await widget._siteObservationService.fetchSiteObservationsQuality(
         projectId: projectId,
         sortColumn: 'ID desc',
-        pageSize: 10,
+        pageSize: 100,
         pageIndex: 0,
         isActive: true,
       );
@@ -1042,12 +1042,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       // ----------------------------
       // Null-safe lookups for Observation / Type / Issue
       // ----------------------------
-      final selectedObservationObj = observationsList.firstWhere(
-        (o) => o.observationDisplayText.trim() == selectedObservation?.trim(),
-        orElse: () => observationsList.isNotEmpty
-            ? observationsList.first
-            : throw Exception('No Observation found'),
-      );
+      // final selectedObservationObj = observationsList.firstWhere(
+      //   (o) => o.observationDisplayText.trim() == selectedObservation?.trim(),
+      //   orElse: () => observationsList.isNotEmpty
+      //       ? observationsList.first
+      //       : throw Exception('No Observation found'),
+      // );
 
       final selectedObservationTypeObj = observationTypeList.firstWhere(
         (o) => o.name.trim() == selectedObservationType?.trim(),
@@ -1140,7 +1140,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         siteObservationCode: "",
         trancationDate: formatDateForApi(DateTime.now().toUtc()),
         observationRaisedBy: userID,
-        observationID: selectedObservationObj.id,
+        observationID: selectedObservationTemplateId!,
         observationTypeID: selectedObservationTypeObj.id,
         issueTypeID: selectedIssueTypeObj.id,
         dueDate: formatDateForApiNullable(dueDateValue),
@@ -1419,17 +1419,45 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     }
 
     // ================= USERS =================
-    final fetchedUsers = await fetchUserList();
-    userList = fetchedUsers;
+    // final fetchedUsers = await fetchUserList();
+    // userList = fetchedUsers;
 
-    final assignedUsernames = observation.assignmentStatusDTO
-        .map((e) => e.assignedUserName?.toLowerCase().trim())
-        .where((e) => e != null && e.isNotEmpty)
+    // final assignedUsernames = observation.assignmentStatusDTO
+    //     .map((e) => e.assignedUserName?.toLowerCase().trim())
+    //     .where((e) => e != null && e.isNotEmpty)
+    //     .toSet();
+
+    // selectedUserObjects = userList.where((user) {
+    //   return assignedUsernames.contains(user.userName.toLowerCase().trim());
+    // }).toList();
+    final assignedUserIds = observation.assignmentStatusDTO
+        .map((e) => e.assignedUserID)
+        .where((id) => id != null && id > 0)
         .toSet();
 
-    selectedUserObjects = userList.where((user) {
-      return assignedUsernames.contains(user.userName.toLowerCase().trim());
-    }).toList();
+// 🔹 Pass assignedUserIds to fetchUserList
+    userList = await fetchUserList();
+
+    // 🔴 ensure assigned users exist in userList
+    for (var a in observation.assignmentStatusDTO) {
+      final id = a.assignedUserID;
+      final name = a.assignedUserName;
+
+      if (id == null || name == null) continue;
+
+      final exists = userList.any((u) => u.id == id);
+      if (!exists) {
+        userList.add(UserList(
+          id: id,
+          userName: name,
+          firstName: name, // ✅ SAFE DEFAULT
+          lastName: '', // ✅ EMPTY OK
+        ));
+      }
+    }
+
+    selectedUserObjects =
+        userList.where((u) => assignedUserIds.contains(u.id)).toList();
 
     selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
 
@@ -3478,64 +3506,79 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                 opacity: isUserSelectionEnabled
                                                     ? 1.0
                                                     : 0.5,
-                                                child: MultiSelectDialogField<
-                                                    UserList>(
-                                                  items: userList
-                                                      .map(
-                                                        (user) =>
-                                                            MultiSelectItem<
-                                                                UserList>(
-                                                          user,
-                                                          user.userName,
-                                                        ),
-                                                      )
-                                                      .toList(),
-                                                  initialValue:
-                                                      selectedUserObjects,
-                                                  title:
-                                                      const Text("Assigned To"),
-                                                  selectedItemsTextStyle:
-                                                      const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold),
-                                                  itemsTextStyle:
-                                                      const TextStyle(
-                                                          fontSize: 16),
-                                                  searchable: true,
-                                                  buttonText: const Text(
-                                                      "Select Users"),
-                                                  onConfirm: (List<UserList>
-                                                      selected) {
-                                                    setState(() {
-                                                      selectedUserObjects =
-                                                          selected;
-                                                      selectedUsers = selected
-                                                          .map(
-                                                              (u) => u.userName)
-                                                          .toList();
-                                                    });
-                                                  },
-                                                  chipDisplay:
-                                                      MultiSelectChipDisplay(
-                                                    onTap: (UserList user) {
-                                                      setState(() {
-                                                        selectedUserObjects
-                                                            .remove(user);
-                                                        selectedUsers =
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    // 🔴 DEBUG Text
+                                                    // Text(
+                                                    //   'DEBUG selected = ${selectedUserObjects.map((e) => e.userName).toList()}',
+                                                    //   style: TextStyle(
+                                                    //       color: Colors.red,
+                                                    //       fontWeight:
+                                                    //           FontWeight.bold),
+                                                    // ),
+
+                                                    // 🔹 MultiSelect widget
+                                                    MultiSelectDialogField<
+                                                        UserList>(
+                                                      items: userList
+                                                          .map((user) =>
+                                                              MultiSelectItem<
+                                                                      UserList>(
+                                                                  user,
+                                                                  user.userName))
+                                                          .toList(),
+                                                      initialValue:
+                                                          selectedUserObjects,
+                                                      title: const Text(
+                                                          "Assigned To"),
+                                                      selectedItemsTextStyle:
+                                                          const TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold),
+                                                      itemsTextStyle:
+                                                          const TextStyle(
+                                                              fontSize: 16),
+                                                      searchable: true,
+                                                      buttonText: const Text(
+                                                          "Select Users"),
+                                                      onConfirm: (List<UserList>
+                                                          selected) {
+                                                        setState(() {
+                                                          selectedUserObjects =
+                                                              selected;
+                                                          selectedUsers =
+                                                              selected
+                                                                  .map((u) => u
+                                                                      .userName)
+                                                                  .toList();
+                                                        });
+                                                      },
+                                                      chipDisplay:
+                                                          MultiSelectChipDisplay(
+                                                        onTap: (UserList user) {
+                                                          setState(() {
                                                             selectedUserObjects
-                                                                .map((u) =>
-                                                                    u.userName)
-                                                                .toList();
-                                                      });
-                                                    },
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    border: Border.all(
-                                                        color: Colors.grey),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4),
-                                                  ),
+                                                                .remove(user);
+                                                            selectedUsers =
+                                                                selectedUserObjects
+                                                                    .map((u) =>
+                                                                        u.userName)
+                                                                    .toList();
+                                                          });
+                                                        },
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        border: Border.all(
+                                                            color: Colors.grey),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(4),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ),
