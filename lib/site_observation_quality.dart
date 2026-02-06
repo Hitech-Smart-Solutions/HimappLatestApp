@@ -631,11 +631,11 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       debugPrint('🟢 FETCH QUALITY COUNT = ${fetched.length}');
       if (fetched.isEmpty) {
         // Table1 is empty, so no observations
-        debugPrint('⚠️ NO QUALITY OBSERVATIONS FOUND');
+        // debugPrint('⚠️ NO QUALITY OBSERVATIONS FOUND');
         setState(() => observations = []);
       } else {
-        debugPrint('🟢 FIRST ID=${fetched.first.id}');
-        debugPrint('🟢 LAST  ID=${fetched.last.id}');
+        // debugPrint('🟢 FIRST ID=${fetched.first.id}');
+        // debugPrint('🟢 LAST  ID=${fetched.last.id}');
         setState(() => observations = fetched);
       }
     } catch (e) {
@@ -1178,13 +1178,13 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       );
 
       bool success = false;
-      debugPrint('🟠 PHASE-2 DRAFT → SUBMIT');
-      debugPrint('siteObservationId BEFORE = $siteObservationId');
-      debugPrint('isDraft = $isDraft');
+      // debugPrint('🟠 PHASE-2 DRAFT → SUBMIT');
+      // debugPrint('siteObservationId BEFORE = $siteObservationId');
+      // debugPrint('isDraft = $isDraft');
 
-      debugPrint('🟢 PHASE-3 NEW SUBMIT');
-      debugPrint('siteObservationId = $siteObservationId');
-      debugPrint('isDraft = $isDraft');
+      // debugPrint('🟢 PHASE-3 NEW SUBMIT');
+      // debugPrint('siteObservationId = $siteObservationId');
+      // debugPrint('isDraft = $isDraft');
       if (siteObservationId == null || siteObservationId == 0) {
         success = await widget._siteObservationService
             .submitSiteObservation(commonFields);
@@ -1229,12 +1229,12 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                   ))
               .toList(),
         );
-        debugPrint('🟥 PHASE-1 DRAFT SAVE START');
-        debugPrint('isDraft = $isDraft');
-        debugPrint('siteObservationId = $siteObservationId');
-        debugPrint(
-            'selectedObservationTemplateId = $selectedObservationTemplateId');
-        debugPrint('status before = Draft');
+        // debugPrint('🟥 PHASE-1 DRAFT SAVE START');
+        // debugPrint('isDraft = $isDraft');
+        // debugPrint('siteObservationId = $siteObservationId');
+        // debugPrint(
+        //     'selectedObservationTemplateId = $selectedObservationTemplateId');
+        // debugPrint('status before = Draft');
         success = await widget._siteObservationService
             .updateSiteObservationDraft(updateModel);
       }
