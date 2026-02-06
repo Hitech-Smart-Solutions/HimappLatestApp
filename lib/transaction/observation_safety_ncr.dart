@@ -43,7 +43,7 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
     return Scaffold(
       // ✅ Ye add karna hai
       appBar: AppBar(
-        title: Text('Site Observation NCR Safety'),
+        title: Text('Site Observation Safety'),
       ),
       body: FutureBuilder<List<NCRObservation>>(
         future: futureObservations,

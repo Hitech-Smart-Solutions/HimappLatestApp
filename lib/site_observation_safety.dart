@@ -1533,6 +1533,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     _formKey.currentState?.reset();
 
     setState(() {
+      siteObservationId = null;
+      selectedObservationTemplateId = null;
       selectedObservationId = 0;
       selectedObservation = null; // Or null based on your logic
       selectedObservationType = null;
