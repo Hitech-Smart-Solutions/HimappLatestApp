@@ -36,6 +36,27 @@ class ObservationSafetyDetailDialog extends StatefulWidget {
       _ObservationSafetyDetailDialogState();
 }
 
+class ObservationLoadingDialog extends StatelessWidget {
+  const ObservationLoadingDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Dialog(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text("Loading observation..."),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ObservationSafetyDetailDialogState
     extends State<ObservationSafetyDetailDialog> {
   bool isLoading = false;
@@ -49,6 +70,7 @@ class _ObservationSafetyDetailDialogState
   bool isEditingRootCause = false;
   bool isButtonDisabled = false;
   bool canEditRootCause = false;
+  bool finalStatusEnabled = false;
   // bool collapsed = false;
 
   final _formKey = GlobalKey<FormState>();
@@ -124,6 +146,16 @@ class _ObservationSafetyDetailDialogState
   late void Function(void Function()) _activityTabSetState;
   late Future<void> _labelFuture;
   bool isFirstLoad = true;
+
+  bool isCommentBoxDisabled = false;
+  bool canUploadAttachments = false;
+  // bool isObservationClosed = false;
+
+  bool statusEnabled = false;
+  bool textEnabled = false;
+  bool actionEnabled = false;
+  bool commentDisabled = false;
+
   @override
   void initState() {
     super.initState();
@@ -175,6 +207,29 @@ class _ObservationSafetyDetailDialogState
     double total = material + labour;
 
     reworkCostController.text = total.toStringAsFixed(2);
+  }
+
+  bool get isObservationClosed =>
+      widget.detail.statusID == SiteObservationStatus.Closed;
+
+  bool get isUploadDisabled {
+    final isClosed = widget.detail.statusName?.toLowerCase() == 'closed';
+    // final isActive = widget.detail.isActive == true;
+    final userHasPermission = canUploadAttachments == true;
+
+    return isClosed || !userHasPermission;
+  }
+
+  String? get attachmentRestrictionMessage {
+    if (isObservationClosed) {
+      return "Modification is not allowed as the observation status is closed.";
+    }
+
+    if (!canUploadAttachments) {
+      return "You do not have sufficient access rights to modify this observation.";
+    }
+
+    return null; // no restriction
   }
 
   Future<void> initData() async {
@@ -890,13 +945,29 @@ class _ObservationSafetyDetailDialogState
 
   Future<void> fetchUsers() async {
     try {
+      final int flag = selectedActionType == 'Assign' ? 2 : 1;
       final response =
           await SiteObservationService().getUsersForSiteObservation(
         siteObservationId: widget.detail.id,
-        flag: selectedActionType == 'Assign' ? 2 : 1,
+        flag: flag,
       );
 
       final currentUserId = await SharedPrefsHelper.getUserId();
+      final userUploadDoc =
+          response.where((u) => u.id == currentUserId).toList();
+
+      if (flag == 1 &&
+          userUploadDoc.isNotEmpty &&
+          userUploadDoc.first.id == currentUserId) {
+        canUploadAttachments = true;
+      } else if (flag == 2 &&
+          userUploadDoc.isNotEmpty &&
+          userUploadDoc.first.id != currentUserId) {
+        canUploadAttachments = true;
+      } else {
+        canUploadAttachments = false;
+      }
+
       final creatorUserId = widget.detail.createdBy;
 
       // 🔥 Step 1: collect assigned usernames (exclude null/empty)
@@ -1032,6 +1103,7 @@ class _ObservationSafetyDetailDialogState
 
     List<Map<String, String>> newStatusList = [];
     bool newStatusEnabled = true;
+    final editassignmentDetails = widget.detail.assignmentStatusDTO;
 
     // 🔹 DEFAULT ROOT CAUSE PERMISSION
     canEditRootCause = fromStatus == SiteObservationStatus.ReadyToInspect ||
@@ -1058,7 +1130,8 @@ class _ObservationSafetyDetailDialogState
 
     // ✅ READY TO INSPECT – CREATOR
     else if (fromStatus == SiteObservationStatus.ReadyToInspect &&
-        createdBy == userID) {
+        createdBy == userID &&
+        isAssign.isEmpty) {
       newStatusList = [
         {
           "id": SiteObservationStatus.ReadyToInspect.toString(),
@@ -1068,6 +1141,7 @@ class _ObservationSafetyDetailDialogState
         {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"},
       ];
       // isRootCauseFileUpdateEnable = true;
+      finalStatusEnabled = true; // ✅ correct
     }
 
     // ✅ READY TO INSPECT – OTHERS
@@ -1088,6 +1162,9 @@ class _ObservationSafetyDetailDialogState
       ];
       newStatusEnabled = false;
       canEditRootCause = true;
+
+      // isObservationClosed = true;
+      // isCommentBoxDisabled = true;
     }
 
     // ✅ DEFAULT FLOW
@@ -1109,6 +1186,41 @@ class _ObservationSafetyDetailDialogState
     // 🔐 FINAL SAFETY
     // -------------------------------
 
+    if (fromStatus == SiteObservationStatus.Closed) {
+      statusEnabled = false;
+      textEnabled = false;
+      actionEnabled = false;
+      commentDisabled = false;
+      isStatusEnabled = false;
+      finalStatusEnabled = false;
+    }
+
+    // -------------------------
+    // 🟢 CASE 2: NOT CLOSED
+    // -------------------------
+    else {
+      for (final element in editassignmentDetails) {
+        if (element.assignedUserID == userID) {
+          statusEnabled = true;
+          textEnabled = true;
+          actionEnabled = true;
+          commentDisabled = true;
+          isStatusEnabled = true;
+          finalStatusEnabled = true;
+          break;
+        }
+      }
+
+      // ✅ CREATOR CASE
+      if (createdBy == userID) {
+        textEnabled = true;
+        actionEnabled = true;
+        commentDisabled = true;
+        isStatusEnabled = false;
+        // isStatusEnabled = fromStatus == SiteObservationStatus.ReadyToInspect;
+      }
+    }
+
     if (!newStatusList.any((e) => e['id'] == fromStatus.toString())) {
       newStatusList.insert(0, {
         "id": fromStatus.toString(),
@@ -1119,7 +1231,7 @@ class _ObservationSafetyDetailDialogState
     setState(() {
       observationStatus = newStatusList;
       selectedStatus = fromStatus;
-      isStatusEnabled = newStatusEnabled;
+      isStatusEnabled = finalStatusEnabled;
     });
   }
 
@@ -1156,6 +1268,13 @@ class _ObservationSafetyDetailDialogState
         builder: (context, constraints) {
           final height = media.size.height * 0.8;
           final width = media.size.width * 0.9;
+          print("🧱 BUILD DROPDOWN");
+          print("fromStatus=$fromStatus");
+          print("selectedStatus=$selectedStatus");
+          print("toStatus=$toStatus");
+          print("isStatusEnabled=$isStatusEnabled");
+          print(
+              "observationStatus=${observationStatus.map((e) => e['id']).toList()}");
 
           return ConstrainedBox(
             constraints: BoxConstraints(
@@ -1196,6 +1315,8 @@ class _ObservationSafetyDetailDialogState
 
                           // Selected text builder (same as tumhara)
                           selectedItemBuilder: (BuildContext context) {
+                            print("🎯 selectedItemBuilder called");
+
                             return observationStatus.map<Widget>((status) {
                               final id =
                                   int.tryParse(status['id'].toString()) ??
@@ -1203,6 +1324,7 @@ class _ObservationSafetyDetailDialogState
                               final name = SiteObservationStatus.idToName[id] ??
                                   status['name'] ??
                                   'Unknown';
+                              print("🎯 SELECTED ITEM -> id=$id name=$name");
                               return Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(name,
@@ -1229,6 +1351,7 @@ class _ObservationSafetyDetailDialogState
                             final name = SiteObservationStatus.idToName[id] ??
                                 status['name'] ??
                                 'Unknown';
+                            print("📦 ITEM -> id=$id name=$name");
                             return DropdownMenuItem<int>(
                               value: id, // int type
                               child: Text(name,
@@ -1238,6 +1361,8 @@ class _ObservationSafetyDetailDialogState
 
                           onChanged: isStatusEnabled
                               ? (newValue) {
+                                  print(
+                                      "✅ onChanged CALLED, newValue=$newValue");
                                   if (newValue == null) return;
 
                                   setState(() {
@@ -1447,7 +1572,7 @@ class _ObservationSafetyDetailDialogState
 
   Widget _buildDetailTab(BuildContext context) {
     // final media = MediaQuery.of(context);
-    print("widget.detail.violationTypeName,${widget.detail.violationTypeName}");
+    // print("widget.detail.violationTypeName,${widget.detail.violationTypeName}");
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12.0),
       child: ConstrainedBox(
@@ -1499,17 +1624,13 @@ class _ObservationSafetyDetailDialogState
                   widget.detail.elementName ?? 'N/A',
                   "Contractor :",
                   widget.detail.contractorName ?? 'N/A'),
-              // _buildResponsiveRow(
-              //     context,
-              //     "Compliance Required :",
-              //     widget.detail.complianceRequired ? 'Yes' : 'No',
-              //     "Escalation Required :",
-              //     widget.detail.escalationRequired ? 'Yes' : 'No'),
-              // buildPairRow(
-              //   context,
-              //   label1: "Observed By :",
-              //   value1: widget.detail.observedByName,
-              // ),
+              _buildResponsiveRow(
+                  context,
+                  "Compliance Required :",
+                  widget.detail.complianceRequired ? 'Yes' : 'No',
+                  "Escalation Required :",
+                  widget.detail.escalationRequired ? 'Yes' : 'No'),
+
               _buildResponsiveRow(
                 context,
                 "Observed By :",
@@ -1518,23 +1639,6 @@ class _ObservationSafetyDetailDialogState
                 widget.detail.violationTypeName ?? 'N/A',
               ),
 
-              // buildPairRow(
-              //   context,
-              //   label1: "Observed By :",
-              //   value1: widget.detail.observedByName,
-              //   label2: "Violation Type :",
-              //   value2: widget.detail.violationTypeName ?? 'N/A',
-              // ),
-              // buildPairRow(
-              //   context,
-              //   label1: "Observed By :",
-              //   value1: widget.detail.observedByName,
-              // ),
-              // buildPairRow(
-              //   context,
-              //   label1: "Violation Type :",
-              //   value1: widget.detail.violationTypeName ?? 'N/A',
-              // ),
               buildPairRow(
                 context,
                 label1: "Observation Description :",
@@ -1551,9 +1655,6 @@ class _ObservationSafetyDetailDialogState
                 value1: widget.detail.assignedUsersName,
               ),
 
-              // buildTextIfNotEmpty(widget.detail.closeRemarks),
-              // buildTextIfNotEmpty(widget.detail.reopenRemarks),
-
               // ⭐ NEW FIELDS — 2-per-row with condition
               buildPairRow(
                 context,
@@ -1562,14 +1663,6 @@ class _ObservationSafetyDetailDialogState
                 label2: "Rework Cost :",
                 value2: widget.detail.reworkCost,
               ),
-
-              // buildPairRow(
-              //   context,
-              //   label1: "Preventive Action To Be Taken :",
-              //   value1: widget.detail.preventiveActionTaken,
-              //   label2: "Corrective Action To Be Taken :",
-              //   value2: widget.detail.corretiveActionToBeTaken,
-              // ),
 
               buildPairRow(
                 context,
@@ -1587,6 +1680,12 @@ class _ObservationSafetyDetailDialogState
                 context,
                 label1: "Corrective Action To Be Taken :",
                 value1: widget.detail.corretiveActionToBeTaken,
+              ),
+              buildPairRow(
+                context,
+                label1: "Closure Date :",
+                value1: _formatDate(widget.detail.lastModifiedDate),
+                value1Color: Colors.green,
               ),
 
               buildPairRow(
@@ -1784,11 +1883,17 @@ class _ObservationSafetyDetailDialogState
         ),
         const SizedBox(width: 6),
         Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              color: valueColor ?? Colors.black, // 👈 DEFAULT SAFE
-            ),
+          child: Builder(
+            builder: (context) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+
+              return Text(
+                value,
+                style: TextStyle(
+                  color: valueColor ?? (isDark ? Colors.white : Colors.black),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -2286,62 +2391,84 @@ class _ObservationSafetyDetailDialogState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            /// 🔴 CLOSED MESSAGE ONLY
+            if (attachmentRestrictionMessage != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  attachmentRestrictionMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+
             /// Upload Image Button
-            ElevatedButton.icon(
-              onPressed: () async {
-                final ImagePicker picker = ImagePicker();
-                final XFile? pickedFile =
-                    await picker.pickImage(source: ImageSource.gallery);
+            if (!isObservationClosed && canUploadAttachments)
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final ImagePicker picker = ImagePicker();
+                  final XFile? pickedFile =
+                      await picker.pickImage(source: ImageSource.gallery);
 
-                if (pickedFile != null) {
-                  File imageFile = File(pickedFile.path);
-                  final fileName = imageFile.path.split('/').last;
-                  final fileBytes = await compressImage(imageFile);
+                  if (pickedFile != null) {
+                    File imageFile = File(pickedFile.path);
+                    final fileName = imageFile.path.split('/').last;
+                    final fileBytes = await compressImage(imageFile);
 
-                  if (fileBytes == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Compression failed")),
-                    );
-                    return;
-                  }
-
-                  final uploadedFileName =
-                      await SiteObservationService().uploadFileAndGetFileName(
-                    fileName,
-                    fileBytes,
-                  );
-                  // final int effectiveStatus = widget.detail.statusID ?? 0;
-                  if (uploadedFileName != null) {
-                    uploadedFiles.add(uploadedFileName);
-                    setState(() {
-                      showSaveAttachmentButton = true;
-                      widget.detail.activityDTO.add(
-                        ActivityDTO(
-                          id: 0,
-                          siteObservationID: widget.detail.id,
-                          actionID: SiteObservationActions.DocUploaded,
-                          actionName: "DocUploaded",
-                          comments: '',
-                          documentName: uploadedFileName,
-                          fromStatusID: fromStatus,
-                          toStatusID: toStatus,
-                          assignedUserID: userId!,
-                          assignedUserName: currentUserName,
-                          createdByName: currentUserName,
-                          createdDate: DateTime.now().toUtc(),
-                        ),
+                    if (fileBytes == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Compression failed")),
                       );
-                    });
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Upload failed.")),
+                      return;
+                    }
+
+                    final uploadedFileName =
+                        await SiteObservationService().uploadFileAndGetFileName(
+                      fileName,
+                      fileBytes,
                     );
+                    // final int effectiveStatus = widget.detail.statusID ?? 0;
+                    if (uploadedFileName != null) {
+                      uploadedFiles.add(uploadedFileName);
+                      setState(() {
+                        showSaveAttachmentButton = true;
+                        widget.detail.activityDTO.add(
+                          ActivityDTO(
+                            id: 0,
+                            siteObservationID: widget.detail.id,
+                            actionID: SiteObservationActions.DocUploaded,
+                            actionName: "DocUploaded",
+                            comments: '',
+                            documentName: uploadedFileName,
+                            fromStatusID: fromStatus,
+                            toStatusID: toStatus,
+                            assignedUserID: userId!,
+                            assignedUserName: currentUserName,
+                            createdByName: currentUserName,
+                            createdDate: DateTime.now().toUtc(),
+                          ),
+                        );
+                      });
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Upload failed.")),
+                      );
+                    }
                   }
-                }
-              },
-              icon: const Icon(Icons.upload_file),
-              label: const Text("Upload Image"),
-            ),
+                },
+                icon: const Icon(Icons.upload_file),
+                label: const Text("Upload Image"),
+              ),
 
             const SizedBox(height: 12),
 
@@ -2487,7 +2614,6 @@ class _ObservationSafetyDetailDialogState
 
   Widget _buildActivityTab() {
     final activities = widget.detail.activityDTO;
-
     if (activities.isEmpty) {
       return const Center(child: Text("No activity recorded."));
     }
@@ -2522,12 +2648,13 @@ class _ObservationSafetyDetailDialogState
       groupedActivities[groupKey] = group;
     }
 
-    // 🔹 Sort groups descending (latest group first)
+    // 🔹 Sort groups Ascending (latest group first)
     final sortedGroupEntries = groupedActivities.entries.toList()
       ..sort((a, b) {
-        final aDate = a.value.first.createdDate;
-        final bDate = b.value.first.createdDate;
-        return bDate.compareTo(aDate); // latest group first
+        final int aFirstId = a.value.first.id ?? 0; // 👈 fallback
+        final int bFirstId = b.value.first.id ?? 0;
+
+        return bFirstId.compareTo(aFirstId); // DESC
       });
 
     return StatefulBuilder(builder: (context, setState) {
@@ -2539,8 +2666,6 @@ class _ObservationSafetyDetailDialogState
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
                   children: sortedGroupEntries.map((entry) {
-                    // final acts = [...entry.value]..sort((a, b) => b.createdDate
-                    //     .compareTo(a.createdDate)); // latest inside group
                     int _actionPriority(String action) {
                       switch (action) {
                         case 'Created':
@@ -2577,15 +2702,9 @@ class _ObservationSafetyDetailDialogState
                     final statusName = first.toStatusName ?? "Unknown";
 
                     String userName = first.createdByName ?? "Unknown";
-                    // final date =
-                    //     first.createdDate.toLocal().toString().split(' ')[0];
-                    // final dateTime = first.createdDate.toLocal();
-                    // final date =
-                    //     "${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} "
-                    //     "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
                     final dateTime = first.createdDate.toLocal();
                     final date =
-                        DateFormat('MM/dd/yyyy HH:mm').format(dateTime);
+                        DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
                     String nameToShow =
                         (userName.trim().isNotEmpty ? userName.trim()[0] : '?')
                             .toUpperCase();
@@ -2786,85 +2905,90 @@ class _ObservationSafetyDetailDialogState
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade400),
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedActionType,
-                        onChanged: (String? newValue) async {
-                          if (newValue == null) return;
-                          setState(() {
-                            selectedActionType = newValue;
-                            _activityCommentController.clear();
-                            mentionsKey.currentState?.controller?.clear();
-                            selectedMentions.clear();
-                            isMentionsEnabled = false;
-                          });
-                          await fetchUsers();
-                        },
-                        items: ['Comment', 'Assign'].map((action) {
-                          return DropdownMenuItem(
-                              value: action, child: Text(action));
-                        }).toList(),
+                  if (!isObservationClosed && actionEnabled)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedActionType,
+                          onChanged: actionEnabled
+                              ? (String? newValue) async {
+                                  if (newValue == null) return;
+                                  setState(() {
+                                    selectedActionType = newValue;
+                                    _activityCommentController.clear();
+                                    mentionsKey.currentState?.controller
+                                        ?.clear();
+                                    selectedMentions.clear();
+                                    isMentionsEnabled = false;
+                                  });
+                                  await fetchUsers();
+                                }
+                              : null,
+                          items: ['Comment', 'Assign'].map((action) {
+                            return DropdownMenuItem(
+                                value: action, child: Text(action));
+                          }).toList(),
+                        ),
                       ),
                     ),
-                  ),
 
                   const SizedBox(width: 8),
                   // ---------------------------
                   // FlutterMentions
                   // ---------------------------
-
-                  Expanded(
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 270),
-                      child: FlutterMentions(
-                        key: mentionsKey,
-                        maxLines: 3,
-                        minLines: 1,
-                        suggestionPosition: SuggestionPosition.Top,
-                        suggestionListHeight: 270,
-                        decoration: InputDecoration(
-                          hintText: selectedActionType == 'Assign'
-                              ? "Enter '@' to assign users..."
-                              : "Enter '@' to mention assigned users...",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  if (!isObservationClosed && textEnabled)
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 270),
+                        child: FlutterMentions(
+                          key: mentionsKey,
+                          maxLines: 3,
+                          minLines: 1,
+                          suggestionPosition: SuggestionPosition.Top,
+                          suggestionListHeight: 270,
+                          decoration: InputDecoration(
+                            hintText: selectedActionType == 'Assign'
+                                ? "Enter '@' to assign users..."
+                                : "Enter '@' to mention assigned users...",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
+                          mentions: [
+                            Mention(
+                              trigger: '@',
+                              data: isMentionsEnabled ? userList : [], // ✅ SAFE
+                              style: const TextStyle(color: Colors.blue),
+                              suggestionBuilder: (data) {
+                                final display = data['display'] ?? '';
+                                if (display.isEmpty)
+                                  return const SizedBox.shrink();
+                                return ListTile(title: Text(display));
+                              },
+                            ),
+                          ],
                         ),
-                        mentions: [
-                          Mention(
-                            trigger: '@',
-                            data: isMentionsEnabled ? userList : [], // ✅ SAFE
-                            style: const TextStyle(color: Colors.blue),
-                            suggestionBuilder: (data) {
-                              final display = data['display'] ?? '';
-                              if (display.isEmpty)
-                                return const SizedBox.shrink();
-                              return ListTile(title: Text(display));
-                            },
-                          ),
-                        ],
                       ),
                     ),
-                  ),
 
                   const SizedBox(width: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
+                  if (!isObservationClosed && commentDisabled)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.send, color: Colors.white),
+                        onPressed: isSending ? null : _sendActivityComment,
+                      ),
                     ),
-                    child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white),
-                      onPressed: isSending ? null : _sendActivityComment,
-                    ),
-                  ),
                 ],
               ),
             ),

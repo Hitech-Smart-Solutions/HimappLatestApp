@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:himappnew/constants.dart';
+import 'package:himappnew/modal/observation_Safety_detail_dialog.dart';
 import 'package:himappnew/model/page_permission.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/model/company_model.dart';
@@ -19,6 +20,9 @@ import 'package:collection/collection.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as path;
+import 'dart:io';
 
 class SiteObservationSafety extends StatefulWidget {
   final String companyName;
@@ -109,8 +113,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   final _formKey = GlobalKey<FormState>();
   bool isFormReady = false;
   bool isUploading = false;
-  String? selectedFileName;
-  List<String> uploadedFiles = [];
+
   int? selectedObservationTypeId;
   int? selectedIssueTypeId;
 
@@ -192,6 +195,11 @@ class _SiteObservationState extends State<SiteObservationSafety> {
   String? selectedObservationText; // 🔥 UI only
 
   String url = AppSettings.url;
+
+  List<String> uploadedFiles = []; // server se aaye filenames
+  List<String> selectedFileNames = []; // UI ke liye
+  List<Uint8List?> selectedFileBytes = []; // image preview
+  List<String> uploadedFromList = []; // Camera / Gallery / File
 
   @override
   void initState() {
@@ -608,14 +616,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
           await widget._siteObservationService.fetchSiteObservationsSafety(
         projectId: projectId,
         sortColumn: 'ID desc',
-        pageSize: 100,
+        pageSize: 10,
         pageIndex: 0,
         isActive: true,
       );
-      debugPrint('🟢 FETCH COUNT = ${fetched.length}');
       if (fetched.isEmpty) {
         // Table1 is empty, so no observations
-        debugPrint('🟢 FIRST ID=${fetched.first.id}');
         setState(() => observations = []);
       } else {
         setState(() => observations = fetched);
@@ -886,6 +892,102 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
+  void _showOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text("📸 Camera"),
+              onTap: () {
+                Navigator.pop(context);
+                _pickCamera();
+              },
+            ),
+            ListTile(
+              title: Text("🖼 Gallery"),
+              onTap: () {
+                Navigator.pop(context);
+                _pickGallery();
+              },
+            ),
+            ListTile(
+              title: Text("📁 File"),
+              onTap: () {
+                Navigator.pop(context);
+                _pickFile();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _pickFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      withData: true,
+      allowMultiple: true,
+    );
+
+    if (result == null) return;
+
+    for (final file in result.files) {
+      setState(() {
+        selectedFileNames.add(file.name);
+        selectedFileBytes.add(null); // non image
+        uploadedFromList.add("File");
+      });
+
+      _upload(file.name, file.bytes!);
+    }
+  }
+
+  void _pickGallery() async {
+    final images = await ImagePicker().pickMultiImage();
+    if (images.isEmpty) return;
+
+    for (final image in images) {
+      final bytes = await File(image.path).readAsBytes();
+      final name = image.name;
+
+      setState(() {
+        selectedFileNames.add(name);
+        selectedFileBytes.add(bytes);
+        uploadedFromList.add("Gallery");
+      });
+
+      _upload(name, bytes);
+    }
+  }
+
+  void _pickCamera() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.camera);
+    if (image == null) return;
+
+    final bytes = await File(image.path).readAsBytes();
+    final name = image.name;
+
+    setState(() {
+      selectedFileNames.add(name);
+      selectedFileBytes.add(bytes);
+      uploadedFromList.add("Camera");
+    });
+
+    _upload(name, bytes);
+  }
+
+  void _upload(String name, Uint8List bytes) async {
+    final uploadedName =
+        await SiteObservationService().uploadFileAndGetFileName(name, bytes);
+
+    if (uploadedName != null) {
+      onFileUploadSuccess(uploadedName, isDraft: isDraft);
+    }
+  }
+
   void onFileUploadSuccess(
     String uploadedFileName, {
     required bool isDraft,
@@ -915,20 +1017,20 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
     // 🔵 Add to UI list
     final newActivity = SiteObservationActivity(
-        id: 0,
-        siteObservationID:
-            observationIdToSend == 0 ? null : observationIdToSend,
-        actionID: SiteObservationActions.DocUploaded,
-        comments: '',
-        documentName: uploadedFileName,
-        fileName: fileName,
-        fileContentType: fileContentType,
-        filePath: filePath,
-        fromStatusID: statusIdToSend,
-        toStatusID: statusIdToSend,
-        assignedUserID: userID,
-        createdBy: userID,
-        createdDate: formatDateForApi(DateTime.now().toUtc()));
+      id: 0,
+      siteObservationID: observationIdToSend == 0 ? null : observationIdToSend,
+      actionID: SiteObservationActions.DocUploaded,
+      comments: '',
+      documentName: uploadedFileName,
+      fileName: fileName,
+      fileContentType: fileContentType,
+      filePath: filePath,
+      fromStatusID: statusIdToSend,
+      toStatusID: statusIdToSend,
+      assignedUserID: userID,
+      createdBy: userID,
+      createdDate: formatDateForApi(DateTime.now()),
+    );
 
     // 🔵 Add to DTO list (important!)
     final dtoActivity = ActivityDTO(
@@ -947,14 +1049,14 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       assignedUserName: null,
       createdBy: userID,
       createdByName: userID.toString(),
-      createdDate: DateTime.now().toUtc(),
+      createdDate: DateTime.now(),
     );
 
     setState(() {
       activityList.add(newActivity); // For UI
       activityDTOList.add(dtoActivity); // For API
       uploadedFiles.add(uploadedFileName);
-      selectedFileName = uploadedFileName;
+      // selectedFileName = uploadedFileName;
     });
   }
 
@@ -1040,12 +1142,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       // ----------------------------
       // Null-safe lookups for Observation / Type / Issue
       // ----------------------------
-      // final selectedObservationObj = observationsList.firstWhere(
-      //   (o) => o.observationDisplayText.trim() == selectedObservation?.trim(),
-      //   orElse: () => observationsList.isNotEmpty
-      //       ? observationsList.first
-      //       : throw Exception('No Observation found'),
-      // );
+      final selectedObservationObj = observationsList.firstWhere(
+        (o) => o.observationDisplayText.trim() == selectedObservation?.trim(),
+        orElse: () => observationsList.isNotEmpty
+            ? observationsList.first
+            : throw Exception('No Observation found'),
+      );
 
       final selectedObservationTypeObj = observationTypeList.firstWhere(
         (o) => o.name.trim() == selectedObservationType?.trim(),
@@ -1066,26 +1168,44 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       // ----------------------------
       List<SiteObservationActivity> finalActivityList = [];
 
-      // Old + New DocUploaded
-      finalActivityList.addAll(activityList
-          .where((a) => a.actionID == SiteObservationActions.DocUploaded)
-          .map((a) {
-        return SiteObservationActivity(
-          id: a.id,
-          siteObservationID: a.siteObservationID,
-          actionID: a.actionID,
-          comments: a.comments,
-          documentName: a.documentName,
-          fileName: a.fileName,
-          fileContentType: a.fileContentType,
-          filePath: a.filePath,
-          fromStatusID: isDraft ? a.fromStatusID : fromStatusID,
-          toStatusID: isDraft ? a.toStatusID : toStatusID,
-          assignedUserID: a.assignedUserID,
-          createdBy: a.createdBy,
-          createdDate: a.createdDate,
+      // ----------------------------
+// DocUploaded – NO DUPLICATE + STATUS SAFE
+// ----------------------------
+      final existingDocNames = <String>{};
+
+      for (final a in activityList) {
+        if (a.actionID != SiteObservationActions.DocUploaded) continue;
+
+        // 🔒 prevent duplicate by documentName
+        if (a.documentName != null &&
+            a.documentName!.isNotEmpty &&
+            existingDocNames.contains(a.documentName)) {
+          continue;
+        }
+
+        existingDocNames.add(a.documentName ?? '');
+
+        finalActivityList.add(
+          SiteObservationActivity(
+            id: a.id,
+            siteObservationID: a.siteObservationID,
+            actionID: a.actionID,
+            comments: a.comments,
+            documentName: a.documentName,
+            fileName: a.fileName,
+            fileContentType: a.fileContentType,
+            filePath: a.filePath,
+
+            // ✅ STATUS LOGIC PRESERVED
+            fromStatusID: isDraft ? a.fromStatusID : fromStatusID,
+            toStatusID: isDraft ? a.toStatusID : toStatusID,
+
+            assignedUserID: a.assignedUserID,
+            createdBy: a.createdBy,
+            createdDate: a.createdDate,
+          ),
         );
-      }));
+      }
 
       // Created action
       if (!finalActivityList
@@ -1100,7 +1220,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
           toStatusID: toStatusID,
           assignedUserID: userID,
           createdBy: userID,
-          createdDate: formatDateForApi(DateTime.now().toUtc()),
+          createdDate: formatDateForApi(DateTime.now()),
         ));
       }
 
@@ -1120,7 +1240,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
             toStatusID: toStatusID,
             assignedUserID: user.id,
             createdBy: userID,
-            createdDate: formatDateForApi(DateTime.now().toUtc()),
+            createdDate: formatDateForApi(DateTime.now()),
           ));
         }
       }
@@ -1138,7 +1258,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         siteObservationCode: "",
         trancationDate: formatDateForApi(DateTime.now().toUtc()),
         observationRaisedBy: userID,
-        observationID: selectedObservationTemplateId!,
+        observationID: selectedObservationObj.id,
         observationTypeID: selectedObservationTypeObj.id,
         issueTypeID: selectedIssueTypeObj.id,
         dueDate: formatDateForApiNullable(dueDateValue),
@@ -1270,6 +1390,8 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     try {
       final observationList = await widget._siteObservationService
           .fetchGetSiteObservationMasterById(observationId);
+
+      debugPrint("Fetched Observation List: $observationList");
 
       if (observationList.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1406,8 +1528,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       orElse: () => const {"id": 0, "violationType": ""},
     );
 
-    print("matchedViolationType: $matchedViolationType");
-
     violationTypeId = matchedViolationType['id'] as int;
 
     selectedAreaId = areaList.any((a) => a.id == observation.sectionID)
@@ -1437,17 +1557,16 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     // final fetchedUsers = await fetchUserList();
     // userList = fetchedUsers;
 
-    // final assignedUserIds = observation.assignmentStatusDTO
-    //     .map((e) => e.assignedUserID)
-    //     .where((id) => id != null && id > 0)
+    // final assignedUsernames = observation.assignmentStatusDTO
+    //     .map((e) => e.assignedUserName?.toLowerCase().trim())
+    //     .where((e) => e != null && e.isNotEmpty)
     //     .toSet();
 
-    // selectedUserObjects =
-    //     userList.where((user) => assignedUserIds.contains(user.id)).toList();
+    // selectedUserObjects = userList.where((user) {
+    //   return assignedUsernames.contains(user.userName.toLowerCase().trim());
+    // }).toList();
 
     // selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
-
-    // debugPrint('Selected users count = ${selectedUserObjects.length}');
 
     final assignedUserIds = observation.assignmentStatusDTO
         .map((e) => e.assignedUserID)
@@ -1480,26 +1599,43 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
     selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
 
-    // ================= FILES =================
-    uploadedFiles = observation.activityDTO
-        .where((a) => a.documentName != null && a.documentName!.isNotEmpty)
-        .map((a) => a.documentName!)
-        .toList();
+    debugPrint('✅ FINAL SELECTED USERS = $selectedUsers');
 
-    if (uploadedFiles.isNotEmpty) {
-      selectedFileName = uploadedFiles.first;
+// 🔹 DEBUG
+    debugPrint('============= POST FRAME SELECTED USERS =============');
+    debugPrint(selectedUsers.toString());
+
+    // ================= FILES =================
+    final List<String> mergedNames = [];
+    final List<String> mergedFrom = [];
+    final List<Uint8List?> mergedBytes = [];
+
+// 1️⃣ SERVER images
+    for (var a in observation.activityDTO) {
+      if (a.documentName != null && a.documentName!.isNotEmpty) {
+        mergedNames.add(a.documentName!);
+        mergedFrom.add("Server");
+        mergedBytes.add(null); // server image ka local preview nahi
+      }
     }
+
+// 2️⃣ LOCAL images (camera / gallery / file)
+    for (int i = 0; i < selectedFileNames.length; i++) {
+      if (!mergedNames.contains(selectedFileNames[i])) {
+        mergedNames.add(selectedFileNames[i]);
+        mergedFrom.add(uploadedFromList[i]);
+        mergedBytes.add(selectedFileBytes[i]);
+      }
+    }
+
+    setState(() {
+      selectedFileNames = mergedNames;
+      uploadedFromList = mergedFrom;
+      selectedFileBytes = mergedBytes;
+    });
 
     activityDTOList = observation.activityDTO;
     populateActivityListFromDTO(activityDTOList);
-
-    debugPrint('============= ASSIGNMENT STATUS FROM SERVER =============');
-
-    for (var a in observation.assignmentStatusDTO) {
-      debugPrint('AssignedUserID=${a.assignedUserID}, '
-          'AssignedUserName=${a.assignedUserName}, '
-          'Status=${a.statusName}');
-    }
 
     setState(() {
       selectedObservationId = observation.id;
@@ -1533,8 +1669,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     _formKey.currentState?.reset();
 
     setState(() {
-      siteObservationId = null;
-      selectedObservationTemplateId = null;
       selectedObservationId = 0;
       selectedObservation = null; // Or null based on your logic
       selectedObservationType = null;
@@ -1548,8 +1682,11 @@ class _SiteObservationState extends State<SiteObservationSafety> {
       selectedContractorId = null;
       actionToBeTakenController.clear();
       observationDescriptionController.clear();
-      uploadedFiles.clear();
-      selectedFileName = null;
+      // ✅ FILE / IMAGE RESET (IMPORTANT)
+      uploadedFiles.clear(); // server filenames
+      selectedFileNames.clear(); // UI filenames
+      selectedFileBytes.clear(); // image previews
+      uploadedFromList.clear(); // Camera / Gallery / File
       isComplianceRequired = false;
       isEscalationRequired = false;
       _dateDueDateController.clear();
@@ -1798,245 +1935,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
-  Widget _buildAttachmentItem(
-      ActivityDTO activity, GetSiteObservationMasterById detail) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(activity.actionName,
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Text(
-            "Uploaded By: ${activity.createdByName}",
-            style: const TextStyle(fontSize: 13, color: Colors.black54),
-          ),
-          Text(
-            "Status: ${getAttachmentStatusName(activity, detail)}",
-            style: const TextStyle(
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-              color: Colors.blueGrey,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              // 🔹 Image fixed size
-              GestureDetector(
-                onTap: () => openImageModal(activity.documentName),
-                child: Container(
-                  height: 120, // fixed height
-                  width: 120, // fixed width
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      isImage(activity.documentName)
-                          ? "$url/${activity.documentName}"
-                          : "assets/default-image.png",
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.broken_image, size: 50),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // 🔹 Download button aligned with image
-              IconButton(
-                icon: const Icon(Icons.download, size: 28, color: Colors.blue),
-                onPressed: () => downloadImage(activity.documentName),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityItem(List<ActivityDTO> activities) {
-    final sortedActivities = [...activities]
-      ..sort((a, b) => a.createdDate.compareTo(b.createdDate));
-
-    final latestActivity = sortedActivities.last;
-    final first = sortedActivities.first;
-
-    final userInitial =
-        (first.createdByName != null && first.createdByName!.isNotEmpty)
-            ? first.createdByName![0].toUpperCase()
-            : '?';
-
-    final date = first.createdDate?.toLocal().toString().split('.').first ?? '';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Card(
-        elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.08),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 🔹 USER HEADER
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Colors.blue.withOpacity(0.15),
-                    child: Text(
-                      userInitial,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      first.createdByName ?? 'Unknown',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    date,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 6),
-
-              // 🔹 CARD LEVEL STATUS
-              if (latestActivity.fromStatusName != null ||
-                  latestActivity.toStatusName != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.sync_alt,
-                          size: 14, color: Colors.orange),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          "${latestActivity.fromStatusName ?? '-'} → ${latestActivity.toStatusName ?? '-'}",
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.orange,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 10),
-
-              // 🔹 ALL ACTIONS
-              ...sortedActivities.map((activity) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Action name
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: activity.actionName == 'Assign'
-                            ? Colors.green.withOpacity(0.1)
-                            : Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        activity.actionName,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          color: activity.actionName == 'Assign'
-                              ? Colors.green
-                              : Colors.blue,
-                        ),
-                      ),
-                    ),
-
-                    // Assigned user
-                    if (activity.assignedUserName != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Chip(
-                          label: Text(
-                            activity.assignedUserName!,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                      ),
-
-                    // Comment
-                    if ((activity.comments ?? '').isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          activity.comments!,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-
-                    // Attachment
-                    if (activity.documentName.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.attach_file,
-                                size: 12, color: Colors.grey),
-                            const SizedBox(width: 6),
-                            SizedBox(
-                              height: 60, // height chhoti rakho
-                              width: 60, // width proportional rakho
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  isImage(activity.documentName)
-                                      ? "$url/${activity.documentName}"
-                                      : "assets/default-image.png",
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(Icons.broken_image, size: 24),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    const SizedBox(height: 8),
-                    if (activity != sortedActivities.last)
-                      const Divider(height: 16),
-                  ],
-                );
-              }).toList(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   List<UserList> getAssignedUsersForActivity(
     ActivityDTO activity,
     List<ActivityDTO> allActivities,
@@ -2177,62 +2075,6 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     }
   }
 
-  String _formatDate(DateTime? date) {
-    return date != null
-        ? DateFormat('dd/MM/yyyy HH:mm').format(date.toLocal())
-        : 'N/A';
-  }
-
-  Widget _buildResponsiveRow(
-    BuildContext context,
-    String label1,
-    String value1,
-    String label2,
-    String value2,
-  ) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
-
-    if (isMobile) {
-      // MOBILE: stacked vertically with uniform spacing
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildDetailRow(label1, value1),
-          const SizedBox(height: 6), // consistent vertical spacing
-          _buildDetailRow(label2, value2),
-          const SizedBox(height: 6), // consistent vertical spacing
-        ],
-      );
-    } else {
-      // TABLET/DESKTOP: horizontal row with consistent spacing
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6.0),
-        child: Row(
-          children: [
-            Expanded(child: _buildDetailRow(label1, value1)),
-            const SizedBox(width: 12), // consistent horizontal spacing
-            Expanded(child: _buildDetailRow(label2, value2)),
-          ],
-        ),
-      );
-    }
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(width: 6),
-        Expanded(child: Text(value)),
-      ],
-    );
-  }
-
   Widget buildPairRow(
     BuildContext context, {
     required String label1,
@@ -2309,360 +2151,113 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     );
   }
 
-  Future<void> _openObservationDetailPopup(int observationId) async {
+  Future<void> _openSafetyObservationWithLoader(int observationId) async {
     try {
-      final observationList = await widget._siteObservationService
+      final list = await widget._siteObservationService
           .fetchGetSiteObservationMasterById(observationId);
 
-      if (observationList.isEmpty || !mounted) return;
+      if (!mounted || list.isEmpty) return;
 
-      final detail = observationList.first;
-      // 2️⃣ Fetch all users for this observation (UserList)
-      final userMasterList =
-          await widget._siteObservationService.getUsersForSiteObservation(
-        siteObservationId: detail.id,
-        flag: 1, // backend me kya flag expect ho raha hai, uske hisaab se
-      );
-      // 3️⃣ Local function to get assigned users for an activity
-      Map<String, List<ActivityDTO>> groupedActivities = {};
-      Set<int> usedIndexes = {};
+      Navigator.of(context).pop(); // 🔴 loader close
 
-      for (int i = 0; i < detail.activityDTO.length; i++) {
-        if (usedIndexes.contains(i)) continue;
-
-        final current = detail.activityDTO[i];
-        final group = <ActivityDTO>[current];
-        usedIndexes.add(i);
-
-        for (int j = i + 1; j < detail.activityDTO.length; j++) {
-          if (usedIndexes.contains(j)) continue;
-
-          final other = detail.activityDTO[j];
-          final sameUser = other.createdBy == current.createdBy;
-          final timeDiff = (other.createdDate.difference(current.createdDate))
-              .inSeconds
-              .abs();
-
-          if (sameUser && timeDiff <= 5) {
-            group.add(other);
-            usedIndexes.add(j);
-          }
-        }
-        groupedActivities['$i'] = group;
-      }
-
-      // 4️⃣ Show Dialog
-      showDialog(
+      final detail = list.first;
+      final result = await showDialog<bool>(
         context: context,
-        builder: (_) => Dialog(
-          insetPadding: const EdgeInsets.all(16),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 1000,
-              maxHeight: MediaQuery.of(context).size.height * 0.8,
-            ),
-            child: IntrinsicHeight(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 🔹 Header
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Observation Details (View Only)',
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context, true))
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          buildTextIfNotEmpty(
-                            detail.observationNameWithCategory,
-                          ),
-                          // const SizedBox(height: 6),
-                          // ✅ SAME METHOD AS DETAIL TAB
-                          _buildResponsiveRow(
-                            context,
-                            "Observation Date :",
-                            _formatDate(detail.trancationDate),
-                            "Created Date :",
-                            _formatDate(detail.createdDate),
-                          ),
-
-                          _buildResponsiveRow(
-                            context,
-                            "Observation Type :",
-                            detail.observationType ?? 'N/A',
-                            "Issue Type :",
-                            detail.issueType ?? 'N/A',
-                          ),
-
-                          _buildResponsiveRow(
-                            context,
-                            "Created By :",
-                            detail.observationRaisedBy ?? 'N/A',
-                            "Due Date :",
-                            _formatDate(detail.dueDate),
-                          ),
-
-                          _buildResponsiveRow(
-                            context,
-                            "Activity :",
-                            detail.activityName ?? 'N/A',
-                            "Block :",
-                            detail.sectionName ?? 'N/A',
-                          ),
-
-                          _buildResponsiveRow(
-                            context,
-                            "Floor :",
-                            detail.floorName ?? 'N/A',
-                            "Pour :",
-                            detail.partName ?? 'N/A',
-                          ),
-
-                          _buildResponsiveRow(
-                            context,
-                            "Element :",
-                            detail.elementName ?? 'N/A',
-                            "Contractor :",
-                            detail.contractorName ?? 'N/A',
-                          ),
-
-                          _buildResponsiveRow(
-                            context,
-                            "Compliance Required :",
-                            detail.complianceRequired ? 'Yes' : 'No',
-                            "Escalation Required :",
-                            detail.escalationRequired ? 'Yes' : 'No',
-                          ),
-
-                          _buildResponsiveRow(
-                            context,
-                            "Observed By :",
-                            detail.observedByName,
-                            "Violation Type :",
-                            detail.violationTypeName ?? 'N/A',
-                          ),
-
-                          buildPairRow(
-                            context,
-                            label1: "Observation Description :",
-                            value1: detail.description,
-                          ),
-
-                          buildPairRow(
-                            context,
-                            label1: "Action To Be Taken :",
-                            value1: detail.actionToBeTaken,
-                          ),
-                          buildPairRow(
-                            context,
-                            label1: "Assigned Users :",
-                            value1: detail.assignedUsersName,
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          _rootCauseSection(detail),
-                          const SizedBox(height: 12),
-                          ExpansionTile(
-                            title: Text(
-                              "Attachments (${detail.activityDTO.where((a) => a.documentName.isNotEmpty).length})",
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            initiallyExpanded: false,
-                            children: detail.activityDTO
-                                .where((activity) =>
-                                    activity.documentName.isNotEmpty)
-                                .map((activity) =>
-                                    _buildAttachmentItem(activity, detail))
-                                .toList(),
-                          ),
-                          const SizedBox(height: 12),
-                          ExpansionTile(
-                            title: Text(
-                              "Activities (${detail.activityDTO.length})",
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            children: groupedActivities.values
-                                .map((acts) => _buildActivityItem(acts))
-                                .toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        builder: (_) => ObservationSafetyDetailDialog(
+          detail: detail,
+          siteObservationService: widget._siteObservationService,
+          siteObservationId: detail.id,
+          createdBy: detail.createdBy?.toString() ?? '',
+          activityId: detail.activityID,
+          projectID: detail.projectID,
         ),
       );
     } catch (e) {
+      Navigator.of(context).pop(); // loader close
+
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Failed to load details')));
-    }
-  }
-
-  Widget _rootCauseSection(GetSiteObservationMasterById observation) {
-    final widgets = <Widget>[];
-    // print("observation.reworkCost:${observation.reworkCost}");
-    void addIfValid(String label, dynamic value) {
-      if (value == null) return;
-
-      // Numeric check
-      if (value is num && value == 0) return;
-
-      // String check
-      if (value is String &&
-          (value.trim().isEmpty ||
-              value == 'N/A' ||
-              value == '0' ||
-              value == '0.0')) return;
-
-      // Add widget
-      widgets.add(
-        buildPairRow(
-          context,
-          label1: "$label :",
-          value1: value.toString(),
-        ),
+        const SnackBar(content: Text('❌ Failed to load observation')),
       );
     }
-
-    // 🔹 Normal fields
-    addIfValid("Root Cause Name", observation.rootCauseName);
-    addIfValid("Rework Cost", observation.reworkCost);
-    addIfValid("Root Cause Description", observation.rootcauseDescription);
-    addIfValid(
-        "Corrective Action To Be Taken", observation.corretiveActionToBeTaken);
-    addIfValid("Preventive Action Taken", observation.preventiveActionTaken);
-
-    // 🔴 Reopen Remarks (only when Reopen)
-    if (observation.statusID == SiteObservationStatus.Reopen &&
-        observation.reopenRemarks != null &&
-        observation.reopenRemarks!.trim().isNotEmpty) {
-      widgets.add(
-        buildPairRow(
-          context,
-          label1: "Reopen Remarks :",
-          value1: observation.reopenRemarks,
-          valueColor: Colors.red,
-        ),
-      );
-    }
-
-    // 🟢 Closure Remarks (only when Closed)
-    if (observation.statusID == SiteObservationStatus.Closed &&
-        observation.closeRemarks != null &&
-        observation.closeRemarks!.trim().isNotEmpty) {
-      widgets.add(
-        buildPairRow(
-          context,
-          label1: "Closure Date:",
-          value1: _formatDate(observation.lastModifiedDate),
-          valueColor: Colors.green,
-        ),
-      );
-      widgets.add(
-        buildPairRow(
-          context,
-          label1: "Closure Remarks :",
-          value1: observation.closeRemarks,
-          valueColor: Colors.green,
-        ),
-      );
-    }
-
-    // 👉 Agar kuch bhi nahi hai → pura section hide
-    if (widgets.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Divider(thickness: 1),
-          const Text(
-            'Root Cause (View Only)',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...widgets,
-        ],
-      ),
-    );
   }
 
   void _removeUploadedFile(String fileName) {
+    final index = selectedFileNames.indexOf(fileName);
+    if (index == -1) return;
+
     setState(() {
+      selectedFileNames.removeAt(index);
+      selectedFileBytes.removeAt(index);
+      uploadedFromList.removeAt(index);
       uploadedFiles.remove(fileName);
 
-      activityList.removeWhere(
-        (a) => a.documentName == fileName,
-      );
-
-      activityDTOList.removeWhere(
-        (dto) => dto.documentName == fileName,
-      );
-
-      if (selectedFileName == fileName) {
-        selectedFileName = null;
-      }
+      activityList.removeWhere((a) => a.documentName == fileName);
+      activityDTOList.removeWhere((dto) => dto.documentName == fileName);
     });
+  }
+
+  Future<bool> _onWillPop() async {
+    // if (Navigator.of(context).canPop()) return true;
+
+    if (!showObservations) {
+      _resetForm();
+      isEditMode = false;
+      setState(() => showObservations = true);
+      return false;
+    }
+
+    if (selectedObservationForView != null) {
+      setState(() {
+        selectedObservationForView = null;
+        showObservations = false;
+      });
+      return false;
+    }
+
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: () async {
-        if (!showObservations) {
-          // 👇 Reset form values
-          _resetForm();
-          isEditMode = false;
-          // 👇 Switch back to observations list
-          setState(() {
-            showObservations = true;
-          });
-          return false;
-        }
-        if (selectedObservationForView != null) {
-          // 🔴 Non-draft view se back
-          setState(() {
-            selectedObservationForView = null;
-            showObservations = false;
-          });
-          return false;
-        }
-        return true; // Default: allow back navigation
-      },
+      // onWillPop: () async {
+      //   if (Navigator.of(context).canPop()) {
+      //     return true; // dialog close ko allow karo
+      //   }
+      //   if (!showObservations) {
+      //     // 👇 Reset form values
+      //     _resetForm();
+      //     isEditMode = false;
+      //     // 👇 Switch back to observations list
+      //     setState(() {
+      //       showObservations = true;
+      //     });
+      //     return false;
+      //   }
+      //   if (selectedObservationForView != null) {
+      //     // 🔴 Non-draft view se back
+      //     setState(() {
+      //       selectedObservationForView = null;
+      //       showObservations = false;
+      //     });
+      //     return false;
+      //   }
+      //   return true; // Default: allow back navigation
+      // },
+      onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
           title: Text('Site Observation - Safety'),
           backgroundColor: Colors.blue,
           centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
+              if (await _onWillPop()) {
+                Navigator.pop(context);
+              }
+            },
+          ),
         ),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -2739,7 +2334,28 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                       null;
                                                 });
                                               } else {
-                                                _openObservationDetailPopup(
+                                                // _openObservationDetailPopup(
+                                                //     observation.id);
+                                                // return ObservationSafetyDetailDialog(
+                                                //   detail: observation,
+                                                //   siteObservationService: widget
+                                                //       ._siteObservationService,
+                                                //   siteObservationId: observation.id,
+                                                //   createdBy: observation.createdBy
+                                                //           ?.toString() ??
+                                                //       '',
+                                                //   activityId: observation.activityID,
+                                                //   projectID: observation.projectID,
+                                                // );
+                                                // 🔵 Non-draft → FAST dialog open with loader
+                                                showDialog(
+                                                  context: context,
+                                                  barrierDismissible: false,
+                                                  builder: (_) =>
+                                                      const ObservationLoadingDialog(),
+                                                );
+
+                                                _openSafetyObservationWithLoader(
                                                     observation.id);
                                               }
                                             },
@@ -2936,7 +2552,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                                   text: observation
                                                                               .transactionDate !=
                                                                           null
-                                                                      ? DateFormat('MM/dd/yyyy').format(observation
+                                                                      ? DateFormat('dd/MM/yyyy').format(observation
                                                                           .transactionDate
                                                                           .toLocal())
                                                                       : 'N/A',
@@ -3106,43 +2722,187 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                             ),
                                             SizedBox(height: 20),
 
-                                            DropdownButtonFormField<String>(
-                                              value: issueTypes.any((e) =>
-                                                      e.name ==
-                                                      selectedIssueType)
-                                                  ? selectedIssueType
-                                                  : null,
-                                              onChanged: (!isDraftObservation &&
-                                                      isEditMode)
-                                                  ? (String? newValue) async {
-                                                      // 🔕 First time / empty → no alert
-                                                      if (!_hasDependentDataFilled()) {
-                                                        _applyIssueTypeChange(
-                                                            newValue);
+                                            // DropdownButtonFormField<String>(
+                                            //   value: issueTypes.any((e) =>
+                                            //           e.name ==
+                                            //           selectedIssueType)
+                                            //       ? selectedIssueType
+                                            //       : null,
+                                            //   onChanged: (!isDraftObservation &&
+                                            //           isEditMode)
+                                            //       ? (String? newValue) async {
+                                            //           // 🔕 First time / empty → no alert
+                                            //           if (!_hasDependentDataFilled()) {
+                                            //             _applyIssueTypeChange(
+                                            //                 newValue);
+                                            //             return;
+                                            //           }
+
+                                            //           // ⚠️ Data filled → show alert
+                                            //           bool proceed =
+                                            //               await _showResetAlert(
+                                            //                   context);
+                                            //           if (!proceed) return;
+
+                                            //           _applyIssueTypeChange(
+                                            //               newValue);
+                                            //         }
+                                            //       : null,
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Issue Type',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   items:
+                                            //       issueTypes.map((issueType) {
+                                            //     return DropdownMenuItem<String>(
+                                            //       value: issueType.name,
+                                            //       child: Text(issueType.name),
+                                            //     );
+                                            //   }).toList(),
+                                            // ),
+
+                                            // DropdownButtonFormField<String>(
+                                            //   value: issueTypes.any((e) =>
+                                            //           e.name ==
+                                            //           selectedIssueType)
+                                            //       ? selectedIssueType
+                                            //       : null,
+                                            //   onChanged:
+                                            //       null, // ❌ default value change band
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Issue Type',
+                                            //     border: OutlineInputBorder(),
+                                            //   ),
+                                            //   items:
+                                            //       issueTypes.map((issueType) {
+                                            //     return DropdownMenuItem<String>(
+                                            //       value: issueType.name,
+                                            //       child: Text(issueType.name),
+                                            //     );
+                                            //   }).toList(),
+                                            // ),
+
+                                            InkWell(
+                                              onTap: isDraftObservation
+                                                  ? null
+                                                  : () async {
+                                                      // Step 1: Select value
+                                                      final String? newValue =
+                                                          await showDialog<
+                                                              String>(
+                                                        context: context,
+                                                        builder: (context) {
+                                                          return SimpleDialog(
+                                                            title: const Text(
+                                                                'Select Issue Type'),
+                                                            children: issueTypes
+                                                                .map(
+                                                                    (issueType) {
+                                                              final bool
+                                                                  isSelected =
+                                                                  issueType
+                                                                          .name ==
+                                                                      selectedIssueType;
+
+                                                              return SimpleDialogOption(
+                                                                onPressed: () {
+                                                                  Navigator.pop(
+                                                                      context,
+                                                                      issueType
+                                                                          .name);
+                                                                },
+                                                                child:
+                                                                    Container(
+                                                                  padding: const EdgeInsets
+                                                                      .symmetric(
+                                                                      vertical:
+                                                                          8,
+                                                                      horizontal:
+                                                                          4),
+                                                                  decoration:
+                                                                      BoxDecoration(
+                                                                    color: isSelected
+                                                                        ? Colors.blue.withOpacity(0.1) // ✅ highlight
+                                                                        : Colors.transparent,
+                                                                    borderRadius:
+                                                                        BorderRadius
+                                                                            .circular(6),
+                                                                  ),
+                                                                  child: Row(
+                                                                    children: [
+                                                                      Expanded(
+                                                                        child:
+                                                                            Text(
+                                                                          issueType
+                                                                              .name,
+                                                                          style:
+                                                                              TextStyle(
+                                                                            fontWeight: isSelected
+                                                                                ? FontWeight.bold
+                                                                                : FontWeight.normal,
+                                                                            color: isSelected
+                                                                                ? Colors.blue
+                                                                                : Colors.black,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+
+                                                                      /// ✅ Tick mark for selected value
+                                                                      if (isSelected)
+                                                                        const Icon(
+                                                                          Icons
+                                                                              .check,
+                                                                          color:
+                                                                              Colors.blue,
+                                                                          size:
+                                                                              18,
+                                                                        ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            }).toList(),
+                                                          );
+                                                        },
+                                                      );
+
+                                                      if (newValue == null ||
+                                                          newValue ==
+                                                              selectedIssueType)
                                                         return;
+
+                                                      // Step 2: Confirmation
+                                                      if (_hasDependentDataFilled()) {
+                                                        bool proceed =
+                                                            await _showResetAlert(
+                                                                context);
+                                                        if (!proceed) return;
                                                       }
 
-                                                      // ⚠️ Data filled → show alert
-                                                      bool proceed =
-                                                          await _showResetAlert(
-                                                              context);
-                                                      if (!proceed) return;
-
+                                                      // Step 3: Apply change
                                                       _applyIssueTypeChange(
                                                           newValue);
-                                                    }
-                                                  : null,
-                                              decoration: InputDecoration(
-                                                labelText: 'Issue Type',
-                                                border: OutlineInputBorder(),
+                                                    },
+                                              child: InputDecorator(
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText: 'Issue Type',
+                                                  border: OutlineInputBorder(),
+                                                  suffixIcon: Icon(
+                                                      Icons.arrow_drop_down),
+                                                ),
+                                                isEmpty:
+                                                    selectedIssueType == null,
+                                                child: Text(
+                                                  selectedIssueType ?? '',
+                                                  style: TextStyle(
+                                                    color: selectedIssueType ==
+                                                            null
+                                                        ? Colors.grey
+                                                        : Colors.black,
+                                                  ),
+                                                ),
                                               ),
-                                              items:
-                                                  issueTypes.map((issueType) {
-                                                return DropdownMenuItem<String>(
-                                                  value: issueType.name,
-                                                  child: Text(issueType.name),
-                                                );
-                                              }).toList(),
                                             ),
 
                                             SizedBox(height: 20),
@@ -3467,79 +3227,64 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                 opacity: isUserSelectionEnabled
                                                     ? 1.0
                                                     : 0.5,
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    // 🔴 DEBUG Text
-                                                    // Text(
-                                                    //   'DEBUG selected = ${selectedUserObjects.map((e) => e.userName).toList()}',
-                                                    //   style: TextStyle(
-                                                    //       color: Colors.red,
-                                                    //       fontWeight:
-                                                    //           FontWeight.bold),
-                                                    // ),
-
-                                                    // 🔹 MultiSelect widget
-                                                    MultiSelectDialogField<
-                                                        UserList>(
-                                                      items: userList
-                                                          .map((user) =>
-                                                              MultiSelectItem<
-                                                                      UserList>(
-                                                                  user,
-                                                                  user.userName))
-                                                          .toList(),
-                                                      initialValue:
-                                                          selectedUserObjects,
-                                                      title: const Text(
-                                                          "Assigned To"),
-                                                      selectedItemsTextStyle:
-                                                          const TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold),
-                                                      itemsTextStyle:
-                                                          const TextStyle(
-                                                              fontSize: 16),
-                                                      searchable: true,
-                                                      buttonText: const Text(
-                                                          "Select Users"),
-                                                      onConfirm: (List<UserList>
-                                                          selected) {
-                                                        setState(() {
-                                                          selectedUserObjects =
-                                                              selected;
-                                                          selectedUsers =
-                                                              selected
-                                                                  .map((u) => u
-                                                                      .userName)
-                                                                  .toList();
-                                                        });
-                                                      },
-                                                      chipDisplay:
-                                                          MultiSelectChipDisplay(
-                                                        onTap: (UserList user) {
-                                                          setState(() {
+                                                child: MultiSelectDialogField<
+                                                    UserList>(
+                                                  items: userList
+                                                      .map(
+                                                        (user) =>
+                                                            MultiSelectItem<
+                                                                UserList>(
+                                                          user,
+                                                          user.userName,
+                                                        ),
+                                                      )
+                                                      .toList(),
+                                                  initialValue:
+                                                      selectedUserObjects,
+                                                  title:
+                                                      const Text("Assigned To"),
+                                                  selectedItemsTextStyle:
+                                                      const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold),
+                                                  itemsTextStyle:
+                                                      const TextStyle(
+                                                          fontSize: 16),
+                                                  searchable: true,
+                                                  buttonText: const Text(
+                                                      "Select Users"),
+                                                  onConfirm: (List<UserList>
+                                                      selected) {
+                                                    setState(() {
+                                                      selectedUserObjects =
+                                                          selected;
+                                                      selectedUsers = selected
+                                                          .map(
+                                                              (u) => u.userName)
+                                                          .toList();
+                                                    });
+                                                  },
+                                                  chipDisplay:
+                                                      MultiSelectChipDisplay(
+                                                    onTap: (UserList user) {
+                                                      setState(() {
+                                                        selectedUserObjects
+                                                            .remove(user);
+                                                        selectedUsers =
                                                             selectedUserObjects
-                                                                .remove(user);
-                                                            selectedUsers =
-                                                                selectedUserObjects
-                                                                    .map((u) =>
-                                                                        u.userName)
-                                                                    .toList();
-                                                          });
-                                                        },
-                                                      ),
-                                                      decoration: BoxDecoration(
-                                                        border: Border.all(
-                                                            color: Colors.grey),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(4),
-                                                      ),
-                                                    ),
-                                                  ],
+                                                                .map((u) =>
+                                                                    u.userName)
+                                                                .toList();
+                                                      });
+                                                    },
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(
+                                                        color: Colors.grey),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                  ),
                                                 ),
                                               ),
                                             ),
@@ -3589,152 +3334,298 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
                                             SizedBox(height: 20),
                                             // 🔽 File Upload Section just like TextFormField
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                const Text(
-                                                  "Upload File",
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 8),
-                                                SizedBox(
-                                                  width: double
-                                                      .infinity, // ✅ Make button full width like form field
-                                                  child: ElevatedButton.icon(
-                                                    icon:
-                                                        Icon(Icons.upload_file),
-                                                    label: Text("Choose File"),
-                                                    onPressed: () async {
-                                                      FilePickerResult? result =
-                                                          await FilePicker
-                                                              .platform
-                                                              .pickFiles(
-                                                        allowMultiple: false,
-                                                        withData: true,
-                                                      );
+                                            // Column(
+                                            //   crossAxisAlignment:
+                                            //       CrossAxisAlignment.start,
+                                            //   children: [
+                                            //     const Text(
+                                            //       "Upload File",
+                                            //       style: TextStyle(
+                                            //         fontWeight: FontWeight.bold,
+                                            //         fontSize: 16,
+                                            //       ),
+                                            //     ),
+                                            //     const SizedBox(height: 8),
+                                            //     SizedBox(
+                                            //       width: double
+                                            //           .infinity, // ✅ Make button full width like form field
+                                            //       child: ElevatedButton.icon(
+                                            //         icon:
+                                            //             Icon(Icons.upload_file),
+                                            //         label: Text("Choose File"),
+                                            //         onPressed: () async {
+                                            //           FilePickerResult? result =
+                                            //               await FilePicker
+                                            //                   .platform
+                                            //                   .pickFiles(
+                                            //             allowMultiple: false,
+                                            //             withData: true,
+                                            //           );
 
-                                                      if (result != null &&
-                                                          result.files
-                                                              .isNotEmpty) {
-                                                        final file =
-                                                            result.files.first;
+                                            //           if (result != null &&
+                                            //               result.files
+                                            //                   .isNotEmpty) {
+                                            //             final file =
+                                            //                 result.files.first;
 
-                                                        if (mounted) {
-                                                          setState(() {
-                                                            isUploading = true;
-                                                            selectedFileName = file
-                                                                .name; // Show filename immediately after picking file
-                                                          });
-                                                        }
+                                            //             if (mounted) {
+                                            //               setState(() {
+                                            //                 isUploading = true;
+                                            //                 selectedFileName = file
+                                            //                     .name; // Show filename immediately after picking file
+                                            //               });
+                                            //             }
 
-                                                        final uploadedFileName =
-                                                            await SiteObservationService()
-                                                                .uploadFileAndGetFileName(
-                                                                    file.name,
-                                                                    file.bytes!);
+                                            //             final uploadedFileName =
+                                            //                 await SiteObservationService()
+                                            //                     .uploadFileAndGetFileName(
+                                            //                         file.name,
+                                            //                         file.bytes!);
 
-                                                        if (mounted) {
-                                                          setState(() {
-                                                            isUploading = false;
-                                                          });
-                                                        }
+                                            //             if (mounted) {
+                                            //               setState(() {
+                                            //                 isUploading = false;
+                                            //               });
+                                            //             }
 
-                                                        if (uploadedFileName !=
-                                                            null) {
-                                                          onFileUploadSuccess(
-                                                              uploadedFileName,
-                                                              isDraft: isDraft);
-                                                        } else {
-                                                          if (mounted) {
-                                                            ScaffoldMessenger
-                                                                    .of(context)
-                                                                .showSnackBar(
-                                                              const SnackBar(
-                                                                  content: Text(
-                                                                      "❌ File upload failed")),
-                                                            );
-                                                          }
-                                                        }
-                                                      }
-                                                    },
-                                                    style: ElevatedButton
-                                                        .styleFrom(
+                                            //             if (uploadedFileName !=
+                                            //                 null) {
+                                            //               onFileUploadSuccess(
+                                            //                   uploadedFileName,
+                                            //                   isDraft: isDraft);
+                                            //             } else {
+                                            //               if (mounted) {
+                                            //                 ScaffoldMessenger
+                                            //                         .of(context)
+                                            //                     .showSnackBar(
+                                            //                   const SnackBar(
+                                            //                       content: Text(
+                                            //                           "❌ File upload failed")),
+                                            //                 );
+                                            //               }
+                                            //             }
+                                            //           }
+                                            //         },
+                                            //         style: ElevatedButton
+                                            //             .styleFrom(
+                                            //           padding:
+                                            //               EdgeInsets.symmetric(
+                                            //                   vertical: 16),
+                                            //           backgroundColor:
+                                            //               Colors.blue,
+                                            //           shape:
+                                            //               RoundedRectangleBorder(
+                                            //             borderRadius:
+                                            //                 BorderRadius
+                                            //                     .circular(8),
+                                            //           ),
+                                            //         ),
+                                            //       ),
+                                            //     ),
+                                            //     if (selectedFileName !=
+                                            //         null) ...[
+                                            //       const SizedBox(height: 8),
+                                            //       Text(
+                                            //         "Selected file: $selectedFileName",
+                                            //         style: const TextStyle(
+                                            //             fontWeight:
+                                            //                 FontWeight.w600),
+                                            //       ),
+                                            //     ],
+                                            //     if (isUploading) ...[
+                                            //       const SizedBox(height: 8),
+                                            //       const LinearProgressIndicator(), // 👈 Better for full-width than Circular
+                                            //     ],
+                                            //     if (uploadedFiles
+                                            //         .isNotEmpty) ...[
+                                            //       const SizedBox(height: 16),
+                                            //       const Text(
+                                            //         "Uploaded Files:",
+                                            //         style: TextStyle(
+                                            //             fontWeight:
+                                            //                 FontWeight.bold),
+                                            //       ),
+                                            //       for (var name
+                                            //           in uploadedFiles)
+                                            //         Padding(
+                                            //           padding: const EdgeInsets
+                                            //               .symmetric(
+                                            //               vertical: 4),
+                                            //           child: Row(
+                                            //             children: [
+                                            //               const Icon(
+                                            //                   Icons
+                                            //                       .insert_drive_file,
+                                            //                   color:
+                                            //                       Colors.green),
+                                            //               const SizedBox(
+                                            //                   width: 8),
+
+                                            //               // File name
+                                            //               Expanded(
+                                            //                 child: Text(
+                                            //                   name,
+                                            //                   overflow:
+                                            //                       TextOverflow
+                                            //                           .ellipsis,
+                                            //                   style:
+                                            //                       const TextStyle(
+                                            //                     color: Colors
+                                            //                         .green,
+                                            //                     fontWeight:
+                                            //                         FontWeight
+                                            //                             .w600,
+                                            //                   ),
+                                            //                 ),
+                                            //               ),
+
+                                            //               // 🔴 REMOVE ICON (only this new)
+                                            //               IconButton(
+                                            //                 icon: const Icon(
+                                            //                     Icons.delete,
+                                            //                     color:
+                                            //                         Colors.red),
+                                            //                 onPressed: () {
+                                            //                   _removeUploadedFile(
+                                            //                       name);
+                                            //                 },
+                                            //               ),
+                                            //             ],
+                                            //           ),
+                                            //         )
+                                            //     ],
+                                            //   ],
+                                            // ),
+
+                                            // Row(
+                                            //   children: [
+                                            //     Expanded(
+                                            //       child: ElevatedButton.icon(
+                                            //         icon: const Icon(
+                                            //             Icons.upload_file),
+                                            //         label: const Text(
+                                            //             "Choose File"),
+                                            //         onPressed:
+                                            //             _pickFromCamera, // tumhara existing code
+                                            //       ),
+                                            //     ),
+                                            //     const SizedBox(width: 12),
+                                            //     Expanded(
+                                            //       child: ElevatedButton.icon(
+                                            //         icon: const Icon(
+                                            //             Icons.camera_alt),
+                                            //         label: const Text("Camera"),
+                                            //         onPressed: _pickFromCamera,
+                                            //       ),
+                                            //     ),
+                                            //   ],
+                                            // ),
+
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: ElevatedButton.icon(
+                                                icon: const Icon(
+                                                    Icons.upload_file),
+                                                label:
+                                                    const Text("Upload File"),
+                                                onPressed: _showOptions,
+                                              ),
+                                            ),
+
+                                            const SizedBox(height: 12),
+
+// 🔽 Uploaded Files List
+                                            if (selectedFileNames.isNotEmpty)
+                                              ListView.builder(
+                                                shrinkWrap: true,
+                                                physics:
+                                                    const NeverScrollableScrollPhysics(),
+                                                itemCount:
+                                                    selectedFileNames.length,
+                                                itemBuilder: (context, index) {
+                                                  final fileName =
+                                                      selectedFileNames[index];
+                                                  final bytes =
+                                                      selectedFileBytes[index];
+                                                  final from =
+                                                      uploadedFromList[index];
+
+                                                  return Card(
+                                                    margin: const EdgeInsets
+                                                        .symmetric(vertical: 6),
+                                                    child: Padding(
                                                       padding:
-                                                          EdgeInsets.symmetric(
-                                                              vertical: 16),
-                                                      backgroundColor:
-                                                          Colors.blue,
-                                                      shape:
-                                                          RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(8),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (selectedFileName !=
-                                                    null) ...[
-                                                  const SizedBox(height: 8),
-                                                  Text(
-                                                    "Selected file: $selectedFileName",
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w600),
-                                                  ),
-                                                ],
-                                                if (isUploading) ...[
-                                                  const SizedBox(height: 8),
-                                                  const LinearProgressIndicator(), // 👈 Better for full-width than Circular
-                                                ],
-                                                if (uploadedFiles
-                                                    .isNotEmpty) ...[
-                                                  const SizedBox(height: 16),
-                                                  const Text(
-                                                    "Uploaded Files:",
-                                                    style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold),
-                                                  ),
-                                                  for (var name
-                                                      in uploadedFiles)
-                                                    Padding(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                          vertical: 4),
+                                                          const EdgeInsets.all(
+                                                              8),
                                                       child: Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
                                                         children: [
-                                                          const Icon(
-                                                              Icons
-                                                                  .insert_drive_file,
-                                                              color:
-                                                                  Colors.green),
-                                                          const SizedBox(
-                                                              width: 8),
-
-                                                          // File name
-                                                          Expanded(
-                                                            child: Text(
-                                                              name,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                              style:
-                                                                  const TextStyle(
-                                                                color: Colors
-                                                                    .green,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
+                                                          // 🖼 IMAGE PREVIEW (if available)
+                                                          if (bytes != null)
+                                                            ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          6),
+                                                              child:
+                                                                  Image.memory(
+                                                                bytes,
+                                                                width: 60,
+                                                                height: 60,
+                                                                fit: BoxFit
+                                                                    .cover,
                                                               ),
+                                                            )
+                                                          else
+                                                            const Icon(
+                                                                Icons
+                                                                    .insert_drive_file,
+                                                                size: 50,
+                                                                color: Colors
+                                                                    .grey),
+
+                                                          const SizedBox(
+                                                              width: 10),
+
+                                                          // 📄 File info
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Text(
+                                                                  fileName,
+                                                                  maxLines: 2,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style:
+                                                                      const TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(
+                                                                    height: 4),
+                                                                Text(
+                                                                  "From: $from",
+                                                                  style:
+                                                                      const TextStyle(
+                                                                    fontSize:
+                                                                        12,
+                                                                    color: Colors
+                                                                        .green,
+                                                                  ),
+                                                                ),
+                                                              ],
                                                             ),
                                                           ),
 
-                                                          // 🔴 REMOVE ICON (only this new)
+                                                          // ❌ REMOVE BUTTON
                                                           IconButton(
                                                             icon: const Icon(
                                                                 Icons.delete,
@@ -3742,15 +3633,15 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                                     Colors.red),
                                                             onPressed: () {
                                                               _removeUploadedFile(
-                                                                  name);
+                                                                  fileName);
                                                             },
                                                           ),
                                                         ],
                                                       ),
-                                                    )
-                                                ],
-                                              ],
-                                            ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
 
                                             Row(
                                               mainAxisAlignment:

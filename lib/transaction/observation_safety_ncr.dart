@@ -35,7 +35,7 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
 
   String formatDate(DateTime? date) {
     if (date == null) return 'N/A';
-    return DateFormat('MM/dd/yyyy').format(date.toLocal());
+    return DateFormat('dd/MM/yyyy').format(date.toLocal());
   }
 
   @override
@@ -43,7 +43,7 @@ class _ObservationSafetyNCRPageState extends State<ObservationSafetyNCRPage> {
     return Scaffold(
       // ✅ Ye add karna hai
       appBar: AppBar(
-        title: Text('Site Observation Safety'),
+        title: Text('Site Observation NCR Safety'),
       ),
       body: FutureBuilder<List<NCRObservation>>(
         future: futureObservations,
