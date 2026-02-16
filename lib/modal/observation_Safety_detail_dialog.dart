@@ -1268,14 +1268,6 @@ class _ObservationSafetyDetailDialogState
         builder: (context, constraints) {
           final height = media.size.height * 0.8;
           final width = media.size.width * 0.9;
-          print("🧱 BUILD DROPDOWN");
-          print("fromStatus=$fromStatus");
-          print("selectedStatus=$selectedStatus");
-          print("toStatus=$toStatus");
-          print("isStatusEnabled=$isStatusEnabled");
-          print(
-              "observationStatus=${observationStatus.map((e) => e['id']).toList()}");
-
           return ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: height,
