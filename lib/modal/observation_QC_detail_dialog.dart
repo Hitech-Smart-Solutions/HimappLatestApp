@@ -1020,7 +1020,7 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                           },
 
                           decoration: InputDecoration(
-                            isDense: true,
+                            isDense: false,
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 12),
                             border: OutlineInputBorder(

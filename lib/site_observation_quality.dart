@@ -210,6 +210,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   List<Uint8List?> selectedFileBytes = []; // image preview
   List<String> uploadedFromList = []; // Camera / Gallery / File
 
+  bool hideFabAfterAdd = false;
+
   @override
   void initState() {
     super.initState();
@@ -2176,7 +2178,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   }
 
   Future<bool> _onWillPop() async {
-    if (Navigator.of(context).canPop()) return true;
+    // if (Navigator.of(context).canPop()) return true;
 
     if (!showObservations) {
       _resetForm();
@@ -3450,6 +3452,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                 ),
                                               ],
                                             ),
+                                            const SizedBox(height: 10),
                                           ],
                                         ),
                                       ),
@@ -3459,31 +3462,56 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                         ),
                       ),
               ),
+              // Align(
+              //   alignment: Alignment.bottomRight,
+              //   child: widget.pagePermission.canAdd
+              //       ? FloatingActionButton(
+              //           onPressed: () {
+              //             setState(() {
+              //               if (!showObservations) {
+              //                 _resetForm();
+              //                 isEditMode = false;
+              //                 isDraftObservation = false;
+              //               } else {
+              //                 isEditMode = true;
+              //                 isDraftObservation = false;
+              //                 _dateController.text =
+              //                     DateFormat('dd/MM/yyyy HH:mm')
+              //                         .format(DateTime.now());
+              //                 hideFabAfterAdd = true;
+              //               }
+              //               showObservations = !showObservations;
+              //             });
+              //           },
+              //           backgroundColor: Colors.blue,
+              //           child: Icon(showObservations ? Icons.add : Icons.list),
+              //         )
+              //       : const SizedBox(), // ❌ Add permission nahi → FAB bhi nahi
+              // ),
               Align(
                 alignment: Alignment.bottomRight,
-                child: widget.pagePermission.canAdd
+                child: widget.pagePermission.canAdd && showObservations
                     ? FloatingActionButton(
+                        backgroundColor: Colors.blue,
+                        child: const Icon(Icons.add),
                         onPressed: () {
                           setState(() {
-                            if (!showObservations) {
-                              _resetForm();
-                              isEditMode = false;
-                              isDraftObservation = false;
-                            } else {
-                              isEditMode = true;
-                              isDraftObservation = false;
-                              _dateController.text =
-                                  DateFormat('dd/MM/yyyy HH:mm')
-                                      .format(DateTime.now());
-                            }
-                            showObservations = !showObservations;
+                            // ADD click → form open
+                            isEditMode = true;
+                            isDraftObservation = false;
+
+                            _dateController.text =
+                                DateFormat('dd/MM/yyyy HH:mm')
+                                    .format(DateTime.now());
+
+                            // 👇 List se form par switch
+                            showObservations = false;
                           });
                         },
-                        backgroundColor: Colors.blue,
-                        child: Icon(showObservations ? Icons.add : Icons.list),
                       )
-                    : const SizedBox(), // ❌ Add permission nahi → FAB bhi nahi
+                    : const SizedBox(), // 👈 Form screen → FAB hidden
               ),
+              const SizedBox(height: 20)
             ],
           ),
         ),

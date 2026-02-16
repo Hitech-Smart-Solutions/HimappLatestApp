@@ -57,6 +57,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
 // Ye page permissions fetch ke liye
   List<PagePermission> pagePermissions = [];
+  List<NotificationModel> _dialogNotifications = [];
 
 // Module wise group ke liye
   Map<String, List<PagePermission>> moduleWisePages = {};
@@ -218,7 +219,10 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    List<NotificationModel> _dialogNotifications = [];
+    print("🧪 BUILD CALLED");
+
+    // print("🧪 notifications length = ${notifications.length}");
+    // print("🧪 notifications = $notifications");
     return Scaffold(
       drawer: _buildDrawer(context),
       appBar: AppBar(
@@ -238,6 +242,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
                   setState(() {
                     _unreadCount = 0; // Mark as read in UI
+                    _dialogNotifications =
+                        List.from(notifications); // ✅ IMPORTANT
                   });
 
                   _dialogNotifications = List.from(notifications);
@@ -245,7 +251,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   showDialog(
                     context: context,
                     builder: (_) => StatefulBuilder(
-                      builder: (context, setState) => AlertDialog(
+                      builder: (context, dialogSetState) => AlertDialog(
                         title: Text("Notifications"),
                         content: SizedBox(
                           width: double.maxFinite,
@@ -278,32 +284,62 @@ class _DashboardPageState extends State<DashboardPage> {
                                             int? userId =
                                                 await SharedPrefsHelper
                                                     .getUserId();
-                                            if (userId == null) return;
+                                            if (userId == null) {
+                                              print("❌ userId null");
+                                              return;
+                                            }
 
+                                            final notification =
+                                                _dialogNotifications[index];
                                             final notificationId =
-                                                _dialogNotifications[index].id;
-                                            if (notificationId == null) return;
+                                                notification.id;
+
+                                            print(
+                                                "🧪 notificationId = $notificationId");
+
+                                            if (notificationId == null) {
+                                              print("❌ notificationId null");
+                                              return;
+                                            }
+
                                             bool success = await widget
                                                 .siteObservationService
                                                 .deleteNotification(
-                                              notificationId
-                                                  .toString(), // Convert to String if needed
+                                              notificationId.toString(),
                                               userId,
-                                              AppSettings.DEVICEID[
-                                                  'Mobile']!, // Device type
+                                              AppSettings.DEVICEID['Mobile']!,
                                             );
+                                            print(
+                                                "🟠 API HIT deleteNotification");
+                                            print(
+                                                "🟠 notificationId = $notificationId");
+                                            print("🟠 userId = $userId");
+                                            print(
+                                                "🧪 delete success = $success");
 
                                             if (success) {
-                                              setState(() {
+                                              // ✅ Dialog UI update
+                                              dialogSetState(() {
                                                 _dialogNotifications
                                                     .removeAt(index);
                                               });
+
+                                              // ✅ Badge / parent UI update
+                                              if (notification.isMobileRead ==
+                                                  false) {
+                                                setState(() {
+                                                  _unreadCount = (_unreadCount -
+                                                          1)
+                                                      .clamp(0, _unreadCount);
+                                                });
+                                              }
                                             } else {
                                               ScaffoldMessenger.of(context)
                                                   .showSnackBar(
-                                                SnackBar(
-                                                    content: Text(
-                                                        "Failed to delete notification")),
+                                                const SnackBar(
+                                                  content:
+                                                      Text("❌ Delete failed"),
+                                                ),
                                               );
                                             }
                                           },
@@ -314,8 +350,44 @@ class _DashboardPageState extends State<DashboardPage> {
                                 ),
                         ),
                         actions: [
+                          // ✅ CLEAR ALL BUTTON
                           TextButton(
-                            child: Text("Close"),
+                            child: const Text("Clear All"),
+                            onPressed: () async {
+                              int? userId = await SharedPrefsHelper.getUserId();
+                              if (userId == null) return;
+
+                              // copy list to avoid index crash
+                              final List<NotificationModel> unreadList =
+                                  List.from(_dialogNotifications);
+
+                              for (final n in unreadList) {
+                                if (n.id == null) continue;
+
+                                await widget.siteObservationService
+                                    .deleteNotification(
+                                  n.id.toString(),
+                                  userId,
+                                  AppSettings.DEVICEID['Mobile']!,
+                                );
+                              }
+
+                              // UI update (same as web optimistic update)
+                              dialogSetState(() {
+                                _dialogNotifications.clear();
+                              });
+
+                              setState(() {
+                                _unreadCount = 0;
+                              });
+
+                              print("🧹 CLEAR ALL DONE (WEB LOGIC)");
+                            },
+                          ),
+
+                          // ❌ CLOSE BUTTON (already tha)
+                          TextButton(
+                            child: const Text("Close"),
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                         ],

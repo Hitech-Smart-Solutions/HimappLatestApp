@@ -1336,7 +1336,7 @@ class _ObservationSafetyDetailDialogState
                           },
 
                           decoration: InputDecoration(
-                            isDense: true,
+                            isDense: false,
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 12),
                             border: OutlineInputBorder(
