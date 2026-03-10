@@ -755,36 +755,75 @@ class SiteObservationService {
     }
   }
 
+  // Future<bool> deleteNotification(
+  //     String notificationId, int userId, int deviceId) async {
+  //   String? token = await SharedPrefsHelper.getToken();
+
+  //   final url = Uri.parse(
+  //       '${ApiClient.dio}/api/Notification/UpdateNotificationReadFlag/$notificationId/$userId/$deviceId');
+
+  //   final response = await http.put(
+  //     url,
+  //     headers: {
+  //       'Authorization': 'Bearer $token', // Agar token required hai to
+  //       'Content-Type': 'application/json',
+  //     },
+  //   );
+
+  //   if (response.statusCode == 200 || response.statusCode == 204) {
+  //     return true; // 👈 is API me ye enough hai
+  //   }
+  //   // if (response.statusCode == 200 || response.statusCode == 204) {
+  //   //   // 204 ke case me body empty hota hai, to directly true return karo
+  //   //   if (response.statusCode == 204) {
+  //   //     return true;
+  //   //   }
+  //   //   // Agar 200 hai to existing logic
+  //   //   try {
+  //   //     final decoded = jsonDecode(response.body);
+  //   //     if (decoded is bool) return decoded;
+  //   //     if (response.body.toLowerCase() == 'true') return true;
+  //   //     return false;
+  //   //   } catch (e) {
+  //   //     print('Error decoding response: $e');
+  //   //     return false;
+  //   //   }
+  //   // } else {
+  //   //   return false;
+  //   // }
+  //   return false;
+  // }
   Future<bool> deleteNotification(
-      String notificationId, int userId, int deviceId) async {
-    String? token = await SharedPrefsHelper.getToken();
+    String notificationId,
+    int userId,
+    int deviceId,
+  ) async {
+    try {
+      final response = await ApiClient.dio.put(
+        '/api/Notification/UpdateNotificationReadFlag/'
+        '$notificationId/$userId/$deviceId',
+      );
 
-    final url = Uri.parse(
-        '${ApiClient.dio}/api/Notification/UpdateNotificationReadFlag/$notificationId/$userId/$deviceId');
+      print("🟢 DELETE STATUS => ${response.statusCode}");
 
-    final response = await http.put(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token', // Agar token required hai to
-        'Content-Type': 'application/json',
-      },
-    );
-    if (response.statusCode == 200 || response.statusCode == 204) {
-      // 204 ke case me body empty hota hai, to directly true return karo
-      if (response.statusCode == 204) {
-        return true;
-      }
-      // Agar 200 hai to existing logic
-      try {
-        final decoded = jsonDecode(response.body);
-        if (decoded is bool) return decoded;
-        if (response.body.toLowerCase() == 'true') return true;
-        return false;
-      } catch (e) {
-        print('Error decoding response: $e');
-        return false;
-      }
-    } else {
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      print("❌ DELETE ERROR => $e");
+      return false;
+    }
+  }
+
+  Future<bool> clearAllNotifications(int userId, int deviceId) async {
+    try {
+      final response = await ApiClient.dio.put(
+        '/api/Notification/UpdateAllNotificationReadFlag/$userId/$deviceId',
+      );
+
+      print("🟢 CLEAR ALL STATUS => ${response.statusCode}");
+
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      print("❌ CLEAR ALL ERROR => $e");
       return false;
     }
   }

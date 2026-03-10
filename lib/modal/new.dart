@@ -169,28 +169,23 @@
 //       listLoading = true;
 //     });
 
-//     // Increment fetch ID
 //     final fetchId = ++_currentProjectFetchId;
 
-//     // Load dependent data
 //     await loadSections(project.id);
 //     await loadFloors(project.id);
 
-//     // 🔹 Fetch list safely
 //     final list = await _materialRequisitionSlipService
 //         .fetchMaterialIssueRequestByProjectID(
 //       projectId: project.id,
+//       pageIndex: 0,
+//       pageSize: 1000,
+//       sortColumn: 'ID Desc',
+//       isActive: true,
 //     );
 
-//     // Only set list if this fetch is latest
 //     if (fetchId == _currentProjectFetchId) {
 //       setState(() {
-//         // materialIssueList = list; 🔴 DON'T overwrite directly
-//         for (var m in list) {
-//           if (!materialIssueList.any((e) => e.id == m.id)) {
-//             materialIssueList.add(m);
-//           }
-//         }
+//         materialIssueList = list;
 //         listLoading = false;
 //       });
 //     }
@@ -332,8 +327,6 @@
 //     } else {
 //       fetchProjects(); // normal create mode
 //     }
-//     // print(
-//     //     "MaterialRequisitionSlip opened with slipId 👉 ${widget.slipId}, isApprovalMode: $isApprovalMode");
 //   }
 
 //   Future<void> _loadEditFlow(int slipId) async {
@@ -350,27 +343,10 @@
 //         return;
 //       }
 
-//       print("🚀 loadEditFlow START for SlipID: $slipId");
-
-// // After fetching data from backend
-//       print("FULL API DATA => $data");
-//       print(
-//           "ProjectID: ${data['projectID']}, StatusID: ${data['statusID']}, Details Count: ${data['details']?.length}");
-//       for (var d in data['details']) {
-//         print(
-//             "ItemID: ${d['itemID']}, ActivityID: ${d['activityID']}, Backend ID: ${d['id']}");
-//       }
-//       // ⭐⭐ THIS LINE FIXES YOUR ISSUE
 //       editingId = slipId;
-
-//       /// 🔹 PROJECT ID
 //       final int slipProjectId = data['projectID'];
-//       // print("🧩 PROJECT ID => $slipProjectId");
+//       await fetchProjects(editProjectId: slipProjectId);
 
-//       /// 🔹 LOAD PROJECTS
-//       await fetchProjects();
-
-//       /// 🔥 STATUS DATA
 //       int statusID = data['statusID'] ?? 0;
 //       int createdBy = data['createdBy'] ?? 0;
 //       int awaitingApprovalForId = data['isAwaitingApprovalForId'] ?? 0;
@@ -391,7 +367,7 @@
 //         orElse: () => projectList.first,
 //       );
 //       materialIssueList.clear();
-//       await fetchMaterialIssueRequestByProjectID(selectedProject!.id);
+//       // await fetchMaterialIssueRequestByProjectID(selectedProject!.id);
 
 //       /// 🔹 LOAD SECTION / FLOOR
 //       await loadSections(slipProjectId);
@@ -402,36 +378,20 @@
 //         showForm = true;
 
 //         if (statusID == 2 && createdBy == awaitingApprovalForId) {
-//           /// Creator editing (Angular editable block)
-//           print("🟢 EDITABLE BLOCK (Creator)");
-
 //           isApproval = false;
 //           isEditable = true;
 //         } else if (currentUserId == awaitingApprovalForId && statusID == 2) {
-//           /// Approver
-//           print("🟢 APPROVAL BLOCK");
-
 //           isApproval = true;
 //           isEditable = false;
 //         } else if (statusID == 3) {
-//           /// Approved
-//           print("🟢 APPROVED BLOCK");
-
 //           isEditable = false;
 //           isApproval = false;
 //         } else {
-//           /// Default readonly
-//           print("🟢 DEFAULT READONLY BLOCK");
-
 //           isEditable = false;
 //           isApproval = false;
 //         }
 //       });
-
-//       print("🚀 loadEditFlow START for SlipID: $slipId");
-//       print("ItemDetails BEFORE patch: ${itemDetails.length}");
 //       await _patchSlipData(data);
-//       print("ItemDetails AFTER patch: ${itemDetails.length}");
 //     } catch (e) {
 //       print("❌ Error in loadEditFlow: $e");
 //       showSnack("Error loading MRIS");
@@ -447,7 +407,7 @@
 //     final list = await _materialRequisitionSlipService.getReleasedProducts(
 //       search: itemId.toString(), // 🔥 KEY POINT
 //       pageNumber: 1,
-//       pageSize: 20,
+//       pageSize: 1000,
 //       projectID: projectId,
 //     );
 
@@ -460,16 +420,10 @@
 
 //   Future<void> _patchSlipData(Map<String, dynamic> data) async {
 //     try {
-//       print("🚀 PATCH START");
-//       print("FULL API DATA => $data");
-//       print(
-//           "ProjectID: ${data['projectID']}, StatusID: ${data['statusID']}, Details Count: ${data['details']?.length}");
-//       itemDetails.clear(); // 🔹 Always clear before patch
-//       // Patch basic fields
+//       itemDetails.clear();
 //       slipNoCtrl.text = data['slipNumber'] ?? '';
 //       slipDateCtrl.text = formatDateSafe(DateTime.parse(data['slipDate']));
 
-//       // Load sections & floors
 //       final sections = await _materialRequisitionSlipService
 //           .getSectionsByProjectID(data['projectID']);
 //       final floors = await _materialRequisitionSlipService
@@ -482,7 +436,6 @@
 //         selectedFloorId = data['floorID'];
 //       });
 
-//       // Load employees & contractors
 //       final employees = await loadEmployees("");
 //       if (data['employeeID'] != null) {
 //         selectedEmployee = employees.firstWhere(
@@ -505,21 +458,13 @@
 //         );
 //       }
 
-//       // Load activities
 //       final allActivities = await _materialRequisitionSlipService.getActivities(
 //         search: '',
 //         projectID: data['projectID'],
 //       );
 
-//       print("ItemDetails BEFORE patch: ${itemDetails.length}");
-
-//       // Patch items
 //       for (final d in data['details']) {
-//         print("Checking item id: ${d['id']} in itemDetails");
-
 //         if (!itemDetails.any((e) => e.id == d['id'])) {
-//           print("Adding item id: ${d['id']} to itemDetails");
-
 //           final itemId = (d['itemID'] as num).toInt();
 //           final itemModel = await resolveItemById(
 //             itemId: itemId,
@@ -562,17 +507,9 @@
 //           print("⚠️ Skipping duplicate item with id: ${d['id']}");
 //         }
 //       }
-
-//       print("ItemDetails AFTER patch: ${itemDetails.length}");
-//       for (var i in itemDetails) {
-//         print(
-//             "Item id: ${i.id}, itemId: ${i.itemId}, lineNumber: ${i.lineNumber}");
-//       }
-
 //       setState(() {
 //         showForm = true;
 //       });
-//       print("✅ PATCH COMPLETE, showForm: $showForm");
 //     } catch (e, s) {
 //       print("❌ PATCH ERROR: $e");
 //       print(s);
@@ -634,7 +571,10 @@
 //         // 🔥 AUTO LOAD DATA
 //         await loadSections(selectedProject!.id);
 //         await loadFloors(selectedProject!.id);
-//         await fetchMaterialIssueRequestByProjectID(selectedProject!.id);
+//         // 🔥 ONLY FOR CREATE MODE
+//         if (!isEditMode) {
+//           await fetchMaterialIssueRequestByProjectID(selectedProject!.id);
+//         }
 //       }
 //     } catch (e) {
 //       print("Error fetching projects: $e");
@@ -642,30 +582,34 @@
 //   }
 
 //   Future<void> fetchMaterialIssueRequestByProjectID(int projectId) async {
-//     setState(() => isLoading = true);
+//     setState(() {
+//       isLoading = true;
+//       materialIssueList.clear(); // 🔥 VERY IMPORTANT
+//     });
+
 //     try {
 //       final fetched = await _materialRequisitionSlipService
 //           .fetchMaterialIssueRequestByProjectID(
 //         projectId: projectId,
 //         sortColumn: 'ID Desc',
 //         pageIndex: 0,
-//         pageSize: 50,
+//         pageSize: 1000,
 //         isActive: true,
 //       );
 
-//       // 🔹 Use a Set to prevent duplicates
-//       final existingIds = materialIssueList.map((e) => e.id).toSet();
-//       for (var m in fetched) {
-//         if (!existingIds.contains(m.id)) {
-//           materialIssueList.add(m);
-//           existingIds.add(m.id);
-//         } else {
-//           print("⚠️ Duplicate skipped: MRIS ID ${m.id}");
-//         }
+//       final uniqueMap = <int, MaterialIssue>{};
+
+//       for (var item in fetched) {
+//         uniqueMap[item.id] = item;
 //       }
 
-//       print(
-//           "MaterialIssueList length after fetch: ${materialIssueList.length}");
+//       materialIssueList = uniqueMap.values.toList();
+
+//       for (var e in materialIssueList) {
+//         print("ID: ${e.id} Slip: ${e.slipNumber}");
+//       }
+
+//       print("UI LIST LENGTH: ${materialIssueList.length}");
 //     } catch (e) {
 //       print("❌ Fetch error: $e");
 //     } finally {
@@ -838,58 +782,37 @@
 //                     journalNum: '',
 //                   ))
 //               .toList());
-
-//       print("🔥 SAVE MRIS START");
-//       print("Selected Project ID: ${selectedProject?.id}");
-//       print("EditingID: $editingId");
-//       print("ItemDetails count: ${itemDetails.length}");
-//       print("Selected Employee ID: ${selectedEmployee?.id}");
-//       print("Selected Contractor ID: ${selectedContractor?.id}");
-
-//       print("========== MRIS REQUEST ==========");
-//       print("Request ID: ${request.id}");
-//       print("ProjectID: ${request.projectID}");
-//       print("EmployeeID: ${request.employeeID}");
-//       print("ContractorID: ${request.contractorID}");
-//       for (var d in request.details) {
-//         print(
-//             "ItemID: ${d.itemID}, ActivityID: ${d.activityID}, Qty: ${d.qty}");
-//       }
-//       print("==================================");
-//       print(
-//           "EditingID: $editingId => ${editingId == 0 ? 'SAVE' : 'UPDATE'} API CALL");
-
 //       bool success;
 //       // 🟢 SAVE / 🔵 UPDATE
 //       if (editingId == 0) {
-//         print("🔥 SAVE API CALL");
-//         // return;
 //         success =
 //             await _materialRequisitionSlipService.submitMaterialIssue(request);
 //       } else {
-//         print("🔥 UPDATE API CALL");
-//         // return;
 //         success =
 //             await _materialRequisitionSlipService.updateMaterialIssue(request);
 //       }
 
 //       if (success) {
-//         // ✅ SUCCESS MESSAGE
 //         showSnack(
 //           editingId == 0
 //               ? "MRIS Saved Successfully"
 //               : "MRIS Updated Successfully",
 //         );
-
-//         // ✅ ANGULAR afterSave() LOGIC — INLINE
 //         setState(() {
-//           editingId = 0;
-//           isEditMode = false;
+//           // editingId = 0;
+//           // isEditMode = false;
 //           showForm = false;
-//           itemDetails.clear();
+//           isEditable = false;
+//           isApproval = false;
+//           // itemDetails.clear();
 //           // ❌ don't reset selectedProject here
-//           resetForm(); // optional: modify it to NOT reset selectedProject
+//           // resetForm(); // optional: modify it to NOT reset selectedProject
 //         });
+
+//         print("========== SAVE FLOW ==========");
+//         print("EditingID: $editingId");
+//         print("Selected Project: ${selectedProject?.id}");
+//         print("List length before fetch: ${materialIssueList.length}");
 
 //         print(
 //             "Form reset, refreshing list for projectID: $projectIdBeforeReset");
@@ -1145,7 +1068,7 @@
 
 //     /// ✅ FIX 1 : Prefill available qty when editing
 //     if (selectedItem != null) {
-//       final projectId = await SharedPrefsHelper.getProjectID();
+//       final projectId = selectedProject?.id;
 
 //       if (projectId != null) {
 //         final qty = await _materialRequisitionSlipService
@@ -1226,7 +1149,9 @@
 //                         final qty = await _materialRequisitionSlipService
 //                             .getAvailableQuantityByProject(
 //                                 projectId, itemModel.id);
-
+//                         print(
+//                             "AVAILABLE QTY API => project:$projectId item:${itemModel.id}");
+//                         print("AVAILABLE QTY RESPONSE => $qty");
 //                         setDialogState(() {
 //                           availableController.text = formatQty(qty);
 //                         });
@@ -1307,12 +1232,17 @@
 //                       asyncItems: (String filter) async {
 //                         final projectId =
 //                             await SharedPrefsHelper.getProjectID();
+//                         print("PROJECT ID FOR ACTIVITY => $projectId");
 //                         if (projectId == null) return [];
 
-//                         return _materialRequisitionSlipService.getActivities(
+//                         final result =
+//                             await _materialRequisitionSlipService.getActivities(
 //                           search: filter,
 //                           projectID: projectId,
 //                         );
+
+//                         print("ACTIVITY RESULT LENGTH => ${result.length}");
+//                         return result;
 //                       },
 //                       itemAsString: (a) => a.activityName,
 //                       popupProps: const PopupProps.dialog(
@@ -1730,25 +1660,14 @@
 //   Widget build(BuildContext context) {
 //     return WillPopScope(
 //       onWillPop: () async {
-//         // 🔥 APPROVAL FLOW → direct back
-//         // if (isApprovalMode) {
-//         //   // print("⬅️ Approval mode → direct back");
-//         //   return true; // Navigator.pop()
-//         // }
-//         backPressCount++; // 🔹 Increment on each back press
-//         print(
-//             "⬅️ Back pressed $backPressCount times, list length: ${materialIssueList.length}");
-//         // if (isApprovalMode) return true;
-//         // 🔹 NORMAL CREATE / EDIT FLOW
 //         if (showForm) {
-//           // print("🧹 Normal mode → close form only");
 //           setState(() {
 //             showForm = false;
-//             resetForm(); // Only clear in create mode
 //           });
 //           return false;
 //         }
 
+//         Navigator.pop(context);
 //         return true;
 //       },
 //       child: Scaffold(

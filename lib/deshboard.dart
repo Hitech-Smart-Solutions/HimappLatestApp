@@ -2,20 +2,26 @@ import 'dart:ui';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:animated_widgets/widgets/scale_animated.dart';
+import 'package:himappnew/awaitingapprovals/awaiting_approval_mris_page.dart';
 import 'package:himappnew/change_password_page.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/labour_registration_page.dart';
 import 'package:himappnew/model/page_permission.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
 import 'package:himappnew/observation_ncr.dart';
+import 'package:himappnew/service/app_update_service.dart';
 import 'package:himappnew/service/labour_registration_service.dart';
+import 'package:himappnew/service/material_requisition_slip_Service.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/service/user_role_permission_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:himappnew/site_observation_quality.dart';
+import 'package:himappnew/transaction/material_requisition_slip.dart';
 import 'package:himappnew/transaction/observation_quality_ncr.dart';
 import 'package:himappnew/transaction/observation_safety_ncr.dart';
+import 'package:himappnew/transaction/observation_summary_safety.dart';
+import 'package:himappnew/ui/update_popup.dart';
 import 'login_page.dart';
 import 'site_observation_safety.dart';
 import 'package:himappnew/service/firebase_messaging_service.dart';
@@ -54,9 +60,11 @@ class _DashboardPageState extends State<DashboardPage> {
   int _unreadCount = 0;
 
   final PagePermissionService _permissionService = PagePermissionService();
-
+  final MaterialRequisitionSlipService _materialIssueSlipService =
+      MaterialRequisitionSlipService();
 // Ye page permissions fetch ke liye
   List<PagePermission> pagePermissions = [];
+  List<NotificationModel> _dialogNotifications = [];
 
 // Module wise group ke liye
   Map<String, List<PagePermission>> moduleWisePages = {};
@@ -67,6 +75,7 @@ class _DashboardPageState extends State<DashboardPage> {
   final allowedPrograms = {
     "Quality Observation",
     "Safety Observation",
+    "MRIS",
   };
 
   bool isAllowedProgram(String program) {
@@ -77,13 +86,19 @@ class _DashboardPageState extends State<DashboardPage> {
 
   late Map<String, Widget Function()> appPages;
 
+  int awaitingApprovalCount = 0;
+  bool statsLoading = true;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAppUpdate();
+    });
     isLoading = true;
     _loadStats();
     _fetchUnreadCount(); // to show badge on start
-
+    _loadAwaitingApprovalCount();
     // Init appPages WITHOUT pagePermission
     appPages = {
       "Quality Observation": () => SiteObservationQuality(
@@ -133,6 +148,18 @@ class _DashboardPageState extends State<DashboardPage> {
     };
 
     _loadPermissions();
+  }
+
+  Future<void> _checkAppUpdate() async {
+    final forceUpdate = await AppUpdateService.shouldForceUpdate();
+
+    if (forceUpdate && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const UpdatePopup(),
+      );
+    }
   }
 
   Map<String, List<PagePermission>> _groupByModule(
@@ -216,9 +243,37 @@ class _DashboardPageState extends State<DashboardPage> {
     });
   }
 
+  Future<void> _loadAwaitingApprovalCount() async {
+    try {
+      final userId = await SharedPrefsHelper.getUserId();
+      if (userId == null) return;
+
+      final data =
+          await _materialIssueSlipService.getMaterialIssuesAwaitingApproval(
+        userId,
+        AppPages.materialIssueSlipProgramId,
+      );
+
+      setState(() {
+        awaitingApprovalCount = data.length; // ✅ int
+        statsLoading = false;
+      });
+
+      debugPrint("🟢 Awaiting Approval Count = $awaitingApprovalCount");
+    } catch (e) {
+      setState(() {
+        statsLoading = false;
+      });
+      debugPrint("❌ Count Error: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    List<NotificationModel> _dialogNotifications = [];
+    print("🧪 BUILD CALLED");
+
+    // print("🧪 notifications length = ${notifications.length}");
+    // print("🧪 notifications = $notifications");
     return Scaffold(
       drawer: _buildDrawer(context),
       appBar: AppBar(
@@ -238,6 +293,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
                   setState(() {
                     _unreadCount = 0; // Mark as read in UI
+                    _dialogNotifications =
+                        List.from(notifications); // ✅ IMPORTANT
                   });
 
                   _dialogNotifications = List.from(notifications);
@@ -245,7 +302,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   showDialog(
                     context: context,
                     builder: (_) => StatefulBuilder(
-                      builder: (context, setState) => AlertDialog(
+                      builder: (context, dialogSetState) => AlertDialog(
                         title: Text("Notifications"),
                         content: SizedBox(
                           width: double.maxFinite,
@@ -278,32 +335,50 @@ class _DashboardPageState extends State<DashboardPage> {
                                             int? userId =
                                                 await SharedPrefsHelper
                                                     .getUserId();
-                                            if (userId == null) return;
+                                            if (userId == null) {
+                                              print("❌ userId null");
+                                              return;
+                                            }
 
+                                            final notification =
+                                                _dialogNotifications[index];
                                             final notificationId =
-                                                _dialogNotifications[index].id;
-                                            if (notificationId == null) return;
+                                                notification.id;
+                                            if (notificationId == null) {
+                                              print("❌ notificationId null");
+                                              return;
+                                            }
+
                                             bool success = await widget
                                                 .siteObservationService
                                                 .deleteNotification(
-                                              notificationId
-                                                  .toString(), // Convert to String if needed
+                                              notificationId.toString(),
                                               userId,
-                                              AppSettings.DEVICEID[
-                                                  'Mobile']!, // Device type
+                                              AppSettings.DEVICEID['Mobile']!,
                                             );
-
                                             if (success) {
-                                              setState(() {
+                                              // ✅ Dialog UI update
+                                              dialogSetState(() {
                                                 _dialogNotifications
                                                     .removeAt(index);
                                               });
+
+                                              // ✅ Badge / parent UI update
+                                              if (notification.isMobileRead ==
+                                                  false) {
+                                                setState(() {
+                                                  _unreadCount = (_unreadCount -
+                                                          1)
+                                                      .clamp(0, _unreadCount);
+                                                });
+                                              }
                                             } else {
                                               ScaffoldMessenger.of(context)
                                                   .showSnackBar(
-                                                SnackBar(
-                                                    content: Text(
-                                                        "Failed to delete notification")),
+                                                const SnackBar(
+                                                  content:
+                                                      Text("❌ Delete failed"),
+                                                ),
                                               );
                                             }
                                           },
@@ -314,8 +389,44 @@ class _DashboardPageState extends State<DashboardPage> {
                                 ),
                         ),
                         actions: [
+                          // ✅ CLEAR ALL BUTTON
                           TextButton(
-                            child: Text("Close"),
+                            child: const Text("Clear All"),
+                            onPressed: () async {
+                              int? userId = await SharedPrefsHelper.getUserId();
+                              if (userId == null) return;
+
+                              // copy list to avoid index crash
+                              final List<NotificationModel> unreadList =
+                                  List.from(_dialogNotifications);
+
+                              for (final n in unreadList) {
+                                if (n.id == null) continue;
+
+                                await widget.siteObservationService
+                                    .deleteNotification(
+                                  n.id.toString(),
+                                  userId,
+                                  AppSettings.DEVICEID['Mobile']!,
+                                );
+                              }
+
+                              // UI update (same as web optimistic update)
+                              dialogSetState(() {
+                                _dialogNotifications.clear();
+                              });
+
+                              setState(() {
+                                _unreadCount = 0;
+                              });
+
+                              print("🧹 CLEAR ALL DONE (WEB LOGIC)");
+                            },
+                          ),
+
+                          // ❌ CLOSE BUTTON (already tha)
+                          TextButton(
+                            child: const Text("Close"),
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                         ],
@@ -398,29 +509,7 @@ class _DashboardPageState extends State<DashboardPage> {
     double cardSpacing = 16;
 
     final cards = [
-      // _buildNeonGlassCard(
-      //   icon: Icons.work,
-      //   title: "Ongoing Projects",
-      //   value: "12",
-      //   color: Color(0xFF3A86FF),
-      // ),
       GestureDetector(
-        // onTap: () async {
-        //   final userId = await SharedPrefsHelper.getUserId();
-        //   if (userId != null) {
-        //     Navigator.push(
-        //       context,
-        //       MaterialPageRoute(
-        //         builder: (_) => ObservationSafetyNCRPage(
-        //           userId: userId,
-        //           siteObservationService: SiteObservationService(),
-        //           siteObservationId: 0,
-        //         ),
-        //       ),
-        //     );
-        //   }
-        // },
-
         onTap: () async {
           final userId = await SharedPrefsHelper.getUserId();
           if (userId != null) {
@@ -436,7 +525,7 @@ class _DashboardPageState extends State<DashboardPage> {
             );
 
             if (result == true) {
-              _loadStats(); // 🔁 dashboard count refresh
+              _loadStats();
             }
           }
         },
@@ -478,6 +567,50 @@ class _DashboardPageState extends State<DashboardPage> {
           title: "Site Observation Quality",
           value: "$qualityObservationsCount",
           color: Color.fromARGB(255, 221, 57, 194),
+        ),
+      ),
+      // GestureDetector(
+      //   onTap: () async {
+      //     final userId = await SharedPrefsHelper.getUserId();
+      //     if (userId != null) {
+      //       final result = await Navigator.push(
+      //         context,
+      //         MaterialPageRoute(
+      //           builder: (_) => MaterialRequisitionSlip(
+      //             projectService: widget.projectService,
+      //           ),
+      //         ),
+      //       );
+
+      //       if (result == true) {
+      //         _loadStats(); // 🔁 refresh count
+      //       }
+      //     }
+      //   },
+      //   child: _buildNeonGlassCard(
+      //     icon: Icons.inventory_2,
+      //     title: "Material Requisition Slip",
+      //     value: "0",
+      //     color: const Color(0xFF4CC9F0),
+      //   ),
+      // ),
+      GestureDetector(
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const AwaitingApprovalMrisPage(),
+            ),
+          );
+
+          // 🔥 jab AwaitingApproval se wapas aaye
+          _loadAwaitingApprovalCount();
+        },
+        child: _buildNeonGlassCard(
+          icon: Icons.assignment_turned_in,
+          title: "MRIS Awaiting Approval",
+          value: statsLoading ? "..." : awaitingApprovalCount.toString(),
+          color: const Color(0xFF38B000),
         ),
       ),
     ];
@@ -689,6 +822,46 @@ class _DashboardPageState extends State<DashboardPage> {
               }).toList(),
             );
           }).toList(),
+          _drawerTile(
+            icon: Icons.receipt_long,
+            color: Colors.blue,
+            title: "Material Requisition Slip",
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MaterialRequisitionSlip(
+                    projectService: widget.projectService,
+                  ),
+                ),
+              );
+            },
+          ),
+          _drawerTile(
+            icon: Icons.lock_reset,
+            color: Colors.orange,
+            title: "Safety Observation Summary",
+            onTap: () async {
+              Navigator.pop(context); // close drawer
+
+              final int? userId = await SharedPrefsHelper.getUserId();
+
+              if (userId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('User not logged in')),
+                );
+                return;
+              }
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ObservationSummarySafety(),
+                ),
+              );
+            },
+          ),
           const Divider(),
           _drawerTile(
             icon: Icons.lock_reset,
@@ -767,6 +940,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return Icons.visibility;
       case "Quality Observation":
         return Icons.fact_check;
+      case "MRIS":
+        return Icons.inventory_2;
       case "Labour Registration":
         return Icons.person_add_alt_1;
       default:
@@ -790,6 +965,10 @@ class _DashboardPageState extends State<DashboardPage> {
           projectService: widget.projectService,
           siteObservationService: widget.siteObservationService,
           pagePermission: p,
+        );
+      case "Material Requisition Slip": // 🔥 updated
+        return MaterialRequisitionSlip(
+          projectService: widget.projectService,
         );
       case "Labour Registration":
         return LabourRegistrationPage(

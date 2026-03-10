@@ -1,2161 +1,2199 @@
-// import 'dart:io';
-// import 'package:file_picker/file_picker.dart';
+// import 'package:dropdown_search/dropdown_search.dart';
 // import 'package:flutter/material.dart';
-// import 'package:flutter/services.dart';
-// import 'package:flutter_image_compress/flutter_image_compress.dart';
-// import 'package:flutter_mentions/flutter_mentions.dart';
+// import 'package:himappnew/awaitingapprovals/awaiting_approval_mris_page.dart';
 // import 'package:himappnew/constants.dart';
-// import 'package:himappnew/model/siteobservation_model.dart';
-// import 'package:himappnew/service/site_observation_service.dart';
+// import 'package:himappnew/model/material_requisition_slip_model.dart';
+// import 'package:himappnew/model/project_model.dart';
+// import 'package:himappnew/service/material_requisition_slip_Service.dart';
+// import 'package:himappnew/service/project_service.dart';
 // import 'package:himappnew/shared_prefs_helper.dart';
-// import 'package:image_picker/image_picker.dart';
-// import 'package:intl/intl.dart';
-// import 'package:flutter_portal/flutter_portal.dart';
-// import 'package:shared_preferences/shared_preferences.dart';
 
-// class ObservationQCDetailDialog extends StatefulWidget {
-//   final GetSiteObservationMasterById detail;
-//   final SiteObservationService siteObservationService;
-//   final int siteObservationId;
-//   final String? createdBy;
-//   final int? activityId;
-//   final int projectID;
-
-//   const ObservationQCDetailDialog({
+// class MaterialRequisitionSlip extends StatefulWidget {
+//   final ProjectService _projectService;
+//   final int? slipId;
+//   final bool isApproval;
+//   const MaterialRequisitionSlip({
 //     super.key,
-//     required this.detail,
-//     required this.siteObservationService,
-//     required this.siteObservationId,
-//     required this.createdBy,
-//     required this.activityId,
-//     required this.projectID,
-//   });
+//     required ProjectService projectService,
+//     this.slipId,
+//     this.isApproval = false,
+//   }) : _projectService = projectService;
 
 //   @override
-//   _ObservationQCDetailDialogState createState() =>
-//       _ObservationQCDetailDialogState();
+//   State<MaterialRequisitionSlip> createState() =>
+//       _MaterialRequisitionSlipState();
 // }
 
-// class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
+// class UiItemDetail {
+//   int? id; // backend item detail ID (nullable)
+//   int lineNumber; // required by API
+//   int itemId;
+//   String item;
+//   String unit;
+//   int qty;
+//   int? availableQty;
+//   int? activityNo;
+//   String? equipmentName;
+//   String remarks;
+//   String placeOfIssue;
+
+//   // For dropdowns / pre-selection
+//   ActivityModel? selectedActivity;
+//   EquipmentModel? selectedEquipment;
+
+//   UiItemDetail({
+//     this.id, // optional for new items
+//     this.lineNumber = 0,
+//     this.itemId = 0,
+//     this.item = '',
+//     this.unit = '',
+//     this.qty = 0,
+//     this.availableQty,
+//     this.activityNo,
+//     this.equipmentName,
+//     this.remarks = '',
+//     this.placeOfIssue = '',
+//     this.selectedActivity,
+//     this.selectedEquipment,
+//   });
+
+//   UiItemDetail.clone(UiItemDetail other)
+//       : id = other.id,
+//         lineNumber = other.lineNumber,
+//         itemId = other.itemId,
+//         item = other.item,
+//         unit = other.unit,
+//         qty = other.qty,
+//         availableQty = other.availableQty,
+//         activityNo = other.activityNo,
+//         equipmentName = other.equipmentName,
+//         remarks = other.remarks,
+//         placeOfIssue = other.placeOfIssue,
+//         selectedActivity = other.selectedActivity,
+//         selectedEquipment = other.selectedEquipment;
+// }
+
+// class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
+//   final MaterialRequisitionSlipService _materialRequisitionSlipService =
+//       MaterialRequisitionSlipService();
+
+//   Project? selectedProject;
+//   List<Project> projectList = [];
+//   List<MaterialIssue> materialIssueList = [];
+//   bool listLoading = false;
+//   bool showForm = false;
+//   // Controllers
+//   final TextEditingController slipNoCtrl = TextEditingController();
+//   final TextEditingController slipDateCtrl = TextEditingController();
+//   final TextEditingController unitController = TextEditingController();
+//   final TextEditingController availableController = TextEditingController();
+//   final TextEditingController qtyController = TextEditingController(text: '0');
+
+//   List<SectionModel> sectionList = [];
+//   int? selectedSectionId;
+
+//   List<FloorModel> floorData = [];
+//   int? selectedFloorId;
+
+//   EmployeeModel? selectedEmployee;
+//   int employeePageNumber = 1;
+//   final int employeePageSize = 50;
+//   bool employeeLoading = false;
+//   bool employeeHasMore = true;
+
+//   void resetEmployeeSearch(String search) {
+//     employeeSearchText = search;
+//     employeePageNumber = 1;
+//     employeeHasMore = true;
+//   }
+
+//   void resetContractorSearch(String search) {
+//     contractorSearchText = search;
+//     contractorPageNumber = 1;
+//     contractorHasMore = true;
+//   }
+
+//   Future<void> addItem(UiItemDetail tempItem, {int? index}) async {
+//     final result = await openItemSheet(tempItem, index: index);
+//     if (result != null) {
+//       setState(() {
+//         if (index != null) {
+//           // edit existing
+//           itemDetails[index] = result;
+//         } else {
+//           // add new
+//           itemDetails.add(result);
+//         }
+//       });
+//     }
+//   }
+
+//   /// Deletes an item from itemDetails with a confirmation dialog
+//   Future<void> deleteItem(int index) async {
+//     final confirm = await showDialog<bool>(
+//       context: context,
+//       builder: (ctx) => AlertDialog(
+//         title: const Text("Confirm Delete"),
+//         content: const Text("Are you sure you want to delete this item?"),
+//         actions: [
+//           TextButton(
+//             onPressed: () => Navigator.pop(ctx, false),
+//             child: const Text("Cancel"),
+//           ),
+//           ElevatedButton(
+//             onPressed: () => Navigator.pop(ctx, true),
+//             child: const Text("Delete"),
+//           ),
+//         ],
+//       ),
+//     );
+
+//     if (confirm == true) {
+//       setState(() {
+//         itemDetails.removeAt(index);
+//       });
+//     }
+//   }
+
+//   int _currentProjectFetchId = 0;
+//   void onProjectChanged(Project? project) async {
+//     if (project == null) return;
+
+//     setState(() {
+//       selectedProject = project;
+//       selectedSectionId = null;
+//       selectedFloorId = null;
+//       sectionList.clear();
+//       floorData.clear();
+//       materialIssueList.clear();
+//       listLoading = true;
+//     });
+
+//     final fetchId = ++_currentProjectFetchId;
+
+//     await loadSections(project.id);
+//     await loadFloors(project.id);
+
+//     final list = await _materialRequisitionSlipService
+//         .fetchMaterialIssueRequestByProjectID(
+//       projectId: project.id,
+//       pageIndex: 0,
+//       pageSize: 1000,
+//       sortColumn: 'ID Desc',
+//       isActive: true,
+//     );
+
+//     if (fetchId == _currentProjectFetchId) {
+//       setState(() {
+//         materialIssueList = list;
+//         listLoading = false;
+//       });
+//     }
+//   }
+
+//   String formatQty(double value) {
+//     if (value % 1 == 0) {
+//       return value.toInt().toString(); // 10.0 -> 10
+//     } else {
+//       return value.toStringAsFixed(2); // 10.20, 65.31
+//     }
+//   }
+
+//   String employeeSearchText = '';
+
+//   ContractorModel? selectedContractor;
+//   int contractorPageNumber = 1;
+//   final int contractorPageSize = 500;
+//   bool contractorLoading = false;
+//   bool contractorHasMore = true;
+//   String contractorSearchText = '';
+
+//   List<EquipmentModel> equipmentList = [];
+//   int equipmentPageNumber = 1;
+//   final int equipmentPageSize = 50;
+//   bool equipmentLoading = false;
+//   bool equipmentHasMore = true;
+//   String equipmentSearchText = '';
+//   EquipmentModel? selectedEquipment;
+
+//   List<ActivityModel> activityList = [];
+//   int activityPageNumber = 1;
+//   final int activityPageSize = 20;
+//   bool activityLoading = false;
+//   bool activityHasMore = true;
+//   String activitySearchText = '';
+//   ActivityModel? selectedActivity;
+//   int? activityID;
+
+//   // final ProjectService _projectService = ProjectService();
 //   bool isLoading = false;
-//   String? selectedStatus;
-//   List<Map<String, String>> observationStatus = [];
+//   // List<ItemDetail> itemDetails = [];
+//   List<UiItemDetail> itemDetails = [];
 
-//   List<RootCause> rootCauses = [];
-//   RootCause? selectedRootCause;
-//   bool isStatusEnabled = false;
-//   bool isEditingRootCause = false;
-//   bool isButtonDisabled = false;
-//   bool canEditRootCause = false;
+//   List<ItemModel> itemList = [];
+//   int itemPageNumber = 1;
+//   int itemPageSize = 50;
+//   bool itemLoading = false;
+//   bool itemHasMore = true;
+//   String itemSearchText = '';
 
-//   final _formKey = GlobalKey<FormState>();
-//   final TextEditingController rootCauseController = TextEditingController();
-//   final TextEditingController materialCostController = TextEditingController();
-//   final TextEditingController labourCostController = TextEditingController();
-//   final TextEditingController reworkCostController = TextEditingController();
-//   final TextEditingController preventiveActionController =
-//       TextEditingController();
-//   final TextEditingController correctiveActionController =
-//       TextEditingController();
-//   final TextEditingController _activityCommentController =
-//       TextEditingController();
-//   final GlobalKey<FlutterMentionsState> mentionsKey =
-//       GlobalKey<FlutterMentionsState>();
+//   DateTime? selectedSlipDateUtc;
 
-//   final TextEditingController reopenRemarksController = TextEditingController();
-//   final TextEditingController closeRemarksController = TextEditingController();
+//   /// Formats only date (dd/mm/yyyy)
+//   String formatDateSafe(dynamic date) {
+//     if (date == null) return "-";
 
-//   String? selectedFileName;
-//   List<String> uploadedFiles = [];
-//   bool showSaveAttachmentButton = false;
-//   String url = AppSettings.url;
+//     DateTime d;
 
-//   int? userId;
-//   String? currentUserName;
-//   late GetSiteObservationMasterById currentDetail;
-//   List<User> allUsers = [];
-//   late int editingUserId;
-//   List<Map<String, String>> userList = [];
-//   List<User> selectedUsers = [];
-//   List<ActivityDTO> activities = [];
+//     if (date is String) {
+//       if (date.isEmpty) return "-";
+//       d = DateTime.parse(date);
+//     } else if (date is DateTime) {
+//       d = date;
+//     } else {
+//       return "-";
+//     }
 
-//   int fromStatus = SiteObservationStatus.Open;
-//   int toStatus = SiteObservationStatus.Open;
-//   String? areaLabel;
-//   String? floorLabel;
-//   String? elementLabel;
-//   bool isSending = false;
+//     return "${d.day.toString().padLeft(2, '0')}/"
+//         "${d.month.toString().padLeft(2, '0')}/"
+//         "${d.year}";
+//   }
 
-//   bool isReopenAction = false;
-//   bool isCloseAction = false;
+//   /// Formats date + time (dd/mm/yyyy hh:mm)
+//   String formatDateTimeSafe(dynamic date) {
+//     if (date == null) return "-";
 
-//   bool isRootCauseUpdateEnable = false; // 👈 Angular ka isRootCauseUpdateEnable
+//     DateTime d;
 
+//     if (date is String) {
+//       if (date.isEmpty) return "-";
+//       d = DateTime.parse(date);
+//     } else if (date is DateTime) {
+//       d = date;
+//     } else {
+//       return "-";
+//     }
+
+//     return "${d.day.toString().padLeft(2, '0')}/"
+//         "${d.month.toString().padLeft(2, '0')}/"
+//         "${d.year} "
+//         "${d.hour.toString().padLeft(2, '0')}:"
+//         "${d.minute.toString().padLeft(2, '0')}";
+//   }
+
+//   String? itemError;
+//   String? qtyError;
+//   String? placeError;
+//   String? activityError;
+//   bool isItemSubmitted = true;
+//   ItemModel? selectedItem;
+//   final programId = AppPages.materialIssueSlipProgramId;
+
+//   bool validateItem(UiItemDetail item) {
+//     if (selectedItem == null) return false;
+//     if (item.qty <= 0) return false;
+//     if (item.placeOfIssue == null || item.placeOfIssue!.isEmpty) return false;
+//     if (selectedActivity == null) return false;
+//     return true;
+//   }
+
+//   bool isApproval = false; // IsApproval
+//   bool isEditable = true; // isEditable
+//   // bool isLoading = false;
+//   int editingId = 0; // 0 = new, >0 = edit
+//   bool isEditMode = false; // UI control
+
+//   String? status;
+//   String? syncStatus;
+
+//   bool get isApprovalMode => widget.isApproval == true;
+//   String approvalStatus = "";
+//   bool get showSubmitButton => showForm && !isApproval && isEditable;
+
+//   bool get showApprovalButtons => showForm && isApproval;
+
+//   bool get canEdit =>
+//       approvalStatus == "Draft" || approvalStatus == "Disapproved";
+
+//   int backPressCount = 0; // 🔹 State variable
 //   @override
 //   void initState() {
 //     super.initState();
-//     currentDetail = widget.detail;
-//     _setupPage();
-//     loadSection();
-//     loadFloor();
-//     loadElement();
-//     // print("created Status 92: ${widget.detail.createdBy}");
-//     // print('166: ${widget.detail}');
-//   }
-
-//   Future<void> _setupPage() async {
-//     final statusId = widget.detail.statusID;
-
-//     if (statusId != 0) {
-//       selectedStatus = statusId.toString(); // Dropdown ke liye string chahiye
-//       fromStatus = statusId; // Current status id
-//       toStatus = statusId;
-//       await setObservationStatusDropdown(
-//         statusId,
-//         widget.detail.createdBy,
-//         widget.detail,
-//       );
+//     // isApprovalMode = widget.isApproval;
+//     if (widget.slipId != null) {
+//       isEditMode = true;
+//       showForm = true;
+//       _loadEditFlow(widget.slipId!);
 //     } else {
-//       selectedStatus = null;
-//       fromStatus = 0; // Ya default koi bhi status id rakh lo
-//       toStatus = 0;
-//     }
-//     await _loadRootCauses(); // wait for root causes to load before proceeding
-
-//     _initializeFormFields(); // now safe to initialize form fields with loaded data
-
-//     editingUserId = widget.siteObservationId;
-//     await initData(); // optionally await this if it’s async
-
-// // Material cost + Labour cost = Rework cost logic
-
-//     materialCostController.addListener(_updateReworkCost);
-//     labourCostController.addListener(_updateReworkCost);
-//     // setState(() {
-//     //   isRootCauseUpdateEnable = false;
-//     // });
-//   }
-
-//   void _updateReworkCost() {
-//     double material = double.tryParse(materialCostController.text) ?? 0;
-//     double labour = double.tryParse(labourCostController.text) ?? 0;
-
-//     double total = material + labour;
-
-//     reworkCostController.text = total.toStringAsFixed(2);
-//   }
-
-//   Future<void> initData() async {
-//     int projectID = widget.projectID;
-//     await fetchUsers();
-//     userId = await SharedPrefsHelper.getUserId();
-//     currentUserName = await SharedPrefsHelper.getUserName();
-//   }
-
-//   void _initializeFormFields() {
-//     if (selectedStatus == SiteObservationStatus.Open.toString()) {
-//       try {
-//         if (widget.detail.rootCauseID != null &&
-//             widget.detail.rootCauseID != 0) {
-//           selectedRootCause = rootCauses.firstWhere(
-//             (rc) => rc.id == widget.detail.rootCauseID,
-//           );
-//         } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-//           selectedRootCause = rootCauses.first;
-//         } else {
-//           selectedRootCause = null;
-//         }
-//       } catch (e) {
-//         selectedRootCause = null;
-//       }
-//       materialCostController.text = widget.detail.materialCost.toString();
-//       labourCostController.text = widget.detail.labourCost.toString();
-//       reworkCostController.text = widget.detail.reworkCost.toString();
-//       preventiveActionController.text =
-//           widget.detail.preventiveActionTaken ?? '';
-//       correctiveActionController.text =
-//           widget.detail.corretiveActionToBeTaken ?? '';
-//     }
-//     if (selectedStatus == SiteObservationStatus.ReadyToInspect.toString() ||
-//         selectedStatus == SiteObservationStatus.Closed.toString()) {
-//       try {
-//         if (widget.detail.rootCauseID != null &&
-//             widget.detail.rootCauseID != 0) {
-//           selectedRootCause = rootCauses.firstWhere(
-//             (rc) => rc.id == widget.detail.rootCauseID,
-//           );
-//         } else if (widget.detail.rootCauseID == 0 && rootCauses.isNotEmpty) {
-//           selectedRootCause = rootCauses.first;
-//         } else {
-//           selectedRootCause = null;
-//         }
-//       } catch (e) {
-//         selectedRootCause = null;
-//       }
-//       materialCostController.text = widget.detail.materialCost.toString();
-//       labourCostController.text = widget.detail.labourCost.toString();
-//       reworkCostController.text = widget.detail.reworkCost.toString();
-//       preventiveActionController.text =
-//           widget.detail.preventiveActionTaken ?? '';
-//       correctiveActionController.text =
-//           widget.detail.corretiveActionToBeTaken ?? '';
+//       fetchProjects(); // normal create mode
 //     }
 //   }
 
-//   Future<void> _loadRootCauses() async {
+//   Future<void> _loadEditFlow(int slipId) async {
 //     setState(() => isLoading = true);
 //     try {
-//       int? companyId = await SharedPrefsHelper.getCompanyId();
-//       if (companyId == null) {
+//       /// 🔹 API CALL
+//       final data = await _materialRequisitionSlipService.getMaterialIssueById(
+//         slipId,
+//         programId,
+//       );
+
+//       if (data == null) {
+//         setState(() => isLoading = false);
 //         return;
 //       }
-//       rootCauses =
-//           await SiteObservationService().fatchRootCausesByActivityID(companyId);
-//     } catch (e) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(content: Text('Failed to load root causes: $e')),
+
+//       editingId = slipId;
+//       final int slipProjectId = data['projectID'];
+//       await fetchProjects(editProjectId: slipProjectId);
+
+//       int statusID = data['statusID'] ?? 0;
+//       int createdBy = data['createdBy'] ?? 0;
+//       int awaitingApprovalForId = data['isAwaitingApprovalForId'] ?? 0;
+//       int currentUserId = await SharedPrefsHelper.getUserId() ?? 0;
+
+//       final bool hasAccess = projectList.any((p) => p.id == slipProjectId);
+
+//       /// Approver ko allow karo
+//       if (!hasAccess && currentUserId != awaitingApprovalForId) {
+//         showSnack("This MRIS belongs to a project not assigned to you");
+//         setState(() => isLoading = false);
+//         return;
+//       }
+
+//       /// 🔹 SELECT PROJECT
+//       selectedProject = projectList.firstWhere(
+//         (p) => p.id == slipProjectId,
+//         orElse: () => projectList.first,
 //       );
+//       materialIssueList.clear();
+//       // await fetchMaterialIssueRequestByProjectID(selectedProject!.id);
+
+//       /// 🔹 LOAD SECTION / FLOOR
+//       await loadSections(slipProjectId);
+//       await loadFloors(slipProjectId);
+
+//       /// 🔥 EXACT ANGULAR LOGIC
+//       setState(() {
+//         showForm = true;
+
+//         if (statusID == 2 && createdBy == awaitingApprovalForId) {
+//           isApproval = false;
+//           isEditable = true;
+//         } else if (currentUserId == awaitingApprovalForId && statusID == 2) {
+//           isApproval = true;
+//           isEditable = false;
+//         } else if (statusID == 3) {
+//           isEditable = false;
+//           isApproval = false;
+//         } else {
+//           isEditable = false;
+//           isApproval = false;
+//         }
+//       });
+//       await _patchSlipData(data);
+//     } catch (e) {
+//       print("❌ Error in loadEditFlow: $e");
+//       showSnack("Error loading MRIS");
 //     } finally {
 //       setState(() => isLoading = false);
 //     }
 //   }
 
-//   Future<UpdateSiteObservation> getUpdatedDataFromForm(
-//       List<String> uploadedFiles) async {
-//     int id = widget.detail.id;
-//     int rootCauseID = selectedRootCause?.id ?? 0;
+//   Future<ItemModel?> resolveItemById({
+//     required int itemId,
+//     required int projectId,
+//   }) async {
+//     final list = await _materialRequisitionSlipService.getReleasedProducts(
+//       search: itemId.toString(), // 🔥 KEY POINT
+//       pageNumber: 1,
+//       pageSize: 1000,
+//       projectID: projectId,
+//     );
 
-//     String? reopenRemarks;
-//     String? closeRemarks;
+//     try {
+//       return list.firstWhere((e) => e.id == itemId);
+//     } catch (_) {
+//       return null;
+//     }
+//   }
 
-//     List<ActivityDTO> activities = [];
-//     int selectedStatusId =
-//         int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
-//     if (selectedStatusId == SiteObservationStatus.ReadyToInspect ||
-//         selectedStatusId == SiteObservationStatus.InProgress ||
-//         selectedStatusId == SiteObservationStatus.Closed) {
-//       activities.add(
-//         ActivityDTO(
-//           id: 0,
-//           siteObservationID: id,
-//           actionID: SiteObservationActions.Assigned,
-//           actionName: 'Assigned',
-//           comments: '',
-//           documentName: '',
-//           fromStatusID: fromStatus,
-//           toStatusID: toStatus,
-//           assignedUserID: widget.detail.createdBy,
-//           assignedUserName: null,
-//           createdBy: userId,
-//           createdDate: DateTime.now(),
-//         ),
-//       );
-//     } else if (selectedStatusId == SiteObservationStatus.Reopen) {
-//       final assignedUsers =
-//           await SiteObservationService().fetchGetassignedusersforReopen(id);
-//       // String currentUserId = userId!.toString();
-//       // Add an activity for each assigned user
-//       for (var user in assignedUsers) {
-//         activities.add(
-//           ActivityDTO(
-//             id: 0,
-//             siteObservationID: id,
-//             actionID: SiteObservationActions.Assigned,
-//             actionName: 'Assigned',
-//             comments: '',
-//             documentName: '',
-//             fromStatusID: fromStatus,
-//             toStatusID: toStatus,
-//             assignedUserID: user.assignedUserID,
-//             createdBy: userId,
-//             createdDate: DateTime.now(),
+//   Future<void> _patchSlipData(Map<String, dynamic> data) async {
+//     try {
+//       itemDetails.clear();
+//       slipNoCtrl.text = data['slipNumber'] ?? '';
+//       slipDateCtrl.text = formatDateSafe(DateTime.parse(data['slipDate']));
+
+//       final sections = await _materialRequisitionSlipService
+//           .getSectionsByProjectID(data['projectID']);
+//       final floors = await _materialRequisitionSlipService
+//           .getFloorByProjectID(data['projectID']);
+
+//       setState(() {
+//         sectionList = sections;
+//         floorData = floors;
+//         selectedSectionId = data['sectionID'];
+//         selectedFloorId = data['floorID'];
+//       });
+
+//       final employees = await loadEmployees("");
+//       if (data['employeeID'] != null) {
+//         selectedEmployee = employees.firstWhere(
+//           (e) => e.id == data['employeeID'],
+//           orElse: () => EmployeeModel(
+//             id: data['employeeID'],
+//             displayName: data['employeeName'] ?? "",
 //           ),
 //         );
 //       }
-//     }
 
-//     // Add file uploads if available
-//     for (String fileName in uploadedFiles) {
-//       activities.add(
-//         ActivityDTO(
-//           id: 0,
-//           siteObservationID: id,
-//           actionID: SiteObservationActions.DocUploaded,
-//           actionName: 'DocUploaded',
-//           comments: '',
-//           documentName: fileName,
-//           fromStatusID: fromStatus,
-//           toStatusID: toStatus,
-//           assignedUserID: userId!,
-//           assignedUserName: null,
-//           createdBy: userId,
-//           createdDate: DateTime.now(),
-//         ),
-//       );
-//     }
-
-//     if (selectedStatusId == SiteObservationStatus.Reopen) {
-//       reopenRemarks = reopenRemarksController.text;
-//     }
-
-//     if (selectedStatusId == SiteObservationStatus.Closed) {
-//       closeRemarks = closeRemarksController.text;
-//     }
-
-//     return UpdateSiteObservation(
-//       id: id,
-//       rootCauseID: rootCauseID,
-//       corretiveActionToBeTaken: correctiveActionController.text,
-//       preventiveActionTaken: preventiveActionController.text,
-//       materialCost: double.tryParse(materialCostController.text) ?? 0.0,
-//       labourCost: double.tryParse(labourCostController.text) ?? 0.0,
-//       reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
-//       statusID: selectedStatusId,
-//       reopenRemarks: reopenRemarks,
-//       closeRemarks: closeRemarks,
-//       lastModifiedBy: userId!,
-//       lastModifiedDate: DateTime.now(),
-//       activityDTO: activities,
-//     );
-//   }
-
-//   String getAttachmentStatusName(ActivityDTO activity) {
-//     // Prefer toStatusID (status at upload), then fromStatusID, then fallback
-//     final int statusId =
-//         (activity.toStatusID != null && activity.toStatusID! > 0)
-//             ? activity.toStatusID!
-//             : (activity.fromStatusID != null && activity.fromStatusID! > 0
-//                 ? activity.fromStatusID!
-//                 : 1); // fallback to Open
-
-//     return SiteObservationStatus.idToName[statusId] ?? 'Unknown';
-//   }
-
-//   String getStatusNameFromId(String id) {
-//     final status = observationStatus.firstWhere(
-//       (e) => e['id'].toString() == id,
-//       orElse: () => {'name': 'Unknown'},
-//     );
-//     return status['name'] ?? 'Unknown';
-//   }
-
-//   Future<void> setObservationStatusDropdown(
-//       int statusId, int? createdBy, GetSiteObservationMasterById detail) async {
-//     int? userID = await SharedPrefsHelper.getUserId();
-
-//     // Check if current user is assigned to this observation
-//     var isAssign = detail.activityDTO
-//         .where((activity) => activity.assignedUserID == userID)
-//         .toList();
-
-//     List<Map<String, String>> newStatusList = [];
-//     String? newSelectedStatus;
-//     bool newStatusEnabled = true;
-
-//     print("Status ID in dropdown: $statusId");
-//     print("currentDetail: $currentDetail");
-//     print("widget.detail.createdBy: ${widget.detail}");
-//     // Default: user cannot edit Root Cause
-//     bool canEditRootCause = false;
-
-//     switch (statusId) {
-//       case SiteObservationStatus.Closed:
-//         newStatusList = [
-//           {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"}
-//         ];
-//         newSelectedStatus = SiteObservationStatus.Closed.toString();
-//         newStatusEnabled = false;
-//         isRootCauseUpdateEnable = false;
-//         canEditRootCause = true; // Closed always editable
-//         break;
-
-//       case SiteObservationStatus.ReadyToInspect:
-//         if (createdBy == userID &&
-//             SiteObservationStatus.ReadyToInspect.toString() ==
-//                 "Ready To Inspect") {
-//           // Creator can edit
-//           newStatusList = [
-//             {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"},
-//             {"id": SiteObservationStatus.Reopen.toString(), "name": "Reopen"},
-//             // {
-//             //   "id": SiteObservationStatus.ReadyToInspect.toString(),
-//             //   "name": "Ready To Inspect"
-//             // }
-//           ];
-//           isRootCauseUpdateEnable = true;
-//           canEditRootCause = true;
-//           print("canEditRootCause 485: $canEditRootCause");
-//         } else if (SiteObservationStatus.Closed.toString() == "Closed") {
-//           newStatusList = [
-//             {"id": SiteObservationStatus.Closed.toString(), "name": "Closed"},
-//           ];
-//           isRootCauseUpdateEnable = false;
-//         } else if (isAssign.isEmpty &&
-//             createdBy != userID &&
-//             SiteObservationStatus.ReadyToInspect.toString() ==
-//                 "Ready To Inspect") {
-//           // Not assigned, not creator
-//           newStatusList = [
-//             {
-//               "id": SiteObservationStatus.ReadyToInspect.toString(),
-//               "name": "Ready To Inspect"
-//             }
-//           ];
-//           newStatusEnabled = false;
-//           isRootCauseUpdateEnable = false;
-//           // canEditRootCause = false;
-//         } else {
-//           newStatusList = [
-//             {
-//               "id": SiteObservationStatus.InProgress.toString(),
-//               "name": "In Progress"
-//             },
-//             {
-//               "id": SiteObservationStatus.ReadyToInspect.toString(),
-//               "name": "Ready To Inspect"
-//             },
-//           ];
-//         }
-//         isRootCauseUpdateEnable = true;
-//         // newSelectedStatus = SiteObservationStatus.InProgress.toString();
-//         // newSelectedStatus = SiteObservationStatus.ReadyToInspect.toString();
-//         break;
-
-//       case SiteObservationStatus.Open:
-//         newStatusList = [
-//           {"id": SiteObservationStatus.Open.toString(), "name": "Open"},
-//           {
-//             "id": SiteObservationStatus.InProgress.toString(),
-//             "name": "In Progress"
-//           },
-//           {
-//             "id": SiteObservationStatus.ReadyToInspect.toString(),
-//             "name": "Ready To Inspect"
-//           },
-//         ];
-//         newSelectedStatus = SiteObservationStatus.Open.toString();
-//         // Creator can edit Root Cause in Open? Usually no
-//         canEditRootCause = false;
-//         break;
-
-//       default:
-//         newStatusList = [
-//           {
-//             "id": SiteObservationStatus.InProgress.toString(),
-//             "name": "In Progress"
-//           },
-//           {
-//             "id": SiteObservationStatus.ReadyToInspect.toString(),
-//             "name": "Ready To Inspect"
-//           },
-//         ];
-//         newSelectedStatus = statusId.toString();
-//         isRootCauseUpdateEnable = false;
-//         canEditRootCause = false;
-//         break;
-//     }
-
-//     selectedStatus = newSelectedStatus;
-//     if (fromStatus != selectedStatus) {
-//       isRootCauseUpdateEnable = true;
-//     } else {
-//       isRootCauseUpdateEnable = false;
-//     }
-
-//     // Ensure current status is in dropdown
-//     if (!newStatusList.any((s) => s['id'] == statusId.toString())) {
-//       newStatusList.add({
-//         "id": statusId.toString(),
-//         "name": SiteObservationStatus.idToName[statusId] ?? "Reopen"
-//       });
-//     }
-
-//     setState(() {
-//       observationStatus = newStatusList;
-
-//       final statusExists =
-//           newStatusList.any((item) => item['id'] == newSelectedStatus);
-//       selectedStatus = statusExists ? newSelectedStatus : null;
-
-//       isStatusEnabled = newStatusEnabled;
-
-//       // Assign the new boolean for form/button visibility
-//       this.canEditRootCause = canEditRootCause;
-
-//       if (!statusExists) {
-//         print(
-//             '⚠️ selectedStatus "$newSelectedStatus" not found in dropdown list');
-//       }
-//     });
-//   }
-
-//   Future<void> _sendActivityComment() async {
-//     if (isSending) return;
-//     setState(() {
-//       isSending = true; // send start hone pe disable kar do
-//     });
-//     try {
-//       final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
-//       final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
-//       final Iterable<RegExpMatch> matches = mentionRegex.allMatches(markupText);
-
-//       List<User> selectedUsers = matches.map((match) {
-//         String rawIdStr = match.group(1)!;
-//         String rawUserName = match.group(2)!;
-
-//         String cleanedIdStr = rawIdStr.replaceAll('_', '');
-//         String cleanedUserName = rawUserName.replaceAll('_', '');
-
-//         int userId = int.tryParse(cleanedIdStr) ?? 0;
-
-//         // final matchedUser = allUsers.firstWhere(
-//         //   (user) => user.id == userId,
-//         //   orElse: () => User(id: 0, userName: ''),
-//         // );
-
-//         final matchedUser = allUsers.firstWhere(
-//           (user) => user.id == userId,
-//           orElse: () => User(
-//               id: userId,
-//               userName: cleanedUserName), // ✅ fallback me bhi name jaaye
+//       final contractors = await loadContractors("");
+//       if (data['contractorID'] != null) {
+//         selectedContractor = contractors.firstWhere(
+//           (c) => c.id == data['contractorID'],
+//           orElse: () => ContractorModel(
+//             id: data['contractorID'],
+//             displayName: "",
+//           ),
 //         );
+//       }
 
-//         String finalUserName = matchedUser.userName.isNotEmpty
-//             ? matchedUser.userName
-//             : cleanedUserName;
+//       final allActivities = await _materialRequisitionSlipService.getActivities(
+//         search: '',
+//         projectID: data['projectID'],
+//       );
 
-//         return User(id: userId, userName: finalUserName);
-//       }).toList();
+//       for (final d in data['details']) {
+//         if (!itemDetails.any((e) => e.id == d['id'])) {
+//           final itemId = (d['itemID'] as num).toInt();
+//           final itemModel = await resolveItemById(
+//             itemId: itemId,
+//             projectId: data['projectID'],
+//           );
 
-//       // ✅ Fix is here — get int userId only
-//       // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
-//       // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-//       // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-//       int createdById = await SharedPrefsHelper.getUserId() ?? 0;
-//       String createdByName = await SharedPrefsHelper.getUserName() ?? 'Unknown';
+//           final activityNo =
+//               d['activityID'] != null ? (d['activityID'] as num).toInt() : null;
 
-//       // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
-//       List<ActivityDTO> activities = [];
+//           ActivityModel? selectedActivity;
+//           if (activityNo != null) {
+//             try {
+//               selectedActivity =
+//                   allActivities.firstWhere((a) => a.id == activityNo);
+//             } catch (e) {
+//               selectedActivity = ActivityModel(
+//                 id: activityNo,
+//                 activityName: "Activity #$activityNo",
+//               );
+//             }
+//           }
 
-//       final commentText =
-//           mentionsKey.currentState?.controller?.text.trim() ?? "";
-//       final plainComment =
-//           commentText.replaceAll(RegExp(r'\@\[(.*?)\]\((.*?)\)'), '').trim();
+//           itemDetails.add(
+//             UiItemDetail(
+//               id: d['id'],
+//               lineNumber: d['lineNumber'] ?? 0,
+//               itemId: itemId,
+//               item: itemModel?.displayText ?? 'Item #$itemId',
+//               unit: itemModel?.unit ?? d['unit'] ?? '',
+//               qty: (d['requiredQty'] as num).toInt(),
+//               placeOfIssue: d['placeOfIssue'] ?? '',
+//               remarks: d['remarks'] ?? '',
+//               availableQty: d['qty'] != null ? (d['qty'] as num).toInt() : null,
+//               activityNo: activityNo,
+//               equipmentName: d['equipmentId_ISPL'] ?? '',
+//               selectedActivity: selectedActivity,
+//             ),
+//           );
+//         } else {
+//           print("⚠️ Skipping duplicate item with id: ${d['id']}");
+//         }
+//       }
+//       setState(() {
+//         showForm = true;
+//       });
+//     } catch (e, s) {
+//       print("❌ PATCH ERROR: $e");
+//       print(s);
+//     }
+//   }
 
-//       bool hasMentions = selectedUsers.isNotEmpty;
-//       bool hasComment = plainComment.isNotEmpty;
-//       // CASE 1 — Only mention(s)
-//       if (hasMentions && !hasComment) {
-//         for (var user in selectedUsers) {
-//           activities.add(ActivityDTO(
-//             id: 0,
-//             siteObservationID: editingUserId,
-//             actionID: SiteObservationActions.Assigned,
-//             actionName: "Assigned",
-//             comments: "",
-//             documentName: "",
-//             fromStatusID: fromStatus,
-//             toStatusID: toStatus,
-//             toStatusName: SiteObservationStatus.idToName[toStatus] ??
-//                 "Unknown", // ✅ Add this
-//             assignedUserID: user.id,
-//             assignedUserName: user.userName,
-//             createdBy: createdById, // ✅ send as integer
-//             createdByName: createdByName,
-//             createdDate: DateTime.now(),
-//           ));
+//   // Date Picker (UTC)
+//   Future<void> _pickDate() async {
+//     final DateTime? picked = await showDatePicker(
+//       context: context,
+//       initialDate: DateTime.now(),
+//       firstDate: DateTime(2020),
+//       lastDate: DateTime(2100),
+//     );
+
+//     if (picked != null) {
+//       setState(() {
+//         selectedSlipDateUtc = DateTime.utc(
+//           picked.year,
+//           picked.month,
+//           picked.day,
+//         );
+//       });
+
+//       slipDateCtrl.text = "${picked.day.toString().padLeft(2, '0')}/"
+//           "${picked.month.toString().padLeft(2, '0')}/"
+//           "${picked.year}";
+//     }
+//   }
+
+//   Future<void> fetchProjects({int? editProjectId}) async {
+//     try {
+//       int? userId = await SharedPrefsHelper.getUserId();
+//       int? companyId = await SharedPrefsHelper.getCompanyId();
+//       if (userId == null || companyId == null) return;
+
+//       List<Project> projects =
+//           await widget._projectService.fetchProject(userId, companyId);
+
+//       Project? matchedProject;
+
+//       if (editProjectId != null) {
+//         try {
+//           matchedProject = projects.firstWhere((p) => p.id == editProjectId);
+//         } catch (_) {
+//           print("❌ EDIT PROJECT NOT FOUND IN LIST");
 //         }
 //       }
 
-//       // CASE 2 — Only comment
-//       else if (!hasMentions && hasComment) {
-//         activities.add(ActivityDTO(
-//           id: 0,
-//           siteObservationID: editingUserId,
-//           actionID: SiteObservationActions.Commented,
-//           actionName: "Commented",
-//           comments: plainComment,
-//           documentName: "",
-//           fromStatusID: fromStatus,
-//           toStatusID: toStatus,
-//           toStatusName: SiteObservationStatus.idToName[toStatus] ??
-//               "Unknown", // ✅ Add this
-//           assignedUserID: 0,
-//           // assignedUserName: '',
-//           // createdBy: createdBy, // ✅ integer
-//           createdBy: createdById,
-//           createdByName: createdByName,
-//           assignedUserName: createdByName,
-//           createdDate: DateTime.now(),
-//         ));
-//       }
+//       setState(() {
+//         projectList = projects;
+//         selectedProject =
+//             matchedProject ?? (projects.isNotEmpty ? projects[0] : null);
+//       });
 
-//       // CASE 3 — Both mention(s) and comment
-//       else if (hasMentions && hasComment) {
-//         for (var user in selectedUsers) {
-//           activities.add(ActivityDTO(
-//             id: 0,
-//             siteObservationID: editingUserId,
-//             actionID: SiteObservationActions.Assigned,
-//             actionName: "Assigned",
-//             comments: "",
-//             documentName: "",
-//             fromStatusID: fromStatus,
-//             toStatusID: toStatus,
-//             toStatusName: SiteObservationStatus.idToName[toStatus] ??
-//                 "Unknown", // ✅ Add this
-//             assignedUserID: user.id,
-//             assignedUserName: user.userName,
-//             createdBy: createdById, // ✅ integer
-//             createdByName: createdByName,
-//             createdDate: DateTime.now(),
-//           ));
+//       if (selectedProject != null) {
+//         await SharedPrefsHelper.saveProjectID(selectedProject!.id);
+
+//         // 🔥 AUTO LOAD DATA
+//         await loadSections(selectedProject!.id);
+//         await loadFloors(selectedProject!.id);
+//         // 🔥 ONLY FOR CREATE MODE
+//         if (!isEditMode) {
+//           await fetchMaterialIssueRequestByProjectID(selectedProject!.id);
 //         }
-
-//         activities.add(ActivityDTO(
-//           id: 0,
-//           siteObservationID: editingUserId,
-//           actionID: SiteObservationActions.Commented,
-//           actionName: "Commented",
-//           comments: plainComment,
-//           documentName: "",
-//           fromStatusID: fromStatus,
-//           toStatusID: toStatus,
-//           toStatusName: SiteObservationStatus.idToName[toStatus] ??
-//               "Unknown", // ✅ Add this
-//           assignedUserID: 0,
-//           assignedUserName: '',
-//           createdBy: createdById, // ✅ integer
-//           createdByName: createdByName,
-//           createdDate: DateTime.now(),
-//         ));
 //       }
+//     } catch (e) {
+//       print("Error fetching projects: $e");
+//     }
+//   }
 
-//       if (activities.isEmpty) {
+//   Future<void> fetchMaterialIssueRequestByProjectID(int projectId) async {
+//     setState(() {
+//       isLoading = true;
+//       materialIssueList.clear(); // 🔥 VERY IMPORTANT
+//     });
+
+//     try {
+//       final fetched = await _materialRequisitionSlipService
+//           .fetchMaterialIssueRequestByProjectID(
+//         projectId: projectId,
+//         sortColumn: 'ID Desc',
+//         pageIndex: 0,
+//         pageSize: 1000,
+//         isActive: true,
+//       );
+
+//       materialIssueList.addAll(fetched);
+
+//       print("UI LIST LENGTH: ${materialIssueList.length}");
+//     } catch (e) {
+//       print("❌ Fetch error: $e");
+//     } finally {
+//       setState(() => isLoading = false);
+//     }
+//   }
+
+//   Future<void> loadSections(int projectId) async {
+//     sectionList =
+//         await _materialRequisitionSlipService.getSectionsByProjectID(projectId);
+//     setState(() {});
+//   }
+
+//   Future<void> loadFloors(int projectId) async {
+//     floorData =
+//         await _materialRequisitionSlipService.getFloorByProjectID(projectId);
+//     setState(() {});
+//   }
+
+//   Future<List<EmployeeModel>> loadEmployees(String filter) async {
+//     if (employeeLoading || !employeeHasMore) return [];
+
+//     employeeLoading = true;
+
+//     final result = await _materialRequisitionSlipService.getEmployees(
+//       search: filter,
+//       pageNumber: employeePageNumber,
+//       pageSize: employeePageSize,
+//     );
+
+//     if (result.isNotEmpty) {
+//       employeePageNumber++;
+//     } else {
+//       employeeHasMore = false;
+//     }
+
+//     employeeLoading = false;
+
+//     return result;
+//   }
+
+//   Future<List<ContractorModel>> loadContractors(String filter) async {
+//     if (contractorLoading || !contractorHasMore) return [];
+
+//     contractorLoading = true;
+
+//     final result = await _materialRequisitionSlipService.getVendors(
+//       search: filter,
+//       pageNumber: contractorPageNumber,
+//       pageSize: contractorPageSize,
+//     );
+
+//     if (result.isNotEmpty) {
+//       contractorPageNumber++;
+//     } else {
+//       contractorHasMore = false;
+//     }
+
+//     contractorLoading = false;
+//     return result;
+//   }
+
+//   void showSnack(String message) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(content: Text(message)),
+//     );
+//   }
+
+//   Future<void> onSlipClick(BuildContext context, int id) async {
+//     final data = await _materialRequisitionSlipService.getMaterialIssueById(
+//         id, programId);
+
+//     if (data == null) return;
+
+//     await SharedPrefsHelper.saveProjectID(data['projectID']);
+
+//     /// 🔹 Navigate to Slip Page
+//     final result = await Navigator.push(
+//       context,
+//       MaterialPageRoute(
+//         builder: (_) => MaterialRequisitionSlip(
+//           projectService: ProjectService(),
+//           slipId: id,
+//           isApproval: true,
+//         ),
+//       ),
+//     );
+//     if (result == true) {
+//       // _loadAwaitingMRISData(); // list refresh
+
+//       /// 🔥 Optional: agar chaho to auto back
+//       // Navigator.pop(context, true); // dashboard ko signal
+//     }
+//   }
+
+//   Future<void> saveMRIS() async {
+//     print("🔥 saveMRIS START");
+//     if (isLoading) return;
+//     setState(() => isLoading = true);
+
+//     try {
+//       final int? projectIdBeforeReset =
+//           selectedProject?.id; // ✅ preserve current project
+
+//       final int? userId = await SharedPrefsHelper.getUserId();
+//       if (itemDetails.isEmpty) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text("Please add at least one item"),
+//             behavior: SnackBarBehavior.floating,
+//           ),
+//         );
 //         return;
 //       }
 
-//       bool success = await SiteObservationService().sendSiteObservationActivity(
-//         activities: activities,
-//         siteObservationID: editingUserId,
-//       );
+//       if (selectedEmployee == null && selectedContractor == null) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text("Please select either Employee or Contractor."),
+//             behavior: SnackBarBehavior.floating,
+//           ),
+//         );
+//         return;
+//       }
+
+//       if (selectedEmployee != null && selectedContractor != null) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text(
+//               "You can not select both Employee and Contractor. Please select either one.",
+//             ),
+//             behavior: SnackBarBehavior.floating,
+//           ),
+//         );
+//         return;
+//       }
+
+//       final request = MaterialIssueRequest(
+//           id: editingId,
+//           dataAreaId: "hppl",
+//           slipNumber: slipNoCtrl.text,
+//           site: "SITE",
+//           sectionID: selectedSectionId ?? 0,
+//           floorID: selectedFloorId ?? 0,
+
+//           // 🔥 IMPORTANT
+//           status: "Posted",
+//           isplMaterialIssueType: 1,
+//           slipDate: selectedSlipDateUtc ?? DateTime.now().toUtc(),
+//           projectID: projectIdBeforeReset ?? 0,
+//           contractorID: selectedContractor?.id,
+//           employeeID: selectedEmployee?.id,
+//           isActive: true,
+//           programId: programId,
+//           createdBy: userId,
+//           details: itemDetails
+//               .map((ui) => ItemDetail(
+//                     id: ui.id, // ✅ Existing backend ID
+//                     lineNumber: ui.lineNumber,
+//                     itemID: ui.itemId,
+//                     equipmentIdISPL: ui.selectedEquipment?.id?.toString() ?? '',
+//                     placeOfIssue: ui.placeOfIssue,
+//                     unit: ui.unit,
+//                     activityID: ui.selectedActivity?.id ?? 0,
+//                     projectID: projectIdBeforeReset ?? 0,
+//                     remarks: ui.remarks,
+//                     requiredQty: ui.qty,
+//                     issueQty: ui.qty,
+//                     qty: ui.qty,
+//                     journalNum: '',
+//                   ))
+//               .toList());
+//       bool success;
+//       // 🟢 SAVE / 🔵 UPDATE
+//       if (editingId == 0) {
+//         success =
+//             await _materialRequisitionSlipService.submitMaterialIssue(request);
+//       } else {
+//         success =
+//             await _materialRequisitionSlipService.updateMaterialIssue(request);
+//       }
 
 //       if (success) {
-//         mentionsKey.currentState?.controller?.clear();
-//         _activityCommentController.clear();
-
+//         showSnack(
+//           editingId == 0
+//               ? "MRIS Saved Successfully"
+//               : "MRIS Updated Successfully",
+//         );
 //         setState(() {
-//           widget.detail.activityDTO.insertAll(0, activities);
+//           // editingId = 0;
+//           // isEditMode = false;
+//           showForm = false;
+//           isEditable = false;
+//           isApproval = false;
+//           // itemDetails.clear();
+//           // ❌ don't reset selectedProject here
+//           // resetForm(); // optional: modify it to NOT reset selectedProject
 //         });
-//       } else {
-//         print("❌ Failed to post activity!");
+
+//         print("========== SAVE FLOW ==========");
+//         print("EditingID: $editingId");
+//         print("Selected Project: ${selectedProject?.id}");
+//         print("List length before fetch: ${materialIssueList.length}");
+
+//         print(
+//             "Form reset, refreshing list for projectID: $projectIdBeforeReset");
+//         await fetchMaterialIssueRequestByProjectID(selectedProject!.id);
 //       }
-//     } catch (e, st) {
-//       print(st);
+//     } catch (e) {
+//       showSnack(e.toString());
 //     } finally {
-//       setState(() {
-//         isSending = false; // send complete hone ke baad enable kar do
-//       });
+//       setState(() => isLoading = false);
 //     }
 //   }
 
-//   fetchUsers() async {
-//     setState(() {
-//       isLoading = true;
-//     });
+//   void resetForm() {
+//     // TextControllers
+//     slipNoCtrl.clear();
+//     slipDateCtrl.clear();
 
+//     // Dropdown selections
+//     selectedSectionId = null;
+//     selectedFloorId = null;
+//     selectedEmployee = null;
+//     selectedContractor = null;
+//     selectedActivity = null;
+//     selectedEquipment = null;
+
+//     // Date
+//     selectedSlipDateUtc = null;
+
+//     // Item details
+//     itemDetails.clear();
+
+//     // Reset item dialog controllers
+//     resetItemFields();
+
+//     // Form flags
+//     showForm = false;
+//   }
+
+//   void resetItemFields() {
+//     // Clear controllers
+//     unitController.clear();
+//     availableController.clear();
+//     qtyController.clear();
+
+//     // Reset temporary item object
+//     selectedItem = null;
+//     selectedActivity = null;
+//     selectedEquipment = null;
+
+//     // Reset validation errors
+//     itemError = null;
+//     qtyError = null;
+//     placeError = null;
+//     activityError = null;
+//   }
+
+//   void openApprovalPopup(BuildContext context, bool isApprove) {
+//     showDialog(
+//       context: context,
+//       builder: (_) => AlertDialog(
+//         title: Text(isApprove ? "Approve MRIS" : "Disapprove MRIS"),
+//         content: const Text("Are you sure you want to continue?"),
+//         actions: [
+//           TextButton(
+//             onPressed: () => Navigator.pop(context),
+//             child: const Text("Cancel"),
+//           ),
+//           ElevatedButton(
+//             onPressed: () async {
+//               Navigator.pop(context);
+
+//               if (isApprove) {
+//                 await approveMRIS();
+//               } else {
+//                 await disapproveMRIS();
+//               }
+//             },
+//             child: const Text("Yes"),
+//           )
+//         ],
+//       ),
+//     );
+//   }
+
+//   Future<String?> showRemarkDialog(
+//     BuildContext context, {
+//     required String title,
+//     required String hint,
+//     required Color actionColor,
+//     required String actionText,
+//   }) async {
+//     final TextEditingController remarkController = TextEditingController();
+
+//     return showDialog<String>(
+//       context: context,
+//       barrierDismissible: false,
+//       builder: (context) {
+//         return AlertDialog(
+//           title: Text(title),
+//           content: TextField(
+//             controller: remarkController,
+//             maxLines: 3,
+//             decoration: InputDecoration(
+//               hintText: hint,
+//               border: const OutlineInputBorder(),
+//             ),
+//           ),
+//           actions: [
+//             TextButton(
+//               onPressed: () => Navigator.pop(context),
+//               child: const Text("Cancel"),
+//             ),
+//             ElevatedButton(
+//               style: ElevatedButton.styleFrom(
+//                 backgroundColor: actionColor,
+//               ),
+//               onPressed: () {
+//                 if (remarkController.text.trim().isEmpty) {
+//                   ScaffoldMessenger.of(context).showSnackBar(
+//                     const SnackBar(
+//                       content: Text("Remark is required"),
+//                     ),
+//                   );
+//                   return;
+//                 }
+//                 Navigator.pop(
+//                   context,
+//                   remarkController.text.trim(),
+//                 );
+//               },
+//               child: Text(actionText),
+//             ),
+//           ],
+//         );
+//       },
+//     );
+//   }
+
+//   Future<void> approveMRIS() async {
+//     final int? userId = await SharedPrefsHelper.getUserId();
+//     final int? issueId = widget.slipId;
+
+//     if (userId == null || issueId == null) {
+//       showSnack("Invalid user or issue");
+//       return;
+//     }
+
+//     final remark = await showRemarkDialog(
+//       context,
+//       title: "Approve MRIS",
+//       hint: "Enter approval remark",
+//       actionColor: Colors.green,
+//       actionText: "Approve",
+//     );
+
+//     if (remark == null) return;
+
+//     final payload = {
+//       "IssueId": issueId,
+//       "ApprovalStatusCode": 3,
+//       "Remarks": remark,
+//       "ProgramId": AppPages.materialIssueSlipProgramId,
+//       "ActionedBy": userId,
+//     };
+
+//     print("Approval Payload => $payload");
+
+//     final success = await _materialRequisitionSlipService.approveMRIS(payload);
+
+//     if (success) {
+//       showSnack("Approved Successfully");
+
+//       /// 🔥 Approval ke baad Awaiting Approval list pe wapas
+//       // Navigator.pushAndRemoveUntil(
+//       //   context,
+//       //   MaterialPageRoute(
+//       //     builder: (_) => const AwaitingApprovalMrisPage(),
+//       //   ),
+//       //   (route) => false, // 🔥 purana stack clear
+//       // );
+//       Navigator.pop(context, true); // 🔥 bas itna
+//     }
+//   }
+
+//   Future<void> disapproveMRIS() async {
+//     final int? userId = await SharedPrefsHelper.getUserId();
+//     final int? issueId = widget.slipId; // ✅ FIX
+
+//     if (userId == null || issueId == null) {
+//       showSnack("Invalid user or issue");
+//       return;
+//     }
+
+//     final remark = await showRemarkDialog(
+//       context,
+//       title: "Disapprove MRIS",
+//       hint: "Enter rejection reason",
+//       actionColor: Colors.red,
+//       actionText: "Disapprove",
+//     );
+
+//     if (remark == null) return;
+
+//     final payload = {
+//       "OldId": issueId, // 🔥 backend key yahi expect kar raha
+//       "DisapprovalRemarks": remark,
+//       "ActionedBy": userId,
+//     };
+
+//     print("Disapprove Payload => $payload");
+
+//     final success =
+//         await _materialRequisitionSlipService.disapproveMRIS(payload);
+
+//     if (success) {
+//       showSnack("Disapproved Successfully");
+
+//       /// 🔥 Same clean navigation as Approve
+//       // Navigator.pushAndRemoveUntil(
+//       //   context,
+//       //   MaterialPageRoute(
+//       //     builder: (_) => const AwaitingApprovalMrisPage(),
+//       //   ),
+//       //   (route) => false,
+//       // );
+//       Navigator.pop(context, true); // 🔥 bas itna
+//     }
+//   }
+
+//   Future<UiItemDetail?> openItemSheet(UiItemDetail tempItem,
+//       {int? index}) async {
+//     final item = tempItem;
+
+//     /// Controllers
+//     final qtyController = TextEditingController(text: item.qty.toString());
+//     final unitController = TextEditingController(text: item.unit);
+//     final availableController =
+//         TextEditingController(text: item.availableQty?.toString() ?? '');
+
+//     /// Selected Dropdown Values
+//     ItemModel? selectedItem = item.itemId != 0
+//         ? ItemModel(id: item.itemId, displayText: item.item, unit: item.unit)
+//         : null;
+
+//     ActivityModel? selectedActivity = item.selectedActivity;
+
+//     EquipmentModel? selectedEquipment = (item.equipmentName ?? '').isNotEmpty
+//         ? EquipmentModel(id: 0, displayName: item.equipmentName!)
+//         : null;
+
+//     final placeController =
+//         TextEditingController(text: item.placeOfIssue ?? '');
+
+//     /// ✅ FIX 1 : Prefill available qty when editing
+//     if (selectedItem != null) {
+//       final projectId = await SharedPrefsHelper.getProjectID();
+
+//       if (projectId != null) {
+//         final qty = await _materialRequisitionSlipService
+//             .getAvailableQuantityByProject(projectId, selectedItem.id);
+
+//         availableController.text = formatQty(qty);
+//       }
+//     }
+
+//     return showDialog<UiItemDetail?>(
+//       context: context,
+//       barrierDismissible: false,
+//       builder: (context) {
+//         return StatefulBuilder(
+//           builder: (context, setDialogState) {
+//             return Dialog(
+//               insetPadding: const EdgeInsets.all(16),
+//               shape: RoundedRectangleBorder(
+//                 borderRadius: BorderRadius.circular(12),
+//               ),
+//               child: SingleChildScrollView(
+//                 padding: const EdgeInsets.all(16),
+//                 child: Column(
+//                   mainAxisSize: MainAxisSize.min,
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     /// TITLE
+//                     Text(
+//                       index == null ? "Add Item" : "Item ${index + 1}",
+//                       style: const TextStyle(
+//                           fontSize: 18, fontWeight: FontWeight.bold),
+//                     ),
+
+//                     const SizedBox(height: 12),
+
+//                     /// ITEM DROPDOWN
+//                     DropdownSearch<ItemModel>(
+//                       selectedItem: selectedItem,
+//                       popupProps: PopupProps.dialog(
+//                         showSearchBox: true,
+//                         isFilterOnline: true,
+//                         loadingBuilder: (context, search) =>
+//                             const Center(child: CircularProgressIndicator()),
+//                       ),
+//                       asyncItems: (String filter) async {
+//                         return _materialRequisitionSlipService
+//                             .getReleasedProducts(
+//                           search: filter,
+//                           pageNumber: 1,
+//                           pageSize: 20,
+//                           projectID: selectedProject?.id ?? 0,
+//                         );
+//                       },
+//                       itemAsString: (ItemModel item) => item.displayText,
+//                       dropdownDecoratorProps: DropDownDecoratorProps(
+//                         dropdownSearchDecoration: InputDecoration(
+//                           labelText: "Select Item",
+//                           border: OutlineInputBorder(),
+//                           errorText: isItemSubmitted ? itemError : null,
+//                         ),
+//                       ),
+//                       onChanged: (ItemModel? itemModel) async {
+//                         if (itemModel == null) return;
+
+//                         setDialogState(() {
+//                           selectedItem = itemModel;
+//                           item.itemId = itemModel.id;
+//                           item.item = itemModel.displayText;
+//                           item.unit = itemModel.unit ?? '';
+//                           unitController.text = item.unit;
+//                         });
+
+//                         final projectId =
+//                             await SharedPrefsHelper.getProjectID();
+
+//                         if (projectId == null) return;
+
+//                         final qty = await _materialRequisitionSlipService
+//                             .getAvailableQuantityByProject(
+//                                 projectId, itemModel.id);
+
+//                         setDialogState(() {
+//                           availableController.text = formatQty(qty);
+//                         });
+//                       },
+//                     ),
+
+//                     const SizedBox(height: 8),
+
+//                     /// UNIT / AVAILABLE / QTY
+//                     Row(
+//                       children: [
+//                         Expanded(
+//                           child: TextField(
+//                             controller: unitController,
+//                             enabled: false,
+//                             decoration: const InputDecoration(
+//                               labelText: "Unit",
+//                               border: OutlineInputBorder(),
+//                             ),
+//                           ),
+//                         ),
+//                         const SizedBox(width: 8),
+//                         Expanded(
+//                           child: TextField(
+//                             controller: availableController,
+//                             enabled: false,
+//                             decoration: const InputDecoration(
+//                               labelText: "Available",
+//                               border: OutlineInputBorder(),
+//                             ),
+//                           ),
+//                         ),
+//                         const SizedBox(width: 8),
+//                         Expanded(
+//                           child: TextField(
+//                             controller: qtyController,
+//                             keyboardType: TextInputType.number,
+//                             decoration: InputDecoration(
+//                               labelText: "Required Qty",
+//                               border: const OutlineInputBorder(),
+//                               errorText: isItemSubmitted ? qtyError : null,
+//                             ),
+//                             onChanged: (v) {
+//                               setDialogState(() {
+//                                 item.qty = int.tryParse(v) ?? 0;
+//                                 qtyError = null;
+//                               });
+//                             },
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+
+//                     const SizedBox(height: 8),
+
+//                     /// PLACE OF ISSUE
+//                     TextField(
+//                       controller: placeController,
+//                       decoration: InputDecoration(
+//                         labelText: "Place Of Issue",
+//                         border: const OutlineInputBorder(),
+//                         errorText: isItemSubmitted ? placeError : null,
+//                       ),
+//                       onChanged: (v) {
+//                         setDialogState(() {
+//                           item.placeOfIssue = v;
+//                           placeError = null;
+//                         });
+//                       },
+//                     ),
+
+//                     const SizedBox(height: 8),
+
+//                     /// ACTIVITY
+//                     DropdownSearch<ActivityModel>(
+//                       selectedItem: selectedActivity,
+//                       compareFn: (a, b) => a.id == b.id,
+//                       asyncItems: (String filter) async {
+//                         final projectId =
+//                             await SharedPrefsHelper.getProjectID();
+//                         print("PROJECT ID FOR ACTIVITY => $projectId");
+//                         if (projectId == null) return [];
+
+//                         final result =
+//                             await _materialRequisitionSlipService.getActivities(
+//                           search: filter,
+//                           projectID: projectId,
+//                         );
+
+//                         print("ACTIVITY RESULT LENGTH => ${result.length}");
+//                         return result;
+//                       },
+//                       itemAsString: (a) => a.activityName,
+//                       popupProps: const PopupProps.dialog(
+//                         showSearchBox: true,
+//                         isFilterOnline: true,
+//                       ),
+//                       dropdownDecoratorProps: DropDownDecoratorProps(
+//                         dropdownSearchDecoration: InputDecoration(
+//                           labelText: "Select Activity",
+//                           border: OutlineInputBorder(),
+//                           errorText: activityError,
+//                         ),
+//                       ),
+//                       onChanged: (value) {
+//                         setDialogState(() {
+//                           selectedActivity = value;
+//                           item.selectedActivity = value; // ✅ FIX
+//                           item.activityNo =
+//                               value?.id; // ✅ Save selected Activity ID
+//                           activityError = null;
+//                         });
+//                       },
+//                     ),
+
+//                     const SizedBox(height: 8),
+
+//                     /// EQUIPMENT
+//                     DropdownSearch<EquipmentModel>(
+//                       selectedItem: selectedEquipment,
+//                       asyncItems: (String filter) async {
+//                         return _materialRequisitionSlipService.getEquipment(
+//                           search: filter,
+//                           pageNumber: 1,
+//                           pageSize: 20,
+//                         );
+//                       },
+//                       itemAsString: (e) => e.displayName,
+//                       popupProps: const PopupProps.dialog(
+//                         showSearchBox: true,
+//                       ),
+//                       dropdownDecoratorProps: const DropDownDecoratorProps(
+//                         dropdownSearchDecoration: InputDecoration(
+//                           labelText: "Select Equipment",
+//                           border: OutlineInputBorder(),
+//                         ),
+//                       ),
+//                       onChanged: (EquipmentModel? value) {
+//                         selectedEquipment = value;
+//                         item.equipmentName = value?.displayName ?? "";
+//                       },
+//                     ),
+
+//                     const SizedBox(height: 8),
+
+//                     /// REMARKS
+//                     TextField(
+//                       decoration: const InputDecoration(
+//                         labelText: "Remarks",
+//                         border: OutlineInputBorder(),
+//                       ),
+//                       onChanged: (v) => item.remarks = v,
+//                     ),
+
+//                     const SizedBox(height: 16),
+
+//                     /// BUTTONS
+//                     Row(
+//                       mainAxisAlignment: MainAxisAlignment.end,
+//                       children: [
+//                         TextButton(
+//                           onPressed: () {
+//                             Navigator.pop(context, null);
+//                           },
+//                           child: const Text("Cancel"),
+//                         ),
+//                         const SizedBox(width: 8),
+//                         ElevatedButton(
+//                           onPressed: () {
+//                             setDialogState(() {
+//                               isItemSubmitted = true;
+
+//                               itemError =
+//                                   selectedItem == null ? "Item required" : null;
+
+//                               final qty = int.tryParse(qtyController.text) ?? 0;
+//                               item.qty = qty;
+
+//                               qtyError = qty <= 0
+//                                   ? "Qty must be greater than 0"
+//                                   : null;
+
+//                               placeError = (item.placeOfIssue == null ||
+//                                       item.placeOfIssue!.isEmpty)
+//                                   ? "Place required"
+//                                   : null;
+
+//                               activityError = selectedActivity == null
+//                                   ? "Activity required"
+//                                   : null;
+//                             });
+
+//                             if (itemError == null &&
+//                                 qtyError == null &&
+//                                 placeError == null &&
+//                                 activityError == null) {
+//                               Navigator.pop(context, item);
+//                             }
+//                           },
+//                           child: const Text("Done"),
+//                         ),
+//                       ],
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             );
+//           },
+//         );
+//       },
+//     );
+//   }
+
+//   Widget _infoText(String label, String value, {bool fullWidth = false}) {
+//     return Padding(
+//       padding: const EdgeInsets.symmetric(vertical: 4),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           // Label
+//           Text(
+//             label,
+//             style: const TextStyle(
+//               fontSize: 11,
+//               color: Colors.grey, // subtle grey for label
+//             ),
+//           ),
+//           const SizedBox(height: 2),
+//           // Value
+//           Text(
+//             value,
+//             style: const TextStyle(
+//               fontSize: 13,
+//               fontWeight: FontWeight.w500, // slightly bolder
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+//   Widget _twoColRow(Widget left, Widget right) {
+//     return Row(
+//       children: [
+//         Expanded(child: left),
+//         const SizedBox(width: 12),
+//         Expanded(child: right),
+//       ],
+//     );
+//   }
+
+//   Future<void> _openActionPopup(int id) async {
 //     try {
-//       int projectID = widget.projectID;
-//       int? currentUserId =
-//           await SharedPrefsHelper.getUserId(); // 👈 Get logged-in user ID
-//       int? creatorId = widget.detail.createdBy; // 👈 Observation creator ID
-//       // print("CreatorID: $creatorId  Logged-in: $currentUserId");
-//       final response = await SiteObservationService().fetchUsersForList(
-//         projectId: projectID,
+//       final data = await _materialRequisitionSlipService.getMrisApprovalHistory(
+//         id: id,
+//         programId: AppPages.materialIssueSlipProgramId,
 //       );
 
-//       setState(() {
-//         userList = response
-//             .where((u) => u.id != currentUserId) // 👈 Exclude current user
-//             .where((u) => currentUserId == creatorId || u.id != creatorId)
-//             .map((u) => {
-//                   'id': u.id.toString(),
-//                   'display': u.userName,
-//                   'full_name': '${u.firstName} ${u.lastName}',
-//                 })
-//             .toList();
-//         // print('userlist606: $userList');
-//       });
+//       if (!mounted) return;
+
+//       // 🔥 API ke baad dialog open
+//       _showHistoryPopup(data);
 //     } catch (e) {
-//       print('Error fetching users: $e');
-//     } finally {
-//       setState(() {
-//         isLoading = false;
-//       });
+//       debugPrint("❌ History error: $e");
+//       showSnack("Failed to load history");
 //     }
 //   }
 
-//   Future<void> loadSection() async {
-//     // SharedPreferences prefs = await SharedPreferences.getInstance();
-//     // int? projectID = prefs.getInt('projectID');
-//     int projectID = widget.projectID;
-//     if (projectID != null) {
-//       try {
-//         List<SectionModel> sections = await getSectionsByProjectID(projectID);
-//         if (sections.isNotEmpty) {
-//           setState(() {
-//             areaLabel = sections[0].labelName;
-//           });
-//         }
-//       } catch (e) {
-//         print('Error fetching sections: $e');
-//       }
-//     }
-//   }
+//   void _showHistoryPopup(List<dynamic> historyData) {
+//     showDialog(
+//       context: context,
+//       barrierDismissible: false,
+//       builder: (_) {
+//         final header = historyData.isNotEmpty ? historyData[0] : null;
 
-//   Future<void> loadFloor() async {
-//     int projectID = widget.projectID;
-//     if (projectID != null) {
-//       try {
-//         List<FloorModel> floors = await getFloorByProjectID(projectID);
-//         if (floors.isNotEmpty) {
-//           setState(() {
-//             floorLabel = floors[0].floorName;
-//           });
-//         }
-//       } catch (e) {
-//         print('Error fetching floors: $e');
-//       }
-//     }
-//   }
-
-//   Future<void> loadElement() async {
-//     int projectID = widget.projectID;
-
-//     if (projectID != null) {
-//       try {
-//         List<ElementModel> elements = await getElementByProjectID(projectID);
-//         if (elements.isNotEmpty) {
-//           setState(() {
-//             elementLabel = elements[0].labelName;
-//           });
-//         }
-//       } catch (e) {
-//         print('Error fetching elements: $e');
-//       }
-//     }
-//   }
-
-//   @override
-//   @override
-//   Widget build(BuildContext context) {
-//     final media = MediaQuery.of(context);
-
-//     return Dialog(
-//       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-//       child: LayoutBuilder(
-//         builder: (context, constraints) {
-//           final height = media.size.height * 0.8;
-//           final width = media.size.width * 0.9;
-
-//           return ConstrainedBox(
-//             constraints: BoxConstraints(
-//               maxHeight: height,
-//               maxWidth: width,
-//             ),
+//         return Dialog(
+//           shape: RoundedRectangleBorder(
+//             borderRadius: BorderRadius.circular(16),
+//           ),
+//           child: Padding(
+//             padding: const EdgeInsets.all(14),
 //             child: Column(
 //               mainAxisSize: MainAxisSize.min,
 //               children: [
-//                 // Title row
-//                 Padding(
-//                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-//                   child: Row(
-//                     children: [
-//                       Expanded(
-//                         child: Text(
-//                           widget.detail.observationCode ?? 'No Code',
-//                           style: const TextStyle(fontWeight: FontWeight.bold),
-//                         ),
-//                       ),
-//                       const SizedBox(width: 15),
-//                       Expanded(
-//                         child: DropdownButtonFormField<String>(
-//                           value: selectedStatus,
-//                           hint: const Text("-- Status --"),
-//                           isExpanded: true,
-//                           items: observationStatus.map((status) {
-//                             final idStr = status['id'].toString();
-//                             final id = int.tryParse(idStr);
-//                             final name = SiteObservationStatus.idToName[id] ??
-//                                 status['name'] ??
-//                                 'Unknown';
-
-//                             return DropdownMenuItem<String>(
-//                               value: idStr,
-//                               child: Text(name),
-//                             );
-//                           }).toList(),
-//                           onChanged: isStatusEnabled
-//                               ? (newValue) {
-//                                   if (newValue != null) {
-//                                     final int newStatus = int.parse(newValue);
-//                                     setState(() {
-//                                       fromStatus = toStatus;
-//                                       toStatus = newStatus;
-//                                       selectedStatus = newValue;
-
-//                                       // ✅ Updated logic
-//                                       const allowedFileUploadStatuses = [
-//                                         SiteObservationStatus.ReadyToInspect,
-//                                         SiteObservationStatus.Reopen,
-//                                         SiteObservationStatus.Closed
-//                                       ];
-
-//                                       isRootCauseUpdateEnable =
-//                                           allowedFileUploadStatuses
-//                                                   .contains(newStatus) &&
-//                                               fromStatus != newStatus &&
-//                                               canEditRootCause;
-
-//                                       isReopenAction = newStatus ==
-//                                               SiteObservationStatus.Reopen &&
-//                                           fromStatus !=
-//                                               SiteObservationStatus.Reopen;
-
-//                                       isCloseAction = newStatus ==
-//                                               SiteObservationStatus.Closed &&
-//                                           fromStatus !=
-//                                               SiteObservationStatus.Closed;
-//                                     });
-//                                   }
-//                                 }
-//                               : null,
-//                           validator: (value) {
-//                             if (value == null || value.isEmpty) {
-//                               return 'Please select a status';
-//                             }
-//                             return null;
-//                           },
-//                         ),
-//                       ),
-//                     ],
+//                 /// 🔹 TITLE
+//                 const Text(
+//                   "MRIS Approval History",
+//                   style: TextStyle(
+//                     fontSize: 18,
+//                     fontWeight: FontWeight.bold,
 //                   ),
 //                 ),
 
-//                 const SizedBox(height: 16),
+//                 const SizedBox(height: 12),
 
-//                 Expanded(
-//                   child: DefaultTabController(
-//                     length: 3,
-//                     child: Column(
+//                 /// 🔹 HEADER CARD (ONE LINE LOOK)
+//                 if (header != null)
+//                   Container(
+//                     padding: const EdgeInsets.all(12),
+//                     decoration: BoxDecoration(
+//                       gradient: LinearGradient(
+//                         colors: [
+//                           Colors.blue.shade50,
+//                           Colors.blue.shade100,
+//                         ],
+//                       ),
+//                       borderRadius: BorderRadius.circular(12),
+//                     ),
+//                     child: Row(
 //                       children: [
-//                         const TabBar(
-//                           labelColor: Colors.black,
-//                           tabs: [
-//                             Tab(text: "Detail"),
-//                             Tab(text: "Attachment"),
-//                             Tab(text: "Activity"),
-//                           ],
-//                         ),
+//                         // 🔹 COL 1 – Slip No
 //                         Expanded(
-//                           child: TabBarView(
+//                           flex: 4, // col-md-4
+//                           child: Row(
 //                             children: [
-//                               _buildDetailTab(context), // ⬅️ Updated
-//                               _buildAttachmentTab(),
-//                               _buildActivityTab(),
+//                               const Icon(Icons.receipt_long, size: 18),
+//                               const SizedBox(width: 6),
+//                               Expanded(
+//                                 child: Text(
+//                                   header['transactionCode'] ?? "-",
+//                                   style: const TextStyle(
+//                                     fontWeight: FontWeight.w600,
+//                                     fontSize: 13,
+//                                   ),
+//                                   overflow: TextOverflow.ellipsis,
+//                                 ),
+//                               ),
+//                             ],
+//                           ),
+//                         ),
+
+//                         // 🔹 COL 2 – Date
+//                         Expanded(
+//                           flex: 4, // col-md-4
+//                           child: Row(
+//                             mainAxisAlignment: MainAxisAlignment.center,
+//                             children: [
+//                               const Icon(Icons.calendar_today, size: 14),
+//                               const SizedBox(width: 6),
+//                               Text(
+//                                 formatDateTimeSafe(header['transactionDate']),
+//                                 style: const TextStyle(fontSize: 12),
+//                               ),
+//                             ],
+//                           ),
+//                         ),
+
+//                         // 🔹 COL 3 – Created By
+//                         Expanded(
+//                           flex: 4, // col-md-4
+//                           child: Row(
+//                             mainAxisAlignment: MainAxisAlignment.end,
+//                             children: [
+//                               const Icon(Icons.person, size: 16),
+//                               const SizedBox(width: 4),
+//                               Flexible(
+//                                 child: Text(
+//                                   header['createdBy'] ?? "-",
+//                                   style: const TextStyle(fontSize: 12),
+//                                   overflow: TextOverflow.ellipsis,
+//                                 ),
+//                               ),
 //                             ],
 //                           ),
 //                         ),
 //                       ],
 //                     ),
 //                   ),
+
+//                 const SizedBox(height: 14),
+
+//                 /// 🔹 HISTORY LIST
+//                 Flexible(
+//                   child: ListView.builder(
+//                     shrinkWrap: true,
+//                     itemCount: historyData.length,
+//                     itemBuilder: (_, index) {
+//                       final item = historyData[index];
+
+//                       return Card(
+//                         elevation: 2,
+//                         margin: const EdgeInsets.symmetric(vertical: 6),
+//                         shape: RoundedRectangleBorder(
+//                           borderRadius: BorderRadius.circular(12),
+//                         ),
+//                         child: Padding(
+//                           padding: const EdgeInsets.all(12),
+//                           child: Column(
+//                             crossAxisAlignment: CrossAxisAlignment.start,
+//                             children: [
+//                               _infoRow(
+//                                 context,
+//                                 "Actioned By",
+//                                 item['actionedBy'],
+//                               ),
+//                               _infoRow(
+//                                 context,
+//                                 "Received On",
+//                                 formatDateTimeSafe(item['receivedOn']),
+//                               ),
+//                               _infoRow(
+//                                 context,
+//                                 "Actioned On",
+//                                 formatDateTimeSafe(item['actionedOn']),
+//                               ),
+//                               _infoRow(
+//                                 context,
+//                                 "Action",
+//                                 item['action'],
+//                               ),
+//                               const SizedBox(height: 6),
+//                               const Text(
+//                                 "Remarks",
+//                                 style: TextStyle(
+//                                   fontWeight: FontWeight.w600,
+//                                 ),
+//                               ),
+//                               Container(
+//                                 width: double.infinity,
+//                                 margin: const EdgeInsets.only(top: 4),
+//                                 padding: const EdgeInsets.all(8),
+//                                 decoration: BoxDecoration(
+//                                   color: Colors.grey.shade100,
+//                                   borderRadius: BorderRadius.circular(8),
+//                                 ),
+//                                 child: Text(
+//                                   item['remarks'] ?? "—",
+//                                   style: const TextStyle(fontSize: 13),
+//                                 ),
+//                               ),
+//                               const SizedBox(height: 4),
+//                               Text(
+//                                 "Reference: ${item['isReference'] ?? 'No'}",
+//                                 style: const TextStyle(
+//                                   fontSize: 12,
+//                                   color: Colors.grey,
+//                                 ),
+//                               ),
+//                             ],
+//                           ),
+//                         ),
+//                       );
+//                     },
+//                   ),
+//                 ),
+
+//                 const SizedBox(height: 14),
+
+//                 /// 🔹 OK BUTTON
+//                 SizedBox(
+//                   width: double.infinity,
+//                   child: ElevatedButton(
+//                     style: ElevatedButton.styleFrom(
+//                       padding: const EdgeInsets.symmetric(vertical: 12),
+//                       shape: RoundedRectangleBorder(
+//                         borderRadius: BorderRadius.circular(10),
+//                       ),
+//                     ),
+//                     onPressed: () => Navigator.pop(context),
+//                     child: const Text("OK"),
+//                   ),
 //                 ),
 //               ],
 //             ),
-//           );
-//         },
-//       ),
-//     );
-//   }
-
-//   Widget _buildDetailTab(BuildContext context) {
-//     // final media = MediaQuery.of(context);
-//     return SingleChildScrollView(
-//       padding: const EdgeInsets.all(12.0),
-//       child: ConstrainedBox(
-//         constraints: BoxConstraints(
-//             //   minHeight: media.size.height * 0.4,
-//             //   maxHeight: media.size.height * 0.8,
-//             ),
-//         child: IntrinsicHeight(
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               Text(
-//                 widget.detail.closeRemarks ?? 'N/A',
-//                 style: const TextStyle(
-//                   fontWeight: FontWeight.bold,
-//                   fontSize: 18,
-//                 ),
-//               ),
-//               Text(
-//                 widget.detail.reopenRemarks ?? 'N/A',
-//                 style: const TextStyle(
-//                   fontWeight: FontWeight.bold,
-//                   fontSize: 18,
-//                 ),
-//               ),
-//               Text(
-//                 widget.detail.description ?? 'N/A',
-//                 style: const TextStyle(
-//                   fontWeight: FontWeight.bold,
-//                   fontSize: 18,
-//                 ),
-//               ),
-//               const SizedBox(height: 16),
-
-//               // ✅ Use this single method repeatedly — smart layout
-//               _buildResponsiveRow(
-//                   context,
-//                   "Observation Date :",
-//                   _formatDate(widget.detail.trancationDate),
-//                   "Created Date :",
-//                   _formatDate(widget.detail.createdDate)),
-//               _buildResponsiveRow(
-//                   context,
-//                   "Observation Type :",
-//                   widget.detail.observationType ?? 'N/A',
-//                   "Issue Type :",
-//                   widget.detail.issueType ?? 'N/A'),
-//               _buildResponsiveRow(
-//                   context,
-//                   "Created By :",
-//                   widget.detail.observationRaisedBy ?? 'N/A',
-//                   "Due Date :",
-//                   _formatDate(widget.detail.dueDate)),
-//               _buildResponsiveRow(
-//                   context,
-//                   "Activity :",
-//                   widget.detail.activityName ?? 'N/A',
-//                   "$areaLabel :",
-//                   widget.detail.sectionName ?? 'N/A'),
-//               _buildResponsiveRow(
-//                   context,
-//                   "$floorLabel :",
-//                   widget.detail.floorName ?? 'N/A',
-//                   "Part :",
-//                   widget.detail.partName ?? 'N/A'),
-//               _buildResponsiveRow(
-//                   context,
-//                   "$elementLabel :",
-//                   widget.detail.elementName ?? 'N/A',
-//                   "Contractor :",
-//                   widget.detail.contractorName ?? 'N/A'),
-//               _buildResponsiveRow(
-//                   context,
-//                   "Compliance Required :",
-//                   widget.detail.complianceRequired ? 'True' : 'False',
-//                   "Escalation Required :",
-//                   widget.detail.escalationRequired ? 'True' : 'False'),
-
-//               // ⭐ NEW FIELDS — 2-per-row with condition
-//               buildPairRow(
-//                 context,
-//                 "Root Cause :",
-//                 widget.detail.rootCauseName,
-//                 "Rework Cost :",
-//                 widget.detail.reworkCost?.toStringAsFixed(2),
-//               ),
-
-//               buildPairRow(
-//                 context,
-//                 "Preventive Action To Be Taken :",
-//                 widget.detail.preventiveActionTaken,
-//                 "Corrective Action To Be Taken :",
-//                 widget.detail.corretiveActionToBeTaken,
-//               ),
-
-//               const SizedBox(height: 24),
-
-//               // ✅ Your existing form
-//               _buildRootCauseForm(),
-//             ],
 //           ),
-//         ),
-//       ),
+//         );
+//       },
 //     );
 //   }
 
-//   Widget buildPairRow(
-//     BuildContext context,
-//     String label1,
-//     String? value1,
-//     String label2,
-//     String? value2,
-//   ) {
-//     bool show1 = value1 != null && value1.trim().isNotEmpty;
-//     bool show2 = value2 != null && value2.trim().isNotEmpty;
+//   Widget _infoRow(BuildContext context, String label, String? value) {
+//     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-//     if (!show1 && !show2) return const SizedBox.shrink();
-
-//     if (show1 && !show2) {
-//       return _buildResponsiveRow(context, label1, value1!, "", "");
-//     }
-
-//     if (!show1 && show2) {
-//       return _buildResponsiveRow(context, label2, value2!, "", "");
-//     }
-
-//     return _buildResponsiveRow(
-//       context,
-//       label1,
-//       value1!,
-//       label2,
-//       value2!,
-//     );
-//   }
-
-//   Widget _buildResponsiveRow(
-//     BuildContext context,
-//     String label1,
-//     String value1,
-//     String label2,
-//     String value2,
-//   ) {
-//     final screenWidth = MediaQuery.of(context).size.width;
-//     final isMobile = screenWidth < 600;
-
-//     if (isMobile) {
-//       // MOBILE: 1 item per row (stacked vertically)
-//       return Column(
+//     return Padding(
+//       padding: const EdgeInsets.symmetric(vertical: 4),
+//       child: Row(
 //         crossAxisAlignment: CrossAxisAlignment.start,
 //         children: [
-//           _buildDetailRow(label1, value1),
-//           _buildDetailRow(label2, value2),
-//           const SizedBox(height: 8),
-//         ],
-//       );
-//     } else {
-//       // TABLET: 2 items in a row (like table)
-//       return Padding(
-//         padding: const EdgeInsets.symmetric(vertical: 6.0),
-//         child: Row(
-//           children: [
-//             Expanded(child: _buildDetailRow(label1, value1)),
-//             const SizedBox(width: 12),
-//             Expanded(child: _buildDetailRow(label2, value2)),
-//           ],
-//         ),
-//       );
-//     }
-//   }
-
-//   Widget _buildDetailRow(String label, String value) {
-//     return Row(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       children: [
-//         Text(
-//           label,
-//           style: const TextStyle(fontWeight: FontWeight.w600),
-//         ),
-//         const SizedBox(width: 6),
-//         Expanded(child: Text(value)),
-//       ],
-//     );
-//   }
-
-//   // TableRow _buildAlignedRow(
-//   //     String label1, String value1, String label2, String value2) {
-//   //   return TableRow(
-//   //     children: [
-//   //       _buildLabelValue(label1, value1),
-//   //       _buildLabelValue(label2, value2),
-//   //     ],
-//   //   );
-//   // }
-
-//   // Widget _buildLabelValue(String label, String value) {
-//   //   return Padding(
-//   //     padding: const EdgeInsets.symmetric(vertical: 8),
-//   //     child: Row(
-//   //       crossAxisAlignment: CrossAxisAlignment.start,
-//   //       children: [
-//   //         Text(
-//   //           label,
-//   //           style: const TextStyle(fontWeight: FontWeight.w600),
-//   //         ),
-//   //         const SizedBox(width: 4),
-//   //         Expanded(
-//   //           child: Text(
-//   //             value,
-//   //             overflow: TextOverflow.ellipsis,
-//   //           ),
-//   //         ),
-//   //       ],
-//   //     ),
-//   //   );
-//   // }
-
-//   String _formatDate(DateTime? date) {
-//     return date != null
-//         ? DateFormat('dd/MM/yyyy hh:mm').format(date.toLocal())
-//         : 'N/A';
-//   }
-
-//   Widget _buildTripleRow(BuildContext context, Widget a, Widget b, Widget c) {
-//     final isMobile = MediaQuery.of(context).size.width < 600;
-
-//     if (isMobile) {
-//       return Column(
-//         children: [
-//           a,
-//           const SizedBox(height: 10),
-//           b,
-//           const SizedBox(height: 10),
-//           c,
-//           const SizedBox(height: 10),
-//         ],
-//       );
-//     } else {
-//       return Row(
-//         children: [
-//           Expanded(child: a),
-//           const SizedBox(width: 12),
-//           Expanded(child: b),
-//           const SizedBox(width: 12),
-//           Expanded(child: c),
-//         ],
-//       );
-//     }
-//   }
-
-//   Widget _buildRootCauseForm() {
-//     return Form(
-//       key: _formKey, // <-- Form key yahan lagao
-//       child: SingleChildScrollView(
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             // Existing form fields (Dropdown, TextFormFields)
-//             if (canEditRootCause) ...[
-//               DropdownButtonFormField<RootCause>(
-//                 value: selectedRootCause,
-//                 decoration: const InputDecoration(
-//                   labelText: 'Select Root Cause',
-//                   border: OutlineInputBorder(),
-//                 ),
-//                 items: rootCauses.map((cause) {
-//                   return DropdownMenuItem<RootCause>(
-//                     value: cause,
-//                     child: Text(cause.rootCauseName),
-//                   );
-//                 }).toList(),
-//                 onChanged: (newValue) {
-//                   setState(() {
-//                     selectedRootCause = newValue;
-//                   });
-//                 },
-//                 validator: (value) {
-//                   if (value == null) return 'Root Cause is required';
-//                   return null;
-//                 },
+//           SizedBox(
+//             width: 90, // label column fixed
+//             child: Text(
+//               "$label:",
+//               style: TextStyle(
+//                 fontWeight: FontWeight.w600,
+//                 fontSize: 13,
+//                 color: isDark ? Colors.white : Colors.black,
 //               ),
-
-//               const SizedBox(height: 12),
-//               // *** New Material + Labour + Total Cost Row ***
-//               _buildTripleRow(
-//                 context,
-//                 TextFormField(
-//                   controller: materialCostController,
-//                   keyboardType: TextInputType.number,
-//                   decoration: const InputDecoration(
-//                     labelText: "Material Cost",
-//                     border: OutlineInputBorder(),
-//                   ),
-//                   validator: (value) {
-//                     if (value == null || value.trim().isEmpty) {
-//                       return "Material cost required";
-//                     }
-//                     return null;
-//                   },
-//                 ),
-//                 TextFormField(
-//                   controller: labourCostController,
-//                   keyboardType: TextInputType.number,
-//                   decoration: const InputDecoration(
-//                     labelText: "Labour Cost",
-//                     border: OutlineInputBorder(),
-//                   ),
-//                   validator: (value) {
-//                     if (value == null || value.trim().isEmpty) {
-//                       return "Labour cost required";
-//                     }
-//                     return null;
-//                   },
-//                 ),
-//                 TextFormField(
-//                   controller: reworkCostController,
-//                   readOnly: true,
-//                   decoration: const InputDecoration(
-//                     labelText: "Total Rework Cost",
-//                     border: OutlineInputBorder(),
-//                   ),
-//                 ),
-//               ),
-
-//               const SizedBox(height: 12),
-//               TextFormField(
-//                 controller: preventiveActionController,
-//                 decoration: const InputDecoration(
-//                   labelText: 'Preventive Action To Be Taken',
-//                   border: OutlineInputBorder(),
-//                 ),
-//                 validator: (value) {
-//                   if (value == null || value.trim().isEmpty) {
-//                     return 'Preventive Action To Be Taken is required';
-//                   }
-//                   return null;
-//                 },
-//               ),
-//               const SizedBox(height: 12),
-//               TextFormField(
-//                 controller: correctiveActionController,
-//                 decoration: const InputDecoration(
-//                   labelText: 'Corrective Action To Be Taken',
-//                   border: OutlineInputBorder(),
-//                 ),
-//                 validator: (value) {
-//                   if (value == null || value.trim().isEmpty) {
-//                     return 'Corrective Action To Be Taken is required';
-//                   }
-//                   return null;
-//                 },
-//               ),
-//               const SizedBox(height: 16),
-//             ],
-
-//             // File upload section
-//             if (isRootCauseUpdateEnable) ...[
-//               const Text(
-//                 "Upload File",
-//                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-//               ),
-//               ElevatedButton(
-//                 onPressed: () async {
-//                   FilePickerResult? result =
-//                       await FilePicker.platform.pickFiles(
-//                     allowMultiple: false,
-//                     withData: true,
-//                   );
-
-//                   if (result != null && result.files.isNotEmpty) {
-//                     final file = result.files.first;
-
-//                     setState(() {
-//                       selectedFileName = file.name;
-//                     });
-
-//                     final uploadedFileName = await SiteObservationService()
-//                         .uploadFileAndGetFileName(file.name, file.bytes!);
-
-//                     if (uploadedFileName != null) {
-//                       setState(() {
-//                         uploadedFiles.add(uploadedFileName);
-//                       });
-//                     } else {
-//                       ScaffoldMessenger.of(context).showSnackBar(
-//                         const SnackBar(content: Text("File upload failed")),
-//                       );
-//                     }
-//                   } else {
-//                     print("No file selected");
-//                   }
-//                 },
-//                 child: const Text("Choose File"),
-//               ),
-//               if (selectedFileName != null) ...[
-//                 const SizedBox(height: 8),
-//                 Text(
-//                   "Selected file: $selectedFileName",
-//                   style: const TextStyle(fontWeight: FontWeight.w600),
-//                 ),
-//               ],
-//               const SizedBox(height: 16),
-//               if (selectedStatus == SiteObservationStatus.Reopen.toString() &&
-//                   fromStatus != SiteObservationStatus.Reopen &&
-//                   isStatusEnabled) ...[
-//                 const SizedBox(height: 12),
-//                 TextFormField(
-//                   controller: reopenRemarksController,
-//                   decoration: const InputDecoration(
-//                     labelText: 'Reopen Remarks',
-//                     border: OutlineInputBorder(),
-//                   ),
-//                   validator: (value) {
-//                     if (value == null || value.trim().isEmpty) {
-//                       return 'Reopen Remarks is required';
-//                     }
-//                     return null;
-//                   },
-//                 ),
-//               ],
-//               const SizedBox(height: 16),
-//               if (selectedStatus ==
-//                   SiteObservationStatus.Closed.toString()) ...[
-//                 const SizedBox(height: 12),
-//                 TextFormField(
-//                   controller: closeRemarksController,
-//                   decoration: const InputDecoration(
-//                     labelText: 'Close Remarks',
-//                     border: OutlineInputBorder(),
-//                   ),
-//                   validator: (value) {
-//                     if (value == null || value.trim().isEmpty) {
-//                       return 'Close Remarks is required';
-//                     }
-//                     return null;
-//                   },
-//                 ),
-//               ],
-//             ],
-
-//             // Message if form is hidden (adjust condition as per your logic)
-//             if (selectedStatus !=
-//                     SiteObservationStatus.ReadyToInspect.toString() &&
-//                 selectedStatus != SiteObservationStatus.InProgress.toString() &&
-//                 selectedStatus == SiteObservationStatus.Reopen.toString())
-//               const Padding(
-//                 padding: EdgeInsets.symmetric(vertical: 16),
-//                 child: Text(
-//                   "Root Cause Details are hidden for the current status.",
-//                   style: TextStyle(color: Colors.grey),
-//                 ),
-//               ),
-
-//             // Update Button with validation
-//             if (canEditRootCause)
-//               ElevatedButton(
-//                 onPressed: isButtonDisabled
-//                     ? null
-//                     : () async {
-//                         if (_formKey.currentState?.validate() ?? false) {
-//                           setState(() {
-//                             isButtonDisabled = true;
-//                             isEditingRootCause = false;
-//                           });
-
-//                           UpdateSiteObservation updatedData =
-//                               await getUpdatedDataFromForm(uploadedFiles);
-//                           // return;
-//                           bool success = await SiteObservationService()
-//                               .updateSiteObservationByID(updatedData);
-
-//                           if (success) {
-//                             for (var fileName in uploadedFiles) {
-//                               widget.detail.activityDTO.add(
-//                                 ActivityDTO(
-//                                   id: 0,
-//                                   siteObservationID: widget.detail.id,
-//                                   actionID: SiteObservationActions.DocUploaded,
-//                                   actionName: "DocUploaded",
-//                                   comments: '',
-//                                   documentName: fileName,
-//                                   fromStatusID: fromStatus,
-//                                   toStatusID: toStatus,
-//                                   assignedUserID: 0,
-//                                   assignedUserName: null,
-//                                   createdBy: userId,
-//                                   createdDate: DateTime.now(),
-//                                 ),
-//                               );
-//                             }
-
-//                             setState(() {
-//                               uploadedFiles.clear();
-//                             });
-
-//                             ScaffoldMessenger.of(context).showSnackBar(
-//                               const SnackBar(
-//                                   content: Text('Update successful!')),
-//                             );
-
-//                             Navigator.of(context).pop(true);
-//                           } else {
-//                             ScaffoldMessenger.of(context).showSnackBar(
-//                               const SnackBar(
-//                                   content:
-//                                       Text('Update failed! Please try again.')),
-//                             );
-//                             setState(() {
-//                               isButtonDisabled = false;
-//                               isRootCauseUpdateEnable = false;
-//                             });
-//                           }
-//                         } else {
-//                           print("Validation failed.");
-//                         }
-//                       },
-//                 child: const Text('Update'),
-//               ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   Future<Uint8List?> compressImage(File file) async {
-//     final result = await FlutterImageCompress.compressWithFile(
-//       file.absolute.path,
-//       minWidth: 1024,
-//       minHeight: 1024,
-//       quality: 70, // 0-100
-//     );
-//     return result;
-//   }
-
-//   String resolveUserName(dynamic value) {
-//     if (value == null) return 'Unknown';
-
-//     // Convert to string for consistency
-//     final val = value.toString();
-
-//     // Try to match ID
-//     final isId = int.tryParse(val) != null;
-//     if (isId) {
-//       final user = userList.firstWhere(
-//         (u) => u['id'].toString() == val,
-//         orElse: () => {'display': 'Unknown'},
-//       );
-//       return user['display'] ?? 'Unknown';
-//     } else {
-//       // Match by name (case-insensitive)
-//       final user = userList.firstWhere(
-//         (u) => (u['display'] as String).toLowerCase() == val.toLowerCase(),
-//         orElse: () => {'display': val}, // fallback to value itself
-//       );
-//       return user['display'] ?? val;
-//     }
-//   }
-
-//   Widget _buildAttachmentTab() {
-//     // return Portal(
-//     return SingleChildScrollView(
-//       child: Padding(
-//         padding: const EdgeInsets.all(16.0),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             /// Upload Image Button
-//             ElevatedButton.icon(
-//               onPressed: () async {
-//                 final ImagePicker picker = ImagePicker();
-//                 final XFile? pickedFile =
-//                     await picker.pickImage(source: ImageSource.gallery);
-
-//                 if (pickedFile != null) {
-//                   File imageFile = File(pickedFile.path);
-//                   final fileName = imageFile.path.split('/').last;
-//                   final fileBytes = await compressImage(imageFile);
-
-//                   if (fileBytes == null) {
-//                     ScaffoldMessenger.of(context).showSnackBar(
-//                       const SnackBar(content: Text("Compression failed")),
-//                     );
-//                     return;
-//                   }
-
-//                   final uploadedFileName =
-//                       await SiteObservationService().uploadFileAndGetFileName(
-//                     fileName,
-//                     fileBytes,
-//                   );
-//                   // final int effectiveStatus = widget.detail.statusID ?? 0;
-//                   print("UPLOAD TIME 👉 "
-//                       "detail.statusID=${widget.detail.statusID} | "
-//                       "selectedStatus=$selectedStatus");
-
-//                   if (uploadedFileName != null) {
-//                     uploadedFiles.add(uploadedFileName);
-//                     setState(() {
-//                       showSaveAttachmentButton = true;
-//                       widget.detail.activityDTO.add(
-//                         ActivityDTO(
-//                           id: 0,
-//                           siteObservationID: widget.detail.id,
-//                           actionID: SiteObservationActions.DocUploaded,
-//                           actionName: "DocUploaded",
-//                           comments: '',
-//                           documentName: uploadedFileName,
-//                           fromStatusID: fromStatus,
-//                           toStatusID: toStatus,
-//                           assignedUserID: userId!,
-//                           assignedUserName: currentUserName,
-//                           createdByName: currentUserName,
-//                           createdDate: DateTime.now(),
-//                         ),
-//                       );
-//                     });
-//                   } else {
-//                     ScaffoldMessenger.of(context).showSnackBar(
-//                       const SnackBar(content: Text("Upload failed.")),
-//                     );
-//                   }
-//                 }
-//               },
-//               icon: const Icon(Icons.upload_file),
-//               label: const Text("Upload Image"),
 //             ),
-
-//             const SizedBox(height: 12),
-
-//             /// Save Button
-//             if (showSaveAttachmentButton)
-//               ElevatedButton(
-//                 onPressed: () async {
-//                   setState(() {
-//                     showSaveAttachmentButton = false;
-//                   });
-//                   UpdateSiteObservation updatedData =
-//                       await getUpdatedDataFromForm(uploadedFiles);
-//                   bool success = await SiteObservationService()
-//                       .updateSiteObservationByID(updatedData);
-//                   if (success) {
-//                     final newDetail = (await widget.siteObservationService
-//                             .fetchGetSiteObservationMasterById(
-//                                 widget.detail.id))
-//                         .first;
-//                     setState(() {
-//                       currentDetail = newDetail;
-//                       uploadedFiles.clear();
-//                     });
-//                   } else {
-//                     ScaffoldMessenger.of(context).showSnackBar(
-//                       SnackBar(
-//                         content: Row(
-//                           children: const [
-//                             Icon(Icons.error, color: Colors.red),
-//                             SizedBox(width: 10),
-//                             Text("Failed to save attachment."),
-//                           ],
-//                         ),
-//                         backgroundColor: Colors.black87,
-//                         duration: Duration(seconds: 3),
-//                       ),
-//                     );
-//                     setState(() {
-//                       showSaveAttachmentButton = true;
-//                     });
-//                   }
-//                 },
-//                 child: const Text("Save Attachment"),
+//           ),
+//           Expanded(
+//             child: Text(
+//               value?.isNotEmpty == true ? value! : "-",
+//               softWrap: true,
+//               style: TextStyle(
+//                 fontSize: 13,
+//                 color: isDark ? Colors.white70 : Colors.black87,
 //               ),
-
-//             const SizedBox(height: 16),
-
-//             /// Show Uploaded Images
-//             widget.detail.activityDTO.isNotEmpty
-//                 ? Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: widget.detail.activityDTO
-//                         .where((activity) => activity.documentName.isNotEmpty)
-//                         .map((activity) {
-//                       return Padding(
-//                         padding: const EdgeInsets.only(bottom: 16),
-//                         child: Column(
-//                           crossAxisAlignment: CrossAxisAlignment.start,
-//                           children: [
-//                             Text(activity.actionName,
-//                                 style: const TextStyle(
-//                                     fontWeight: FontWeight.bold)),
-//                             const SizedBox(height: 6),
-//                             Text(
-//                               "Uploaded By: ${activity.createdByName}",
-//                               style: const TextStyle(
-//                                   fontSize: 13, color: Colors.black54),
-//                             ),
-//                             Text(
-//                               "Status: ${getAttachmentStatusName(activity)}",
-//                               style: const TextStyle(
-//                                 fontSize: 12,
-//                                 fontStyle: FontStyle.italic,
-//                                 color: Colors.blueGrey,
-//                               ),
-//                             ),
-//                             SizedBox(height: 6),
-//                             GestureDetector(
-//                               onTap: () {
-//                                 openImageModal(activity.documentName);
-//                               },
-//                               child: Container(
-//                                 height: 150,
-//                                 width: 150,
-//                                 decoration: BoxDecoration(
-//                                   border: Border.all(
-//                                     color: Colors.grey.shade300,
-//                                     width: 2,
-//                                   ),
-//                                   borderRadius: BorderRadius.circular(12),
-//                                 ),
-//                                 child: ClipRRect(
-//                                   borderRadius: BorderRadius.circular(10),
-//                                   child: Image.network(
-//                                     isImage(activity.documentName)
-//                                         ? "$url/${activity.documentName}"
-//                                         : "assets/default-image.png",
-//                                     fit: BoxFit.cover,
-//                                     errorBuilder:
-//                                         (context, error, stackTrace) =>
-//                                             const Icon(Icons.broken_image,
-//                                                 size: 50),
-//                                   ),
-//                                 ),
-//                               ),
-//                             ),
-//                           ],
-//                         ),
-//                       );
-//                     }).toList(),
-//                   )
-//                 : const Text("No attachments available."),
-//           ],
-//         ),
+//             ),
+//           ),
+//         ],
 //       ),
 //     );
-//     // );
 //   }
 
-//   Widget _buildActivityTab() {
-//     final activities = widget.detail.activityDTO;
-//     // print("Activities: ${activities.length}");
-//     if (activities.isEmpty) {
-//       return const Center(child: Text("No activity recorded."));
-//     }
-//     Map<String, List<ActivityDTO>> groupedActivities = {};
-//     Set<int> usedIndexes = {};
-
-//     for (int i = 0; i < activities.length; i++) {
-//       if (usedIndexes.contains(i)) continue;
-
-//       final current = activities[i];
-//       final group = <ActivityDTO>[current];
-//       usedIndexes.add(i);
-
-//       for (int j = i + 1; j < activities.length; j++) {
-//         if (usedIndexes.contains(j)) continue;
-
-//         final other = activities[j];
-//         final timeDiff =
-//             (other.createdDate.difference(current.createdDate)).inSeconds.abs();
-//         final sameUser = other.createdByName == current.createdByName;
-
-//         if (timeDiff <= 5 && sameUser) {
-//           group.add(other);
-//           usedIndexes.add(j);
+//   @override
+//   Widget build(BuildContext context) {
+//     return WillPopScope(
+//       onWillPop: () async {
+//         if (showForm) {
+//           setState(() {
+//             showForm = false;
+//           });
+//           return false;
 //         }
-//       }
-//       final creator = current.createdByName ?? 'Unknown';
-//       final groupKey = "$creator|${current.createdDate.toIso8601String()}";
-//       groupedActivities[groupKey] = group;
-//     }
-//     String getStatusNameById(int id) {
-//       return SiteObservationStatus.idToName[id] ?? 'Unknown';
-//     }
 
-//     return StatefulBuilder(builder: (context, setState) {
-//       return Portal(
-//         child: Column(
-//           children: [
-//             Expanded(
-//               child: SingleChildScrollView(
-//                 padding: const EdgeInsets.symmetric(vertical: 8),
-//                 child: Column(
-//                   children: groupedActivities.entries.map((entry) {
-//                     final acts = entry.value;
-//                     final first = acts.first;
-//                     // print(acts.first.toString());
-//                     final statusName = first.toStatusName ?? "Unknown";
-//                     // print("Status Name: $statusName");
-//                     String userName = first.createdByName ??
-//                         (() {
-//                           if (first.createdBy != null && userList.isNotEmpty) {
-//                             final createdByStr =
-//                                 first.createdBy.toString().toLowerCase();
-
-//                             final matchedUser = userList.firstWhere(
-//                               (user) {
-//                                 final idMatch =
-//                                     user['id'].toString() == createdByStr;
-//                                 final displayMatch =
-//                                     (user['display'] ?? '').toLowerCase() ==
-//                                         createdByStr;
-//                                 final fullNameMatch =
-//                                     (user['full_name'] ?? '').toLowerCase() ==
-//                                         createdByStr;
-//                                 return idMatch || displayMatch || fullNameMatch;
-//                               },
-//                               orElse: () => {},
-//                             );
-
-//                             if (matchedUser.isNotEmpty) {
-//                               return matchedUser['full_name'] ??
-//                                   matchedUser['display'] ??
-//                                   createdByStr;
-//                             }
-
-//                             // Fallback to createdBy string if no match
-//                             return createdByStr;
-//                           }
-//                           return "Unknown";
-//                         })();
-//                     final date =
-//                         first.createdDate.toLocal().toString().split(' ')[0];
-//                     String nameToShow =
-//                         userName.isNotEmpty ? userName[0].toUpperCase() : '?';
-//                     return Card(
-//                       margin: const EdgeInsets.symmetric(
-//                           horizontal: 16, vertical: 8),
-//                       shape: RoundedRectangleBorder(
-//                           borderRadius: BorderRadius.circular(12)),
-//                       elevation: 3,
-//                       child: Padding(
-//                         padding: const EdgeInsets.all(12),
-//                         child: Column(
-//                           crossAxisAlignment: CrossAxisAlignment.start,
-//                           children: [
-//                             Padding(
-//                               padding: const EdgeInsets.only(bottom: 12.0),
-//                               child: Row(
-//                                 children: [
-//                                   const Icon(Icons.flag,
-//                                       size: 16, color: Colors.orange),
-//                                   const SizedBox(width: 6),
-//                                   Text(
-//                                     'Status: $statusName',
-//                                     style: const TextStyle(
-//                                       fontSize: 13,
-//                                       fontWeight: FontWeight.w500,
-//                                       color: Colors.blueGrey,
-//                                     ),
-//                                   ),
-//                                 ],
-//                               ),
-//                             ),
-//                             const Divider(height: 20),
-//                             Row(
-//                               children: [
-//                                 CircleAvatar(
-//                                   child: Text(nameToShow),
-//                                 ),
-//                                 const SizedBox(width: 10),
-//                                 Expanded(
-//                                   child: Text(
-//                                     userName,
-//                                     style: const TextStyle(
-//                                         fontWeight: FontWeight.bold),
-//                                   ),
-//                                 ),
-//                                 Text(
-//                                   date,
-//                                   style: const TextStyle(color: Colors.grey),
-//                                 ),
-//                               ],
-//                             ),
-//                             const SizedBox(height: 12),
-//                             Column(
-//                               children: List.generate(acts.length, (index) {
-//                                 final activity = acts[index];
-//                                 return Padding(
-//                                   padding: const EdgeInsets.only(bottom: 16),
-//                                   child: IntrinsicHeight(
-//                                     child: Row(
-//                                       crossAxisAlignment:
-//                                           CrossAxisAlignment.start,
-//                                       children: [
-//                                         Column(
-//                                           children: [
-//                                             Container(
-//                                               width: 10,
-//                                               height: 10,
-//                                               decoration: const BoxDecoration(
-//                                                 color: Colors.blue,
-//                                                 shape: BoxShape.circle,
-//                                               ),
-//                                             ),
-//                                             if (index != acts.length - 1)
-//                                               Expanded(
-//                                                 child: Container(
-//                                                   width: 2,
-//                                                   color: Colors.grey.shade300,
-//                                                 ),
-//                                               ),
-//                                           ],
-//                                         ),
-//                                         const SizedBox(width: 12),
-//                                         Expanded(
-//                                           child: Column(
-//                                               crossAxisAlignment:
-//                                                   CrossAxisAlignment.start,
-//                                               children: [
-//                                                 _buildActivityStep(
-//                                                   activity.actionName,
-//                                                   activity.comments ?? "",
-//                                                   null,
-//                                                   activity.assignedUserName,
-//                                                 ),
-
-//                                                 // YEH NAYA ADD KARO HAR ACTIVITY KE LIYE
-//                                                 if (activity.actionName ==
-//                                                         'DocUploaded' &&
-//                                                     activity.documentName !=
-//                                                         null)
-//                                                   Padding(
-//                                                     padding:
-//                                                         const EdgeInsets.only(
-//                                                             top: 12),
-//                                                     child: Column(
-//                                                       crossAxisAlignment:
-//                                                           CrossAxisAlignment
-//                                                               .start,
-//                                                       children: [
-//                                                         const Text(
-//                                                           'DocUploaded',
-//                                                           style: TextStyle(
-//                                                               fontWeight:
-//                                                                   FontWeight
-//                                                                       .bold,
-//                                                               fontSize: 13),
-//                                                         ),
-//                                                         const SizedBox(
-//                                                             height: 6),
-//                                                         Container(
-//                                                           height: 100,
-//                                                           width: 100,
-//                                                           decoration:
-//                                                               BoxDecoration(
-//                                                             border: Border.all(
-//                                                                 color: Colors
-//                                                                     .grey
-//                                                                     .shade300),
-//                                                             borderRadius:
-//                                                                 BorderRadius
-//                                                                     .circular(
-//                                                                         12),
-//                                                           ),
-//                                                           child: isImage(activity
-//                                                                   .documentName)
-//                                                               ? GestureDetector(
-//                                                                   onTap: () {
-//                                                                     showDialog(
-//                                                                       context:
-//                                                                           context,
-//                                                                       barrierColor:
-//                                                                           Colors
-//                                                                               .black54,
-//                                                                       builder:
-//                                                                           (_) =>
-//                                                                               Dialog(
-//                                                                         backgroundColor:
-//                                                                             Colors.transparent,
-//                                                                         insetPadding: const EdgeInsets
-//                                                                             .all(
-//                                                                             16),
-//                                                                         child:
-//                                                                             GestureDetector(
-//                                                                           onTap: () =>
-//                                                                               Navigator.pop(context),
-//                                                                           child:
-//                                                                               InteractiveViewer(
-//                                                                             panEnabled:
-//                                                                                 true,
-//                                                                             minScale:
-//                                                                                 1,
-//                                                                             maxScale:
-//                                                                                 4,
-//                                                                             child:
-//                                                                                 ClipRRect(
-//                                                                               borderRadius: BorderRadius.circular(12),
-//                                                                               child: Image.network(
-//                                                                                 "$url/${activity.documentName}",
-//                                                                                 fit: BoxFit.contain,
-//                                                                                 errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 100),
-//                                                                               ),
-//                                                                             ),
-//                                                                           ),
-//                                                                         ),
-//                                                                       ),
-//                                                                     );
-//                                                                   },
-//                                                                   child:
-//                                                                       ClipRRect(
-//                                                                     borderRadius:
-//                                                                         BorderRadius.circular(
-//                                                                             10),
-//                                                                     child: Image
-//                                                                         .network(
-//                                                                       "$url/${activity.documentName}",
-//                                                                       fit: BoxFit
-//                                                                           .cover,
-//                                                                       errorBuilder: (context,
-//                                                                               error,
-//                                                                               stackTrace) =>
-//                                                                           const Icon(
-//                                                                               Icons.broken_image,
-//                                                                               size: 50),
-//                                                                     ),
-//                                                                   ),
-//                                                                 )
-//                                                               : ClipRRect(
-//                                                                   borderRadius:
-//                                                                       BorderRadius
-//                                                                           .circular(
-//                                                                               10),
-//                                                                   child: Image
-//                                                                       .asset(
-//                                                                     "assets/default-image.png",
-//                                                                     fit: BoxFit
-//                                                                         .cover,
-//                                                                   ),
-//                                                                 ),
-//                                                         ),
-//                                                       ],
-//                                                     ),
-//                                                   ),
-//                                               ]),
-//                                         ),
-//                                       ],
-//                                     ),
-//                                   ),
-//                                 );
-//                               }),
-//                             )
-//                           ],
-//                         ),
-//                       ),
+//         Navigator.pop(context);
+//         return true;
+//       },
+//       child: Scaffold(
+//         appBar: AppBar(
+//           title: const Text("Material Requisition Slip"),
+//         ),
+//         floatingActionButton: (selectedProject != null && !showForm)
+//             ? FloatingActionButton(
+//                 child: const Icon(Icons.add),
+//                 onPressed: () {
+//                   setState(() {
+//                     showForm = true; // 👈 form open
+//                   });
+//                 },
+//               )
+//             : null,
+//         body: SingleChildScrollView(
+//           padding: const EdgeInsets.all(16),
+//           child: Column(
+//             children: [
+//               // 🔹 PROJECT DROPDOWN
+//               if (!showForm) ...[
+//                 DropdownButtonFormField<Project>(
+//                   value: selectedProject,
+//                   hint: const Text("Select Project"),
+//                   items: projectList.map((p) {
+//                     return DropdownMenuItem<Project>(
+//                       value: p,
+//                       child: Text(p.name),
 //                     );
 //                   }).toList(),
+//                   onChanged: onProjectChanged,
+//                   decoration: const InputDecoration(
+//                     border: OutlineInputBorder(),
+//                   ),
 //                 ),
-//               ),
-//             ),
-//             const Divider(height: 1),
-//             Padding(
-//               padding: const EdgeInsets.all(8.0),
-//               child: Row(
-//                 crossAxisAlignment: CrossAxisAlignment.end,
-//                 children: [
-//                   Expanded(
-//                     child: Container(
-//                         constraints: const BoxConstraints(maxHeight: 250),
-//                         child: FlutterMentions(
-//                           key: mentionsKey,
-//                           maxLines: 3,
-//                           minLines: 1,
-//                           suggestionPosition: SuggestionPosition.Top,
-//                           suggestionListHeight: 250, // 👈 enough height
-//                           decoration: InputDecoration(
-//                             hintText: "Enter '@' Or #...",
-//                             isDense: true,
-//                             contentPadding: EdgeInsets.symmetric(
-//                                 horizontal: 10, vertical: 10),
-//                             border: OutlineInputBorder(
-//                               borderRadius: BorderRadius.circular(12),
-//                             ),
-//                           ),
-//                           mentions: [
-//                             Mention(
-//                               trigger: '@',
-//                               style: const TextStyle(color: Colors.blue),
-//                               data: userList,
-//                               matchAll: true,
-//                               suggestionBuilder: (data) {
-//                                 return Container(
-//                                   margin: const EdgeInsets.only(
-//                                       left:
-//                                           25), // 👈 Shift box to right by 50 pixels
-//                                   padding: const EdgeInsets.symmetric(
-//                                       horizontal: 10, vertical: 8),
-//                                   decoration: BoxDecoration(
-//                                     color: Colors.white,
-//                                     border: Border(
-//                                       bottom: BorderSide(
-//                                           color: Colors.grey.shade300),
+//                 const SizedBox(height: 12),
+//               ],
+//               // 🔹 PROJECT KE NICHE → MRIS LIST
+//               if (selectedProject != null && !showForm) ...[
+//                 if (listLoading) const CircularProgressIndicator(),
+//                 if (!listLoading && materialIssueList.isEmpty)
+//                   const Text(
+//                     "No MRIS found for this project",
+//                     style: TextStyle(color: Colors.grey),
+//                   ),
+//                 if (!listLoading && materialIssueList.isNotEmpty)
+//                   ListView.builder(
+//                     shrinkWrap: true,
+//                     physics: const NeverScrollableScrollPhysics(),
+//                     itemCount: materialIssueList.length,
+//                     itemBuilder: (context, index) {
+//                       final item = materialIssueList[index];
+//                       // print("FULL ITEM DATA 👉 $item");
+//                       return GestureDetector(
+//                         onTap: item.approvalStatus == "Awaiting Approval"
+//                             ? () {
+//                                 // print(
+//                                 //     "🟢 Disapproved Card Clicked ID 👉 ${item.id}");
+//                                 onSlipClick(context, item.id);
+//                               }
+//                             : null,
+//                         child: Card(
+//                           elevation: 3,
+//                           margin: const EdgeInsets.symmetric(vertical: 6),
+//                           child: Padding(
+//                             padding: const EdgeInsets.all(12),
+//                             child: Column(
+//                               crossAxisAlignment: CrossAxisAlignment.start,
+//                               children: [
+//                                 /// 🔹 Top Row
+//                                 Row(
+//                                   children: [
+//                                     /// Slip Number
+//                                     Expanded(
+//                                       flex: 4,
+//                                       child: Text(
+//                                         "Slip No: ${item.slipNumber}",
+//                                         style: const TextStyle(
+//                                           fontWeight: FontWeight.bold,
+//                                           fontSize: 16,
+//                                         ),
+//                                       ),
 //                                     ),
-//                                   ),
-//                                   child: Row(
-//                                     children: [
-//                                       CircleAvatar(
-//                                         radius: 16,
-//                                         backgroundColor: Colors.blueAccent,
+
+//                                     /// Approval Status
+//                                     Expanded(
+//                                       flex: 4,
+//                                       child: Container(
+//                                         alignment: Alignment.center,
+//                                         padding: const EdgeInsets.symmetric(
+//                                             horizontal: 12, vertical: 6),
+//                                         decoration: BoxDecoration(
+//                                           gradient: item.approvalStatus ==
+//                                                   "Approved"
+//                                               ? const LinearGradient(colors: [
+//                                                   Color(0xFF0F830B),
+//                                                   Color(0xFF29B324)
+//                                                 ])
+//                                               : item.approvalStatus ==
+//                                                       "Awaiting Approval"
+//                                                   ? const LinearGradient(
+//                                                       colors: [
+//                                                           Color(0xFF977171),
+//                                                           Color(0xFFB58B8B)
+//                                                         ])
+//                                                   : const LinearGradient(
+//                                                       colors: [
+//                                                           Color(0xFF4E8D89),
+//                                                           Color(0xFF6FBAB5)
+//                                                         ]),
+//                                           borderRadius:
+//                                               BorderRadius.circular(20),
+//                                         ),
 //                                         child: Text(
-//                                           data['display'][0].toUpperCase(),
+//                                           item.approvalStatus,
 //                                           style: const TextStyle(
-//                                             fontSize: 13,
 //                                             color: Colors.white,
+//                                             fontWeight: FontWeight.w600,
+//                                             fontSize: 12,
 //                                           ),
 //                                         ),
 //                                       ),
-//                                       const SizedBox(width: 10),
-//                                       Expanded(
-//                                         child: Column(
-//                                           crossAxisAlignment:
-//                                               CrossAxisAlignment.start,
+//                                     ),
+
+//                                     /// Actions Button
+//                                     Expanded(
+//                                       flex: 4,
+//                                       child: Align(
+//                                         alignment: Alignment.centerRight,
+//                                         child: ElevatedButton.icon(
+//                                           icon: const Icon(Icons.visibility,
+//                                               size: 18),
+//                                           label: const Text("Actions"),
+//                                           onPressed: () {
+//                                             _openActionPopup(item.id);
+//                                           },
+//                                         ),
+//                                       ),
+//                                     ),
+//                                   ],
+//                                 ),
+
+//                                 const SizedBox(height: 12),
+
+//                                 /// 🔹 Second Row
+//                                 Row(
+//                                   children: [
+//                                     Expanded(
+//                                       flex: 4,
+//                                       child: Text(
+//                                           "Date: ${formatDateSafe(item.slipDate)}"),
+//                                     ),
+//                                     Expanded(
+//                                       flex: 4,
+//                                       child: Text(
+//                                           "Floor: ${item.floorName ?? '-'}"),
+//                                     ),
+//                                     Expanded(
+//                                       flex: 4,
+//                                       child: Text(
+//                                           "Section: ${item.sectionName ?? '-'}"),
+//                                     ),
+//                                   ],
+//                                 ),
+
+//                                 const SizedBox(height: 12),
+
+//                                 /// 🔹 Other Details
+//                                 Text("Employee: ${item.employeeName ?? '-'}"),
+//                                 const SizedBox(height: 6),
+//                                 Text(
+//                                     "Contractor: ${item.contractorName ?? '-'}"),
+//                                 const SizedBox(height: 6),
+//                                 Text(
+//                                     "Awaiting Approval For: ${item.AwaitingApprovalFor ?? '-'}"),
+//                               ],
+//                             ),
+//                           ),
+//                         ),
+//                       );
+//                     },
+//                   )
+//               ],
+
+//               /// 🔒 FORM AREA (approval me fully disabled)
+//               AbsorbPointer(
+//                 absorbing: isApprovalMode && !isEditable,
+//                 child: Opacity(
+//                   opacity: (isApprovalMode && !isEditable) ? 0.6 : 1.0,
+//                   child: Column(
+//                     children: [
+//                       if (showForm) ...[
+//                         const SizedBox(height: 12),
+
+//                         // Slip No
+//                         TextField(
+//                           controller: slipNoCtrl,
+//                           enabled: false,
+//                           decoration: const InputDecoration(
+//                             labelText: "Slip Number",
+//                             border: OutlineInputBorder(),
+//                           ),
+//                         ),
+
+//                         const SizedBox(height: 12),
+
+//                         // Slip Date
+//                         TextField(
+//                           controller: slipDateCtrl,
+//                           readOnly: true,
+//                           enabled: isEditable,
+//                           onTap: _pickDate,
+//                           decoration: const InputDecoration(
+//                             labelText: "Slip Date",
+//                             suffixIcon: Icon(Icons.calendar_today),
+//                             border: OutlineInputBorder(),
+//                           ),
+//                         ),
+
+//                         const SizedBox(height: 12),
+
+//                         // Section
+//                         DropdownButtonFormField<int>(
+//                           value: selectedSectionId,
+//                           hint: const Text("Select Section"),
+//                           items: sectionList.map((s) {
+//                             return DropdownMenuItem<int>(
+//                               value: s.id,
+//                               child: Text(s.sectionName),
+//                             );
+//                           }).toList(),
+//                           onChanged: isEditable
+//                               ? (v) {
+//                                   print("Section changed: $v");
+//                                   setState(() => selectedSectionId = v);
+//                                 }
+//                               : null,
+//                           decoration: const InputDecoration(
+//                             labelText: "Section",
+//                             border: OutlineInputBorder(),
+//                           ),
+//                         ),
+
+//                         const SizedBox(height: 12),
+
+//                         // Floor
+//                         DropdownButtonFormField<int>(
+//                           value: selectedFloorId,
+//                           hint: const Text("Select Floor"),
+//                           items: floorData.map((f) {
+//                             return DropdownMenuItem<int>(
+//                               value: f.id,
+//                               child: Text(f.floorName),
+//                             );
+//                           }).toList(),
+//                           onChanged: isEditable
+//                               ? (v) => setState(() => selectedFloorId = v)
+//                               : null,
+//                           decoration: const InputDecoration(
+//                             labelText: "Floor",
+//                             border: OutlineInputBorder(),
+//                           ),
+//                         ),
+
+//                         const SizedBox(height: 12),
+
+//                         // Employee
+//                         DropdownSearch<EmployeeModel>(
+//                           selectedItem: selectedEmployee,
+//                           asyncItems: loadEmployees,
+//                           enabled: isEditable,
+//                           itemAsString: (e) => e.displayName,
+//                           popupProps:
+//                               const PopupProps.menu(showSearchBox: true),
+//                           dropdownDecoratorProps: const DropDownDecoratorProps(
+//                             dropdownSearchDecoration: InputDecoration(
+//                               labelText: "Employee",
+//                               border: OutlineInputBorder(),
+//                             ),
+//                           ),
+//                           onChanged: (v) =>
+//                               setState(() => selectedEmployee = v),
+//                         ),
+
+//                         const SizedBox(height: 12),
+
+//                         // Contractor
+//                         DropdownSearch<ContractorModel>(
+//                           selectedItem: selectedContractor,
+//                           asyncItems: loadContractors,
+//                           enabled: isEditable,
+//                           itemAsString: (c) => c.displayName,
+
+//                           compareFn: (a, b) =>
+//                               a.id == b.id, // ⭐ THIS LINE FIXES IT
+
+//                           popupProps:
+//                               const PopupProps.menu(showSearchBox: true),
+
+//                           dropdownDecoratorProps: const DropDownDecoratorProps(
+//                             dropdownSearchDecoration: InputDecoration(
+//                               labelText: "Contractor",
+//                               border: OutlineInputBorder(),
+//                             ),
+//                           ),
+
+//                           onChanged: (v) {
+//                             setState(() {
+//                               selectedContractor = v;
+//                               selectedEmployee =
+//                                   null; // optional (employee clear karne ke liye)
+//                             });
+//                           },
+//                         ),
+
+//                         const SizedBox(height: 24),
+
+//                         // Item Details Header
+//                         Row(
+//                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                           children: [
+//                             const Text(
+//                               "Item Details",
+//                               style: TextStyle(
+//                                   fontSize: 18, fontWeight: FontWeight.bold),
+//                             ),
+//                             ElevatedButton.icon(
+//                               icon: const Icon(Icons.add),
+//                               label: const Text("Add Line"),
+//                               onPressed: isEditable
+//                                   ? () async {
+//                                       resetItemFields();
+//                                       final result =
+//                                           await openItemSheet(UiItemDetail());
+
+//                                       if (result != null) {
+//                                         setState(() => itemDetails.add(result));
+//                                       }
+//                                     }
+//                                   : null,
+//                             ),
+//                           ],
+//                         ),
+
+//                         const SizedBox(height: 12),
+
+//                         ListView.builder(
+//                           shrinkWrap: true,
+//                           physics: const NeverScrollableScrollPhysics(),
+//                           itemCount: itemDetails.length,
+//                           itemBuilder: (_, i) {
+//                             final item = itemDetails[i];
+
+//                             return Card(
+//                               margin: const EdgeInsets.symmetric(vertical: 6),
+//                               elevation: 2,
+//                               shape: RoundedRectangleBorder(
+//                                 borderRadius: BorderRadius.circular(10),
+//                               ),
+//                               child: Padding(
+//                                 padding: const EdgeInsets.all(12),
+//                                 child: Column(
+//                                   crossAxisAlignment: CrossAxisAlignment.start,
+//                                   children: [
+//                                     // Row for Item Name + Remove Button
+//                                     Row(
+//                                       mainAxisAlignment:
+//                                           MainAxisAlignment.spaceBetween,
+//                                       children: [
+//                                         _infoText("Item", item.item),
+//                                         Row(
 //                                           children: [
-//                                             Text(
-//                                               data['display'],
-//                                               style: const TextStyle(
-//                                                 fontSize: 13,
-//                                                 fontWeight: FontWeight.w600,
-//                                                 overflow: TextOverflow.ellipsis,
-//                                               ),
+//                                             IconButton(
+//                                               icon: const Icon(Icons.edit,
+//                                                   color: Colors.blue),
+//                                               onPressed: isEditable
+//                                                   ? () => addItem(
+//                                                       UiItemDetail.clone(item),
+//                                                       index: i)
+//                                                   : null,
 //                                             ),
-//                                             Text(
-//                                               data['full_name'],
-//                                               style: const TextStyle(
-//                                                 fontSize: 11,
-//                                                 color: Colors.grey,
-//                                                 overflow: TextOverflow.ellipsis,
-//                                               ),
+//                                             IconButton(
+//                                               icon: const Icon(Icons.delete,
+//                                                   color: Colors.red),
+//                                               onPressed: isEditable
+//                                                   ? () => deleteItem(i)
+//                                                   : null,
 //                                             ),
 //                                           ],
 //                                         ),
+//                                       ],
+//                                     ),
+
+//                                     const Divider(height: 16),
+
+//                                     // Qty & Unit
+//                                     _twoColRow(
+//                                       _infoText(
+//                                           "Required Qty", item.qty.toString()),
+//                                       item.unit.isNotEmpty
+//                                           ? _infoText("Unit", item.unit)
+//                                           : const SizedBox(),
+//                                     ),
+
+//                                     // Available Qty (optional)
+//                                     if (item.availableQty != null)
+//                                       _infoText("Available Qty",
+//                                           item.availableQty!.toString()),
+
+//                                     // Place of Issue & Activity No
+//                                     if (item.placeOfIssue.isNotEmpty ||
+//                                         item.activityNo != null)
+//                                       _twoColRow(
+//                                         item.placeOfIssue.isNotEmpty
+//                                             ? _infoText("Place Of Issue",
+//                                                 item.placeOfIssue)
+//                                             : const SizedBox(),
+//                                         item.activityNo != null
+//                                             ? _infoText("Activity No",
+//                                                 item.activityNo.toString())
+//                                             : const SizedBox(),
 //                                       ),
-//                                     ],
-//                                   ),
-//                                 );
-//                               },
+
+//                                     // Equipment (optional)
+//                                     if (item.equipmentName != null &&
+//                                         item.equipmentName!.isNotEmpty)
+//                                       _infoText(
+//                                           "Equipment", item.equipmentName!),
+
+//                                     // Remarks (optional)
+//                                     if (item.remarks.isNotEmpty)
+//                                       _infoText("Remarks", item.remarks),
+//                                   ],
+//                                 ),
+//                               ),
+//                             );
+//                           },
+//                         ),
+//                       ],
+//                     ],
+//                   ),
+//                 ),
+//               ),
+
+//               /// 🔘 ACTION BUTTONS (ALWAYS ENABLED)
+//               const SizedBox(height: 16),
+
+//               Row(
+//                 children: [
+//                   // 🔹 SUBMIT
+//                   if (showSubmitButton)
+//                     Expanded(
+//                       child: SizedBox(
+//                         height: 45,
+//                         child: ElevatedButton(
+//                           style: ElevatedButton.styleFrom(
+//                             backgroundColor: Colors.blue.shade600,
+//                             foregroundColor: Colors.white,
+//                             shape: RoundedRectangleBorder(
+//                               borderRadius: BorderRadius.circular(8),
 //                             ),
-//                           ],
-//                         )),
-//                   ),
-//                   const SizedBox(width: 8),
-//                   Container(
-//                     decoration: BoxDecoration(
-//                       color: Colors.green,
-//                       shape: BoxShape.circle,
+//                           ),
+//                           onPressed: isLoading ? null : saveMRIS,
+//                           child: const Text(
+//                             "Submit",
+//                             style: TextStyle(fontWeight: FontWeight.w600),
+//                           ),
+//                         ),
+//                       ),
 //                     ),
-//                     child: IconButton(
-//                       icon: const Icon(Icons.send, color: Colors.white),
-//                       onPressed: isSending ? null : _sendActivityComment,
+
+//                   // 🔹 APPROVE / DISAPPROVE
+//                   if (showApprovalButtons) ...[
+//                     Expanded(
+//                       child: SizedBox(
+//                         height: 45,
+//                         child: ElevatedButton(
+//                           style: ElevatedButton.styleFrom(
+//                             backgroundColor: Colors.green.shade600,
+//                             foregroundColor: Colors.white,
+//                             shape: RoundedRectangleBorder(
+//                               borderRadius: BorderRadius.circular(8),
+//                             ),
+//                           ),
+//                           onPressed: approveMRIS,
+//                           child: const Text(
+//                             "Approve",
+//                             style: TextStyle(fontWeight: FontWeight.w600),
+//                           ),
+//                         ),
+//                       ),
 //                     ),
-//                   ),
+//                     const SizedBox(width: 12),
+//                     Expanded(
+//                       child: SizedBox(
+//                         height: 45,
+//                         child: ElevatedButton(
+//                           style: ElevatedButton.styleFrom(
+//                             backgroundColor: Colors.red.shade600,
+//                             foregroundColor: Colors.white,
+//                             shape: RoundedRectangleBorder(
+//                               borderRadius: BorderRadius.circular(8),
+//                             ),
+//                           ),
+//                           onPressed: disapproveMRIS,
+//                           child: const Text(
+//                             "Disapprove",
+//                             style: TextStyle(fontWeight: FontWeight.w600),
+//                           ),
+//                         ),
+//                       ),
+//                     ),
+//                   ],
 //                 ],
 //               ),
-//             ),
-//           ],
-//         ),
-//       );
-//     });
-//   }
-
-//   Widget _buildActivityStep(
-//       String action, String comment, String? image, String? assignedTo) {
-//     Color badgeColor;
-//     switch (action) {
-//       case "Created":
-//         badgeColor = Colors.blue;
-//         break;
-//       case "DocUploaded":
-//         badgeColor = Colors.green;
-//         break;
-//       case "Assigned":
-//         badgeColor = Colors.orange;
-//         break;
-//       case "Commented":
-//         badgeColor = Colors.pink;
-//         break;
-//       case "In Progress":
-//         badgeColor = const Color.fromARGB(255, 207, 179, 84);
-//         break;
-//       case "Closed":
-//         badgeColor = const Color.fromARGB(255, 3, 172, 59);
-//         break;
-//       default:
-//         badgeColor = Colors.grey;
-//     }
-
-//     return Column(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       children: [
-//         Row(
-//           children: [
-//             Expanded(
-//               child: Text(
-//                 assignedTo ?? "",
-//                 style: const TextStyle(fontWeight: FontWeight.bold),
-//               ),
-//             ),
-//             // Text(
-//             // date.toLocal().toString().split('.')[0],
-//             // style: const TextStyle(color: Colors.grey, fontSize: 12),
-//             // ),
-//           ],
-//         ),
-//         const SizedBox(height: 6),
-//         Container(
-//           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-//           decoration: BoxDecoration(
-//             color: badgeColor,
-//             borderRadius: BorderRadius.circular(6),
-//           ),
-//           child: Text(
-//             action,
-//             style: const TextStyle(
-//                 color: Colors.white, fontWeight: FontWeight.bold),
-//           ),
-//         ),
-//         if (image != null)
-//           Padding(
-//             padding: const EdgeInsets.symmetric(vertical: 8),
-//             child: Image.network(
-//               "your_url/$image",
-//               width: 150,
-//               height: 150,
-//               fit: BoxFit.cover,
-//             ),
-//           ),
-//         if (comment.isNotEmpty) Text(comment),
-//       ],
-//     );
-//   }
-
-//   void openImageModal(String documentName) {
-//     final imageUrl = "$url/$documentName";
-
-//     showDialog(
-//       context: context,
-//       barrierColor: Colors.black54,
-//       builder: (context) => Dialog(
-//         backgroundColor: Colors.transparent,
-//         insetPadding: const EdgeInsets.all(16),
-//         child: GestureDetector(
-//           onTap: () => Navigator.pop(context),
-//           child: InteractiveViewer(
-//             panEnabled: true,
-//             minScale: 1,
-//             maxScale: 4,
-//             child: ClipRRect(
-//               borderRadius: BorderRadius.circular(12),
-//               child: Image.network(
-//                 imageUrl,
-//                 fit: BoxFit.contain,
-//                 errorBuilder: (context, error, stackTrace) => const Icon(
-//                     Icons.broken_image,
-//                     size: 100,
-//                     color: Colors.grey),
-//               ),
-//             ),
+//             ],
 //           ),
 //         ),
 //       ),
 //     );
 //   }
 
-//   bool isImage(String fileName) {
-//     final lower = fileName.toLowerCase();
-//     return lower.endsWith('.jpg') ||
-//         lower.endsWith('.jpeg') ||
-//         lower.endsWith('.png') ||
-//         lower.endsWith('.gif') ||
-//         lower.endsWith('.bmp') ||
-//         lower.endsWith('.webp');
+//   Widget _dropdown({
+//     required String label,
+//     required String? value,
+//     required List<String> items,
+//     required ValueChanged<String?> onChanged,
+//   }) {
+//     return DropdownButtonFormField<String>(
+//       value: value,
+//       decoration: InputDecoration(
+//         labelText: label,
+//         border: const OutlineInputBorder(),
+//       ),
+//       items:
+//           items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+//       onChanged: onChanged,
+//     );
 //   }
 // }

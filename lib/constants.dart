@@ -6,7 +6,7 @@ class ScreenTypes {
 
 class AppSettings {
   static const String url =
-      'https://s3.ap-south-1.amazonaws.com/documents.himapp.live'; //Production
+      'https://s3.ap-south-1.amazonaws.com/documents.himapp.test'; //Production
   static const Map<String, int> DEVICEID = {
     'Web': 1,
     'Mobile': 2,
@@ -112,4 +112,8 @@ class ViolationTypes {
       "violationTypeID": "UnsafeAct",
     },
   ];
+}
+
+class AppPages {
+  static const materialIssueSlipProgramId = 52;
 }

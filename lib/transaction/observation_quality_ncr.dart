@@ -35,7 +35,7 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
 
   String formatDate(DateTime? date) {
     if (date == null) return 'N/A';
-    return DateFormat('MM/dd/yyyy').format(date.toLocal());
+    return DateFormat('dd/MM/yyyy').format(date.toLocal());
   }
 
   @override
