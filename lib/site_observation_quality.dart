@@ -626,6 +626,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
 // Fetch Observations
   Future<void> fetchSiteObservationsQuality(int projectId) async {
+    print("Fetching site observations for project ID: $projectId");
     setState(() => isLoading = true);
     try {
       final fetched =

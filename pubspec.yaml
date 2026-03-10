@@ -65,6 +65,9 @@ dependencies:
   path_provider: ^2.1.2
   permission_handler: ^11.3.0
   dropdown_search: ^5.0.6
+  package_info_plus: ^9.0.0
+  firebase_remote_config: ^5.1.6
+  url_launcher: ^6.2.5
   # media_scanner: ^2.1.0
   # device_info_plus: ^10.1.0
 

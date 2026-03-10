@@ -113,3 +113,7 @@ class ViolationTypes {
     },
   ];
 }
+
+class AppPages {
+  static const materialIssueSlipProgramId = 52;
+}

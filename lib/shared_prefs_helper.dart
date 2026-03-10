@@ -49,25 +49,24 @@ class SharedPrefsHelper {
     return prefs.getString('company_name');
   }
 
-  static const _projectIDKey = 'projectID';
+  // static const _projectIDKey = 'projectID';
+  static const String _projectIDKey = 'project_id';
+
   static Future<void> setProjectID(int projectID) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_projectIDKey, projectID);
   }
 
-// Retrieve project ID from SharedPreferences
-  static Future<int?> getProjectID() async {
-    final prefs = await SharedPreferences.getInstance();
-    int? projectId = prefs.getInt('ProjectID');
-    // print("📤 Retrieved ProjectID: $projectId");
-    return projectId;
-  }
-
-  // Save project ID to SharedPreferences
   static Future<void> saveProjectID(int projectId) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_projectIDKey, projectId);
     await prefs.setInt('ProjectID', projectId);
-    // print("✅ ProjectID saved: $projectId");
+    prefs.getInt(_projectIDKey);
+  }
+
+  static Future<int?> getProjectID() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_projectIDKey);
   }
 
   static Future<void> clear() async {

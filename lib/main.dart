@@ -7,6 +7,9 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/login_page.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 
+import 'package:himappnew/service/app_update_service.dart';
+import 'package:himappnew/ui/update_popup.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
@@ -48,6 +51,10 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     loadInitialData();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAppUpdate();
+    });
   }
 
   void toggleTheme() {
@@ -104,5 +111,17 @@ class _MyAppState extends State<MyApp> {
               isDarkMode: isDarkMode,
             ),
     );
+  }
+
+  void _checkAppUpdate() async {
+    bool forceUpdate = await AppUpdateService.shouldForceUpdate();
+
+    if (forceUpdate && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const UpdatePopup(),
+      );
+    }
   }
 }
