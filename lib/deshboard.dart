@@ -20,6 +20,7 @@ import 'package:himappnew/site_observation_quality.dart';
 import 'package:himappnew/transaction/material_requisition_slip.dart';
 import 'package:himappnew/transaction/observation_quality_ncr.dart';
 import 'package:himappnew/transaction/observation_safety_ncr.dart';
+import 'package:himappnew/transaction/observation_summary_quality.dart';
 import 'package:himappnew/transaction/observation_summary_safety.dart';
 import 'package:himappnew/ui/update_popup.dart';
 import 'login_page.dart';
@@ -839,7 +840,7 @@ class _DashboardPageState extends State<DashboardPage> {
             },
           ),
           _drawerTile(
-            icon: Icons.lock_reset,
+            icon: Icons.shield,
             color: Colors.orange,
             title: "Safety Observation Summary",
             onTap: () async {
@@ -858,6 +859,30 @@ class _DashboardPageState extends State<DashboardPage> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => ObservationSummarySafety(),
+                ),
+              );
+            },
+          ),
+          _drawerTile(
+            icon: Icons.assessment,
+            color: Colors.orange,
+            title: "Quality Observation Summary",
+            onTap: () async {
+              Navigator.pop(context); // close drawer
+
+              final int? userId = await SharedPrefsHelper.getUserId();
+
+              if (userId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('User not logged in')),
+                );
+                return;
+              }
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ObservationSummaryQuality(),
                 ),
               );
             },

@@ -4,77 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:himappnew/model/observation_summary_Model.dart';
 import 'package:himappnew/service/observation_summary_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
-
-/// 🔹 API CLIENT (Simple demo)
-// class ApiClient {
-//   static final Dio dio = Dio(
-//     BaseOptions(
-//       baseUrl: 'https://YOUR_BASE_URL_HERE', // 🔴 change this
-//       connectTimeout: const Duration(seconds: 30),
-//       receiveTimeout: const Duration(seconds: 30),
-//     ),
-//   );
-// }
-
-/// 🔹 MODEL: API se jo data aata hai
-// class ObservationSummary {
-//   final String stage;
-//   final int overdueCount;
-//   final int dueCount;
-//   final int totalCount;
-
-//   ObservationSummary({
-//     required this.stage,
-//     required this.overdueCount,
-//     required this.dueCount,
-//     required this.totalCount,
-//   });
-
-//   factory ObservationSummary.fromJson(Map<String, dynamic> json) {
-//     return ObservationSummary(
-//       stage: json['stage'] ?? '',
-//       overdueCount: json['overdue_count'] ?? 0,
-//       dueCount: json['due_count'] ?? 0,
-//       totalCount: json['total_count'] ?? 0,
-//     );
-//   }
-// }
-
-/// 🔹 TABLE ke liye model
-// class ObservationTableRow {
-//   final String stage;
-//   final int overdue;
-//   final int due;
-//   final int total;
-
-//   ObservationTableRow({
-//     required this.stage,
-//     required this.overdue,
-//     required this.due,
-//     required this.total,
-//   });
-// }
-
-/// 🔹 SERVICE
-// class ObservationService {
-//   Future<List<ObservationSummary>> getObservationSummary(
-//     int functionId,
-//     List<int> projectIds,
-//   ) async {
-//     final query = projectIds.map((e) => 'projectId=$e').join('&');
-
-//     final response = await ApiClient.dio.get(
-//       '/api/DashboardObservation/GetSiteObservationSummaryForProject/$functionId?$query',
-//     );
-
-//     final data =
-//         response.data is String ? jsonDecode(response.data) : response.data;
-
-//     final List list = data['value']['projectObservationSummary'] ?? [];
-
-//     return list.map((e) => ObservationSummary.fromJson(e)).toList();
-//   }
-// }
+import 'package:fl_chart/fl_chart.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 /// 🔹 MAIN SCREEN
 class ObservationSummarySafety extends StatefulWidget {
@@ -93,10 +24,21 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
   bool dropdownOpen = false;
 
   /// 🔴 Demo IDs (API ke hisaab se change karo)
-  int functionId = 1;
-  List<int> selectedProjectIds = [1, 2];
+  int functionId = 13;
+  List<int> selectedProjectIds = [];
+  // 32822,
+  //   32798,
+  //   32823,
+  //   32815,
+  //   32797,
+  //   32796,
+  //   32818
+
+  List<ObservationTrend> trendData = [];
 
   List<ObservationTableRow> tableData = [];
+  List<ObservationTrendMonth> trendDataMonth = [];
+  List<CategoryTrend> categoryTrendData = [];
 
   void onCheckboxChange(int projectId, bool isChecked) {
     setState(() {
@@ -107,8 +49,10 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
       }
     });
 
-    // 🔥 PROJECT CHANGE → SUMMARY REFRESH
+    // Refresh summary & charts on project selection change
     fetchSummary();
+    fetchTrendChart();
+    fetchCategoryChart();
   }
 
   @override
@@ -116,28 +60,27 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
     super.initState();
 
     fetchProjectData();
-    fetchSummary();
+    // fetchSummary();
+    // fetchTrendChart();
+    // fetchCategoryChart();
   }
 
   Future<void> fetchProjectData() async {
     final userId =
         await SharedPrefsHelper.getUserId(); // tumhara existing method
     final companyId = await SharedPrefsHelper.getCompanyId();
-
+    print("USER ID → $userId");
+    print("COMPANY ID → $companyId");
     final projects = await _service.fetchProjects(companyId!, userId!);
-
-    print('✅ Projects count: ${projects.length}');
-    print('✅ Projects data: $projects');
-
     setState(() {
       projectData = projects;
-
       // ✅ SELECT ALL PROJECTS BY DEFAULT
       selectedProjectIds = projectData.map((p) => p.id).toList();
     });
-
     // ✅ Trigger summary load
-    fetchSummary();
+    await fetchSummary();
+    await fetchTrendChart();
+    await fetchCategoryChart();
   }
 
   /// 🔹 API CALL
@@ -149,13 +92,45 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
         functionId,
         selectedProjectIds,
       );
-
       tableData = buildTable(data);
     } catch (e) {
       debugPrint('❌ Error: $e');
     } finally {
       setState(() => isLoading = false);
     }
+  }
+
+  Future<void> fetchTrendChart() async {
+    try {
+      // debugPrint("FETCH TREND CHART START");
+
+      trendDataMonth = await _service.getLastSixMonthObservationSummary(
+        functionId,
+        selectedProjectIds,
+      );
+
+      // debugPrint("TREND DATA LENGTH → ${trendDataMonth.length}");
+
+      // for (var e in trendDataMonth) {
+      //   print(
+      //       "Stage: ${e.stage} NCR: ${e.ncrCount} GoodPractice: ${e.goodPracticeCount}");
+      // }
+
+      setState(() {});
+    } catch (e) {
+      debugPrint("Trend chart error: $e");
+    }
+  }
+
+  Future<void> fetchCategoryChart() async {
+    final data = await _service.getLastSixMonthCategorySummary(
+      functionId,
+      selectedProjectIds,
+    );
+
+    setState(() {
+      categoryTrendData = data;
+    });
   }
 
   /// 🔹 Angular ka buildTable yaha
@@ -236,6 +211,210 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
     );
   }
 
+  Widget last6MonthChart() {
+    if (trendDataMonth.isEmpty) return const SizedBox();
+
+    return SizedBox(
+      height: 350,
+      child: SfCartesianChart(
+        title: ChartTitle(text: 'Last 6 Months trend (by Observation count)'),
+        legend: const Legend(isVisible: true),
+        primaryXAxis: CategoryAxis(title: AxisTitle(text: "Last 6 Months")),
+        primaryYAxis: NumericAxis(title: AxisTitle(text: "Observation Count")),
+        series: <StackedColumnSeries<ObservationTrendMonth, String>>[
+          StackedColumnSeries<ObservationTrendMonth, String>(
+            dataSource: trendDataMonth,
+            xValueMapper: (d, _) => d.stage,
+            yValueMapper: (d, _) => d.issueCount,
+            name: 'Observation',
+            color: Colors.blue,
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              labelAlignment: ChartDataLabelAlignment.middle,
+            ),
+          ),
+          StackedColumnSeries<ObservationTrendMonth, String>(
+            dataSource: trendDataMonth,
+            xValueMapper: (d, _) => d.stage,
+            yValueMapper: (d, _) => d.ncrCount,
+            name: 'NCR',
+            color: Colors.green,
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              labelAlignment: ChartDataLabelAlignment.middle,
+            ),
+          ),
+          StackedColumnSeries<ObservationTrendMonth, String>(
+            dataSource: trendDataMonth,
+            xValueMapper: (d, _) => d.stage,
+            yValueMapper: (d, _) => d.goodPracticeCount,
+            name: 'Good Practice',
+            color: Colors.orange,
+            dataLabelSettings: DataLabelSettings(
+              isVisible: true,
+              labelAlignment: ChartDataLabelAlignment.middle,
+              builder: (data, point, series, pointIndex, seriesIndex) {
+                final d = data as ObservationTrendMonth;
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      d.totalCount.toString(), // 🔴 top total (69)
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    // const SizedBox(height: 4),
+                    Text(
+                      d.goodPracticeCount.toString(), // 🟠 orange value (4)
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget categoryChart() {
+    if (categoryTrendData.isEmpty) return const SizedBox();
+
+    // Step 1: collect all categories
+    final Set<String> categorySet = {};
+    for (var item in categoryTrendData) {
+      categorySet.addAll(item.categoryData.keys);
+    }
+
+    final List<String> categories = categorySet.toList();
+
+    // Step 2: build chart series
+    List<StackedColumnSeries<CategoryTrend, String>> series =
+        categories.map((category) {
+      return StackedColumnSeries<CategoryTrend, String>(
+        name: category,
+        dataSource: categoryTrendData,
+        xValueMapper: (d, _) => d.stage,
+        yValueMapper: (d, _) {
+          return d.categoryData.containsKey(category)
+              ? d.categoryData[category]!
+              : 0; // ⭐ missing category = 0
+        },
+        dataLabelSettings: const DataLabelSettings(
+          isVisible: true,
+          labelAlignment: ChartDataLabelAlignment.middle,
+          overflowMode: OverflowMode.shift,
+        ),
+      );
+    }).toList();
+
+    return SizedBox(
+      height: 380,
+      child: SfCartesianChart(
+        title: ChartTitle(text: "Last 6 Months trend (by Category)"),
+        legend: const Legend(isVisible: true, position: LegendPosition.right),
+        primaryXAxis: CategoryAxis(
+          labelRotation: -45,
+          title: AxisTitle(text: "Last 6 Months"),
+        ),
+        primaryYAxis: NumericAxis(
+          title: AxisTitle(text: "Observation Count"),
+        ),
+        tooltipBehavior: TooltipBehavior(
+          enable: true,
+          header: '',
+          format: 'point.x : point.y',
+        ),
+        series: series,
+      ),
+    );
+  }
+
+  // Widget categoryChart() {
+  //   if (categoryTrendData.isEmpty) return const SizedBox();
+
+  //   /// STEP 1: collect categories dynamically
+  //   final Set<String> categorySet = {};
+  //   for (var item in categoryTrendData) {
+  //     categorySet.addAll(item.categoryData.keys);
+  //   }
+
+  //   final List<String> categories = categorySet.toList();
+
+  //   /// STEP 2: create stacked series
+  //   List<StackedColumnSeries<CategoryTrend, String>> series =
+  //       categories.map((category) {
+  //     return StackedColumnSeries<CategoryTrend, String>(
+  //       name: category,
+  //       width: 0.9,
+  //       spacing: 0.15,
+  //       dataSource: categoryTrendData,
+  //       xValueMapper: (d, _) => d.stage,
+  //       yValueMapper: (d, _) => d.categoryData[category] ?? 0,
+
+  //       /// ⭐ Jugad for small labels
+  //       dataLabelSettings: DataLabelSettings(
+  //         isVisible: true,
+  //         labelPosition: ChartDataLabelPosition.outside,
+  //         overflowMode: OverflowMode.shift,
+  //         labelAlignment: ChartDataLabelAlignment.outer,
+  //       ),
+  //     );
+  //   }).toList();
+
+  //   return SizedBox(
+  //     height: 500, // ⭐ height increase jugad
+  //     child: SfCartesianChart(
+  //       margin: const EdgeInsets.all(16),
+
+  //       title: ChartTitle(
+  //         text: "Last 6 Months Trend (Category)",
+  //       ),
+
+  //       /// LEGEND
+  //       legend: const Legend(
+  //         isVisible: true,
+  //         position: LegendPosition.right,
+  //         overflowMode: LegendItemOverflowMode.wrap,
+  //       ),
+
+  //       /// X AXIS
+  //       primaryXAxis: CategoryAxis(
+  //         labelRotation: -45,
+  //         title: AxisTitle(text: "Last 6 Months"),
+  //         majorGridLines: const MajorGridLines(width: 0),
+  //       ),
+
+  //       /// ⭐ Y AXIS jugad
+  //       primaryYAxis: NumericAxis(
+  //         minimum: 0,
+  //         interval: 5,
+  //         title: AxisTitle(text: "Observation Count"),
+  //         majorGridLines: const MajorGridLines(width: 0.5),
+  //       ),
+
+  //       /// TOOLTIP
+  //       tooltipBehavior: TooltipBehavior(
+  //         enable: true,
+  //         header: '',
+  //         format: 'point.x : point.y',
+  //       ),
+
+  //       /// SERIES
+  //       series: series,
+  //     ),
+  //   );
+  // }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -257,7 +436,46 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
                   // 📊 OBSERVATION TABLE
                   tableData.isEmpty
                       ? const Center(child: Text('No Data Found'))
-                      : Expanded(child: observationTable()),
+                      : Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                /// TABLE (FULL WIDTH)
+                                observationTable(),
+
+                                const SizedBox(height: 20),
+
+                                /// STAGE CHART
+                                Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: last6MonthChart(),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 20),
+
+                                /// CATEGORY CHART
+                                Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: categoryChart(),
+                                  ),
+                                ),
+                                // Card(
+                                //   child: Padding(
+                                //     padding: const EdgeInsets.all(12),
+                                //     child: categoryChart(),
+                                //   ),
+                                // ),
+                                const SizedBox(
+                                  height: 10,
+                                )
+                              ],
+                            ),
+                          ),
+                        )
                 ],
               ),
             ),
@@ -361,3 +579,4 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
     );
   }
 }
+//////////////////////////////////////////////////////////////////////////

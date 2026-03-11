@@ -68,6 +68,8 @@ dependencies:
   package_info_plus: ^9.0.0
   firebase_remote_config: ^5.1.6
   url_launcher: ^6.2.5
+  syncfusion_flutter_charts: 32.2.9
+  # fl_chart: ^0.66.0
   # media_scanner: ^2.1.0
   # device_info_plus: ^10.1.0
 

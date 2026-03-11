@@ -204,8 +204,8 @@ class LabourRegistrationService {
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
 
-      print('Raw API Response: $data');
-      print("API Response: $data");
+      // print('Raw API Response: $data');
+      // print("API Response: $data");
 
       final valueData = data['value']; // same as before
 
