@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:himappnew/model/page_permission.dart';
 import 'package:himappnew/service/material_requisition_slip_Service.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/service/project_service.dart';
@@ -96,6 +97,23 @@ class _AwaitingApprovalMrisPageState extends State<AwaitingApprovalMrisPage> {
           projectService: ProjectService(),
           slipId: id,
           isApproval: true,
+          pagePermission: PagePermission(
+            programId: 0,
+            companyId: 0,
+            moduleId: 0,
+            programName: 'MRIS',
+            isModuleAdmin: false,
+            canAdd: false,
+            canView: false,
+            canEdit: false,
+            canDelete: false,
+            canExport: false,
+            pageName: 'MRIS',
+            moduleName: 'Store',
+            iconName: 'inventory',
+            moduleIconName: 'store',
+            projectId: 0,
+          ),
         ),
       ),
     );

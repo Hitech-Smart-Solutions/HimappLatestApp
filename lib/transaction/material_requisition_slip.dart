@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:himappnew/awaitingapprovals/awaiting_approval_mris_page.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/model/material_requisition_slip_model.dart';
+import 'package:himappnew/model/page_permission.dart';
 import 'package:himappnew/model/project_model.dart';
 import 'package:himappnew/service/material_requisition_slip_Service.dart';
 import 'package:himappnew/service/project_service.dart';
@@ -13,11 +14,14 @@ class MaterialRequisitionSlip extends StatefulWidget {
   final ProjectService _projectService;
   final int? slipId;
   final bool isApproval;
+  final PagePermission pagePermission;
+
   const MaterialRequisitionSlip({
     super.key,
     required ProjectService projectService,
     this.slipId,
     this.isApproval = false,
+    required this.pagePermission, // 🔥
   }) : _projectService = projectService;
 
   @override
@@ -746,6 +750,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
           projectService: ProjectService(),
           slipId: id,
           isApproval: true,
+          pagePermission: widget.pagePermission,
         ),
       ),
     );
@@ -1742,7 +1747,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Material Requisition Slip"),
+          title: const Text("Material Issue Slip"),
         ),
         floatingActionButton: (selectedProject != null && !showForm)
             ? FloatingActionButton(

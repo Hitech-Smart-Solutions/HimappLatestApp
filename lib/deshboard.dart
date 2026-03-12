@@ -72,11 +72,19 @@ class _DashboardPageState extends State<DashboardPage> {
 
 // Loading flag
   bool permissionLoading = true;
-  final List<String> allowedModules = ["Safety", "Quality"];
+  final List<String> allowedModules = [
+    "Safety",
+    "Quality",
+    "Store",
+    "Analytics"
+  ];
   final allowedPrograms = {
     "Quality Observation",
     "Safety Observation",
     "MRIS",
+    "Material Issue",
+    "Safety Analytics",
+    "Quality Analytics",
   };
 
   bool isAllowedProgram(String program) {
@@ -146,6 +154,28 @@ class _DashboardPageState extends State<DashboardPage> {
               projectId: 0,
             ),
           ),
+      "Material Issue": () => MaterialRequisitionSlip(
+            projectService: widget.projectService,
+            pagePermission: PagePermission(
+              programId: 0,
+              companyId: 0,
+              moduleId: 0,
+              programName: 'MRIS',
+              isModuleAdmin: false,
+              canAdd: false,
+              canView: false,
+              canEdit: false,
+              canDelete: false,
+              canExport: false,
+              pageName: 'MRIS',
+              moduleName: 'Store',
+              iconName: 'inventory',
+              moduleIconName: 'store',
+              projectId: 0,
+            ),
+          ),
+      "Safety Analytics": () => ObservationSummarySafety(),
+      "Quality Analytics": () => ObservationSummaryQuality(),
     };
 
     _loadPermissions();
@@ -185,13 +215,29 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _loadPermissions() async {
     try {
       final userId = await SharedPrefsHelper.getUserId() ?? 0;
+      debugPrint("Fetching permissions for userId: $userId");
+
       final permissions = await _permissionService.fetchPagePermissions(userId);
-      final filtered = permissions.toList(); // canView ignore kar rahe hain
+
+      // Debug: print all fetched permissions
+      for (final p in permissions) {
+        debugPrint(
+            "Permission fetched: ${p.programName}, Module: ${p.moduleName}, canView: ${p.canView}");
+      }
+
+      final filtered = permissions.toList();
       final grouped = _groupByModule(filtered);
 
       setState(() {
         moduleWisePages = grouped;
         permissionLoading = false;
+      });
+
+      // Debug: print grouped map
+      debugPrint("Grouped modules:");
+      grouped.forEach((module, pages) {
+        debugPrint(
+            "Module: $module, Pages: ${pages.map((e) => e.programName).join(", ")}");
       });
     } catch (e) {
       debugPrint("Failed to load permissions: $e");
@@ -271,10 +317,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    print("🧪 BUILD CALLED");
-
-    // print("🧪 notifications length = ${notifications.length}");
-    // print("🧪 notifications = $notifications");
     return Scaffold(
       drawer: _buildDrawer(context),
       appBar: AppBar(
@@ -286,8 +328,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 icon: Icon(Icons.notifications),
                 onPressed: () async {
                   int? userId = await SharedPrefsHelper.getUserId();
-                  // List<NotificationModel> notifications =
-                  //     await getNotificationsByUserID(userId!);
                   List<NotificationModel> notifications = await widget
                       .siteObservationService
                       .getNotificationsByUserID(userId!);
@@ -537,12 +577,6 @@ class _DashboardPageState extends State<DashboardPage> {
           color: Color(0xFFFFB703),
         ),
       ),
-      // _buildNeonGlassCard(
-      //   icon: Icons.pending_actions,
-      //   title: "Pending",
-      //   value: "3",
-      //   color: Color(0xFFFB5607),
-      // ),
       GestureDetector(
         onTap: () async {
           final userId = await SharedPrefsHelper.getUserId();
@@ -570,31 +604,6 @@ class _DashboardPageState extends State<DashboardPage> {
           color: Color.fromARGB(255, 221, 57, 194),
         ),
       ),
-      // GestureDetector(
-      //   onTap: () async {
-      //     final userId = await SharedPrefsHelper.getUserId();
-      //     if (userId != null) {
-      //       final result = await Navigator.push(
-      //         context,
-      //         MaterialPageRoute(
-      //           builder: (_) => MaterialRequisitionSlip(
-      //             projectService: widget.projectService,
-      //           ),
-      //         ),
-      //       );
-
-      //       if (result == true) {
-      //         _loadStats(); // 🔁 refresh count
-      //       }
-      //     }
-      //   },
-      //   child: _buildNeonGlassCard(
-      //     icon: Icons.inventory_2,
-      //     title: "Material Requisition Slip",
-      //     value: "0",
-      //     color: const Color(0xFF4CC9F0),
-      //   ),
-      // ),
       GestureDetector(
         onTap: () async {
           await Navigator.push(
@@ -778,8 +787,15 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildDrawer(BuildContext context) {
     final grouped = moduleWisePages;
-    final allowedModules = ["Safety", "Quality"];
-    final allowedPrograms = ["Safety Observation", "Quality Observation"];
+    final allowedModules = ["Safety", "Quality", "Store", "Analytics"];
+    final allowedPrograms = [
+      "Safety Observation",
+      "Quality Observation",
+      "MRIS",
+      "Material Issue",
+      "Safety Analytics",
+      "Quality Analytics"
+    ];
     final filteredModules = moduleWisePages.entries
         .where((entry) => allowedModules.contains(entry.key))
         .map((entry) => MapEntry(entry.key, entry.value))
@@ -823,70 +839,87 @@ class _DashboardPageState extends State<DashboardPage> {
               }).toList(),
             );
           }).toList(),
-          _drawerTile(
-            icon: Icons.receipt_long,
-            color: Colors.blue,
-            title: "Material Requisition Slip",
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MaterialRequisitionSlip(
-                    projectService: widget.projectService,
-                  ),
-                ),
-              );
-            },
-          ),
-          _drawerTile(
-            icon: Icons.shield,
-            color: Colors.orange,
-            title: "Safety Observation Summary",
-            onTap: () async {
-              Navigator.pop(context); // close drawer
+          // _drawerTile(
+          //   icon: Icons.receipt_long,
+          //   color: Colors.blue,
+          //   title: "Material Requisition Slip",
+          //   onTap: () {
+          //     Navigator.pop(context);
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(
+          //         builder: (_) => MaterialRequisitionSlip(
+          //           projectService: widget.projectService,
+          //           pagePermission: PagePermission(
+          //             programId: 0,
+          //             companyId: 0,
+          //             moduleId: 0,
+          //             programName: 'MRIS',
+          //             isModuleAdmin: false,
+          //             canAdd: false,
+          //             canView: true, // view permission for MRIS
+          //             canEdit: false,
+          //             canDelete: false,
+          //             canExport: false,
+          //             pageName: 'MRIS',
+          //             moduleName: 'Store',
+          //             iconName: 'inventory',
+          //             moduleIconName: 'store',
+          //             projectId: 0,
+          //           ),
+          //         ),
+          //       ),
+          //     );
+          //   },
+          // ),
+          // _drawerTile(
+          //   icon: Icons.shield,
+          //   color: Colors.orange,
+          //   title: "Safety Observation Summary",
+          //   onTap: () async {
+          //     Navigator.pop(context); // close drawer
 
-              final int? userId = await SharedPrefsHelper.getUserId();
+          //     final int? userId = await SharedPrefsHelper.getUserId();
 
-              if (userId == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('User not logged in')),
-                );
-                return;
-              }
+          //     if (userId == null) {
+          //       ScaffoldMessenger.of(context).showSnackBar(
+          //         const SnackBar(content: Text('User not logged in')),
+          //       );
+          //       return;
+          //     }
 
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ObservationSummarySafety(),
-                ),
-              );
-            },
-          ),
-          _drawerTile(
-            icon: Icons.assessment,
-            color: Colors.orange,
-            title: "Quality Observation Summary",
-            onTap: () async {
-              Navigator.pop(context); // close drawer
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(
+          //         builder: (_) => ObservationSummarySafety(),
+          //       ),
+          //     );
+          //   },
+          // ),
+          // _drawerTile(
+          //   icon: Icons.assessment,
+          //   color: Colors.orange,
+          //   title: "Quality Observation Summary",
+          //   onTap: () async {
+          //     Navigator.pop(context); // close drawer
 
-              final int? userId = await SharedPrefsHelper.getUserId();
+          //     final int? userId = await SharedPrefsHelper.getUserId();
 
-              if (userId == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('User not logged in')),
-                );
-                return;
-              }
+          //     if (userId == null) {
+          //       ScaffoldMessenger.of(context).showSnackBar(
+          //         const SnackBar(content: Text('User not logged in')),
+          //       );
+          //       return;
+          //     }
 
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ObservationSummaryQuality(),
-                ),
-              );
-            },
-          ),
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(
+          //         builder: (_) => ObservationSummaryQuality(),
+          //       ),
+          //     );
+          //   },
+          // ),
           const Divider(),
           _drawerTile(
             icon: Icons.lock_reset,
@@ -942,21 +975,23 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-// New code
-  IconData getModuleIcon(String module) {
-    switch (module.toLowerCase()) {
-      case 'safety':
-        return Icons.health_and_safety;
-      case 'quality':
-        return Icons.science;
-      case 'admin':
-        return Icons.admin_panel_settings;
-      case 'p & m':
-        return Icons.home_repair_service;
-      default:
-        return Icons.apps;
-    }
-  }
+// // New code
+//   IconData getModuleIcon(String module) {
+//     switch (module.toLowerCase()) {
+//       case 'safety':
+//         return Icons.health_and_safety;
+//       case 'quality':
+//         return Icons.science;
+//       case 'store':
+//         return Icons.receipt_long;
+//       case 'admin':
+//         return Icons.admin_panel_settings;
+//       case 'p & m':
+//         return Icons.home_repair_service;
+//       default:
+//         return Icons.apps;
+//     }
+//   }
 
   IconData getPageIcon(String pageName) {
     print("Getting icon for page: $pageName");
@@ -965,8 +1000,12 @@ class _DashboardPageState extends State<DashboardPage> {
         return Icons.visibility;
       case "Quality Observation":
         return Icons.fact_check;
-      case "MRIS":
-        return Icons.inventory_2;
+      case "Material Issue":
+        return Icons.receipt_long;
+      case "Safety Analytics":
+        return Icons.shield;
+      case "Quality Analytics":
+        return Icons.assessment;
       case "Labour Registration":
         return Icons.person_add_alt_1;
       default:
@@ -991,10 +1030,15 @@ class _DashboardPageState extends State<DashboardPage> {
           siteObservationService: widget.siteObservationService,
           pagePermission: p,
         );
-      case "Material Requisition Slip": // 🔥 updated
+      case "Material Issue": // 🔥 updated
         return MaterialRequisitionSlip(
           projectService: widget.projectService,
+          pagePermission: p,
         );
+      case "Safety Analytics":
+        return ObservationSummarySafety();
+      case "Quality Analytics":
+        return ObservationSummaryQuality();
       case "Labour Registration":
         return LabourRegistrationPage(
           companyName: widget.companyName,
