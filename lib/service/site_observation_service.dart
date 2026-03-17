@@ -30,7 +30,7 @@ class SiteObservationService {
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
 
-      final List<dynamic> table1 = data['Value']['Table1'];
+      final List<dynamic> table1 = data['Table1'];
 
       return table1.map((e) => SiteObservation.fromJson(e)).toList();
     } catch (e) {
@@ -64,7 +64,7 @@ class SiteObservationService {
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
 
-      final List<dynamic> table1 = data['Value']['Table1'];
+      final List<dynamic> table1 = data['Table1'];
 
       return table1.map((e) => SiteObservation.fromJson(e)).toList();
     } catch (e) {
@@ -502,7 +502,7 @@ class SiteObservationService {
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
 
-      final List<dynamic> users = data['Value']['Table1'] ?? [];
+      final List<dynamic> users = data['Table1'] ?? [];
       return users.map((e) => UserList.fromJson(e)).toList();
     } catch (e) {
       print('❌ Failed to fetch users: $e');
@@ -518,10 +518,9 @@ class SiteObservationService {
       final response = await ApiClient.dio.get(
         '/api/UserMaster/GetUsersForSiteObservation/$siteObservationId/$flag',
       );
-
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
-      final List<dynamic> users = data['Value']['Table1'] ?? [];
+      final List<dynamic> users = data['Value']?['Table1'] ?? [];
 
       return users.map((e) => UserList.fromJson(e)).toList();
     } catch (e) {

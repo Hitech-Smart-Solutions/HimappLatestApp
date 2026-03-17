@@ -560,7 +560,8 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       context: context,
       initialDate: selectedSlipDateUtc?.toLocal() ?? DateTime.now(),
       firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+      // lastDate: DateTime(2100),
+      lastDate: DateTime.now(),
     );
 
     if (picked != null) {
@@ -1168,7 +1169,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                       selectedItem: selectedItem,
                       popupProps: PopupProps.dialog(
                         showSearchBox: true,
-                        isFilterOnline: true,
+                        // isFilterOnline: true,
                         loadingBuilder: (context, search) =>
                             const Center(child: CircularProgressIndicator()),
                       ),

@@ -97,7 +97,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
   // String? selectedUser;
   List<String> selectedUsers = [];
   List<UserList> userList = [];
-  List<UserList> selectedMultiUsers = []; // Selected users (multi-select)
+  // List<UserList> selectedMultiUsers = []; // Selected users (multi-select)
   List<UserList> selectedUserObjects = [];
   List<MultiSelectItem<UserList>> userItems = [];
   List<AssignmentStatusDTO> assignmentList = [];
