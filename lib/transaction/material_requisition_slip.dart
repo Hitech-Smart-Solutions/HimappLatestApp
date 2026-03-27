@@ -332,19 +332,11 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       // 🔹 EDIT MODE
       isEditMode = true;
       showForm = true;
-
-      print("✏️ Edit Mode Opened. SlipId: ${widget.slipId}");
-
       _loadEditFlow(widget.slipId!);
     } else {
       // 🔹 CREATE MODE
-      print("🆕 Create Mode");
-
       selectedSlipDateUtc = DateTime.now().toUtc();
       slipDateCtrl.text = formatDateSafe(selectedSlipDateUtc);
-
-      print("📅 Default Slip Date: $selectedSlipDateUtc");
-
       fetchProjects();
     }
   }
@@ -420,16 +412,6 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       });
       await _patchSlipData(data);
       int awaitingApprovalForBeforeUpdate = awaitingApprovalForId;
-      print("📌 Editing MRIS ID: $slipId");
-      print("📌 Selected Project: $selectedProject?.id");
-      print("📌 MaterialIssueList length: ${materialIssueList.length}");
-      print("📌 StatusID: $statusID");
-      print("📌 CreatedBy: $createdBy");
-      print("📌 AwaitingApprovalFor: $awaitingApprovalForId");
-      print("📌 CurrentUser: $currentUserId");
-      print("📌 isEditMode: $isEditMode");
-      print("📌 isEditable: $isEditable");
-      print("📌 isApproval: $isApproval");
     } catch (e) {
       print("❌ Error in loadEditFlow: $e");
       showSnack("Error loading MRIS");
@@ -650,21 +632,21 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       }
 
       // 🔹 Print full data log
-      print("🔥 MaterialIssueList AFTER adding fetched:");
-      for (var slip in materialIssueList) {
-        print("📌 Slip ID: ${slip.id}");
-        print("   Slip Number: ${slip.slipNumber}");
-        print("   Slip Date: ${slip.slipDate}");
-        print("   Floor: ${slip.floorName}");
-        print("   Section: ${slip.sectionName}");
-        print("   Employee: ${slip.employeeName}");
-        print("   Contractor: ${slip.contractorName}");
-        print("   Sync Status: ${slip.syncStatus}");
-        print("   Active: ${slip.isActive}");
-        print("   Approval Status: ${slip.approvalStatus}");
-        print("   Awaiting Approval For: ${slip.AwaitingApprovalFor}");
-        print("   ----------------------------------------");
-      }
+      // print("🔥 MaterialIssueList AFTER adding fetched:");
+      // for (var slip in materialIssueList) {
+      //   print("📌 Slip ID: ${slip.id}");
+      //   print("   Slip Number: ${slip.slipNumber}");
+      //   print("   Slip Date: ${slip.slipDate}");
+      //   print("   Floor: ${slip.floorName}");
+      //   print("   Section: ${slip.sectionName}");
+      //   print("   Employee: ${slip.employeeName}");
+      //   print("   Contractor: ${slip.contractorName}");
+      //   print("   Sync Status: ${slip.syncStatus}");
+      //   print("   Active: ${slip.isActive}");
+      //   print("   Approval Status: ${slip.approvalStatus}");
+      //   print("   Awaiting Approval For: ${slip.AwaitingApprovalFor}");
+      //   print("   ----------------------------------------");
+      // }
 
       setState(() => listLoading = false);
     } catch (e) {

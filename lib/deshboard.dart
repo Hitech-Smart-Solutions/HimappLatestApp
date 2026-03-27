@@ -17,6 +17,7 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/service/user_role_permission_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'package:himappnew/site_observation_quality.dart';
+import 'package:himappnew/transaction/logbook.dart';
 import 'package:himappnew/transaction/material_requisition_slip.dart';
 import 'package:himappnew/transaction/observation_quality_ncr.dart';
 import 'package:himappnew/transaction/observation_safety_ncr.dart';
@@ -77,6 +78,7 @@ class _DashboardPageState extends State<DashboardPage> {
     "Quality",
     "Store",
     "Analytics"
+        "PlantAndMachinery"
   ];
   final allowedPrograms = {
     "Quality Observation",
@@ -85,6 +87,7 @@ class _DashboardPageState extends State<DashboardPage> {
     "Material Issue",
     "Safety Analytics",
     "Quality Analytics",
+    "LogBook"
   };
 
   bool isAllowedProgram(String program) {
@@ -176,6 +179,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
       "Safety Analytics": () => ObservationSummarySafety(),
       "Quality Analytics": () => ObservationSummaryQuality(),
+      "LogBook": () => LogBook()
     };
 
     _loadPermissions();
@@ -220,10 +224,10 @@ class _DashboardPageState extends State<DashboardPage> {
       final permissions = await _permissionService.fetchPagePermissions(userId);
 
       // Debug: print all fetched permissions
-      for (final p in permissions) {
-        debugPrint(
-            "Permission fetched: ${p.programName}, Module: ${p.moduleName}, canView: ${p.canView}");
-      }
+      // for (final p in permissions) {
+      //   debugPrint(
+      //       "Permission fetched: ${p.programName}, Module: ${p.moduleName}, canView: ${p.canView}");
+      // }
 
       final filtered = permissions.toList();
       final grouped = _groupByModule(filtered);
@@ -787,14 +791,21 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildDrawer(BuildContext context) {
     final grouped = moduleWisePages;
-    final allowedModules = ["Safety", "Quality", "Store", "Analytics"];
+    final allowedModules = [
+      "Safety",
+      "Quality",
+      "Store",
+      "Analytics",
+      "PlantAndMachinery"
+    ];
     final allowedPrograms = [
       "Safety Observation",
       "Quality Observation",
       "MRIS",
       "Material Issue",
       "Safety Analytics",
-      "Quality Analytics"
+      "Quality Analytics",
+      "LogBook"
     ];
     final filteredModules = moduleWisePages.entries
         .where((entry) => allowedModules.contains(entry.key))
@@ -994,7 +1005,7 @@ class _DashboardPageState extends State<DashboardPage> {
 //   }
 
   IconData getPageIcon(String pageName) {
-    print("Getting icon for page: $pageName");
+    // print("Getting icon for page: $pageName");
     switch (pageName) {
       case "Safety Observation":
         return Icons.visibility;
@@ -1005,6 +1016,8 @@ class _DashboardPageState extends State<DashboardPage> {
       case "Safety Analytics":
         return Icons.shield;
       case "Quality Analytics":
+        return Icons.assessment;
+      case "LogBook":
         return Icons.assessment;
       case "Labour Registration":
         return Icons.person_add_alt_1;
@@ -1039,6 +1052,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return ObservationSummarySafety();
       case "Quality Analytics":
         return ObservationSummaryQuality();
+      case "LogBook":
+        return LogBook();
       case "Labour Registration":
         return LabourRegistrationPage(
           companyName: widget.companyName,
