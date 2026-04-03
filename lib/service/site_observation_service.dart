@@ -30,7 +30,7 @@ class SiteObservationService {
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
 
-      final List<dynamic> table1 = data['Table1'];
+      final List<dynamic> table1 = data['Value']['Table1'];
 
       return table1.map((e) => SiteObservation.fromJson(e)).toList();
     } catch (e) {
@@ -64,7 +64,7 @@ class SiteObservationService {
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
 
-      final List<dynamic> table1 = data['Table1'];
+      final List<dynamic> table1 = data['Value']['Table1'];
 
       return table1.map((e) => SiteObservation.fromJson(e)).toList();
     } catch (e) {

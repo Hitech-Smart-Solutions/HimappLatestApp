@@ -70,7 +70,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
 // Module wise group ke liye
   Map<String, List<PagePermission>> moduleWisePages = {};
-
+  String appVersion = "";
 // Loading flag
   bool permissionLoading = true;
   final List<String> allowedModules = [
@@ -84,7 +84,7 @@ class _DashboardPageState extends State<DashboardPage> {
     "Quality Observation",
     "Safety Observation",
     "MRIS",
-    "Material Issue",
+    "Material Issue Slip",
     "Safety Analytics",
     "Quality Analytics",
     "LogBook"
@@ -157,7 +157,7 @@ class _DashboardPageState extends State<DashboardPage> {
               projectId: 0,
             ),
           ),
-      "Material Issue": () => MaterialRequisitionSlip(
+      "Material Issue Slip": () => MaterialRequisitionSlip(
             projectService: widget.projectService,
             pagePermission: PagePermission(
               programId: 0,
@@ -309,8 +309,6 @@ class _DashboardPageState extends State<DashboardPage> {
         awaitingApprovalCount = data.length; // ✅ int
         statsLoading = false;
       });
-
-      debugPrint("🟢 Awaiting Approval Count = $awaitingApprovalCount");
     } catch (e) {
       setState(() {
         statsLoading = false;
@@ -802,11 +800,14 @@ class _DashboardPageState extends State<DashboardPage> {
       "Safety Observation",
       "Quality Observation",
       "MRIS",
-      "Material Issue",
+      "Material Issue Slip",
       "Safety Analytics",
       "Quality Analytics",
       "LogBook"
     ];
+
+    // print("🔹 allowedModules: $allowedModules");
+    // print("🔹 allowedPrograms: $allowedPrograms");
     final filteredModules = moduleWisePages.entries
         .where((entry) => allowedModules.contains(entry.key))
         .map((entry) => MapEntry(entry.key, entry.value))
@@ -850,87 +851,6 @@ class _DashboardPageState extends State<DashboardPage> {
               }).toList(),
             );
           }).toList(),
-          // _drawerTile(
-          //   icon: Icons.receipt_long,
-          //   color: Colors.blue,
-          //   title: "Material Requisition Slip",
-          //   onTap: () {
-          //     Navigator.pop(context);
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(
-          //         builder: (_) => MaterialRequisitionSlip(
-          //           projectService: widget.projectService,
-          //           pagePermission: PagePermission(
-          //             programId: 0,
-          //             companyId: 0,
-          //             moduleId: 0,
-          //             programName: 'MRIS',
-          //             isModuleAdmin: false,
-          //             canAdd: false,
-          //             canView: true, // view permission for MRIS
-          //             canEdit: false,
-          //             canDelete: false,
-          //             canExport: false,
-          //             pageName: 'MRIS',
-          //             moduleName: 'Store',
-          //             iconName: 'inventory',
-          //             moduleIconName: 'store',
-          //             projectId: 0,
-          //           ),
-          //         ),
-          //       ),
-          //     );
-          //   },
-          // ),
-          // _drawerTile(
-          //   icon: Icons.shield,
-          //   color: Colors.orange,
-          //   title: "Safety Observation Summary",
-          //   onTap: () async {
-          //     Navigator.pop(context); // close drawer
-
-          //     final int? userId = await SharedPrefsHelper.getUserId();
-
-          //     if (userId == null) {
-          //       ScaffoldMessenger.of(context).showSnackBar(
-          //         const SnackBar(content: Text('User not logged in')),
-          //       );
-          //       return;
-          //     }
-
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(
-          //         builder: (_) => ObservationSummarySafety(),
-          //       ),
-          //     );
-          //   },
-          // ),
-          // _drawerTile(
-          //   icon: Icons.assessment,
-          //   color: Colors.orange,
-          //   title: "Quality Observation Summary",
-          //   onTap: () async {
-          //     Navigator.pop(context); // close drawer
-
-          //     final int? userId = await SharedPrefsHelper.getUserId();
-
-          //     if (userId == null) {
-          //       ScaffoldMessenger.of(context).showSnackBar(
-          //         const SnackBar(content: Text('User not logged in')),
-          //       );
-          //       return;
-          //     }
-
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(
-          //         builder: (_) => ObservationSummaryQuality(),
-          //       ),
-          //     );
-          //   },
-          // ),
           const Divider(),
           _drawerTile(
             icon: Icons.lock_reset,
@@ -1011,7 +931,7 @@ class _DashboardPageState extends State<DashboardPage> {
         return Icons.visibility;
       case "Quality Observation":
         return Icons.fact_check;
-      case "Material Issue":
+      case "Material Issue Slip":
         return Icons.receipt_long;
       case "Safety Analytics":
         return Icons.shield;
@@ -1043,7 +963,7 @@ class _DashboardPageState extends State<DashboardPage> {
           siteObservationService: widget.siteObservationService,
           pagePermission: p,
         );
-      case "Material Issue": // 🔥 updated
+      case "Material Issue Slip": // 🔥 updated
         return MaterialRequisitionSlip(
           projectService: widget.projectService,
           pagePermission: p,

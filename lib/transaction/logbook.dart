@@ -266,6 +266,7 @@ class _LogBookState extends State<LogBook> {
   // LogBookModel? currentModel;
   // bool isNoWorkDone = false;
   // bool get isNoWorkDone => isNoWorkDone;
+  bool isSubmitting = false;
 
   /// 🔹 INIT
   @override
@@ -757,7 +758,16 @@ class _LogBookState extends State<LogBook> {
     return time.length == 5 ? "$time:00" : time; // HH:mm → HH:mm:ss
   }
 
+  // bool isSubmitting = false;
+
   Future<void> submitLogBook() async {
+    // 🚫 Prevent multiple clicks
+    if (isSubmitting) return;
+
+    setState(() {
+      isSubmitting = true;
+    });
+
     try {
       print("⏳ Submitting LogBook...");
 
@@ -766,6 +776,7 @@ class _LogBookState extends State<LogBook> {
 
       int? existingId = isEditMode ? editingId : null;
 
+      // ✅ Validation
       if (!isNoWorkDone) {
         for (int i = 0; i < readingDetails.length; i++) {
           final r = readingDetails[i];
@@ -775,11 +786,16 @@ class _LogBookState extends State<LogBook> {
 
           if (closing < opening) {
             showValidationToast(context);
-            return; // STOP SAVE
+
+            setState(() {
+              isSubmitting = false;
+            });
+            return;
           }
         }
       }
 
+      // ✅ Create model
       final logBook = LogBookModal(
         id: existingId,
         equipmentCategoryID: selectedAssetType?.id,
@@ -792,8 +808,6 @@ class _LogBookState extends State<LogBook> {
         logBookDate: selectedDate != null
             ? DateFormat('yyyy-MM-dd').format(selectedDate!)
             : null,
-        // startTime: startTimeString,
-        // endTime: endTimeString,
         startTime: isNoWorkDone ? null : startTimeString,
         endTime: isNoWorkDone ? null : endTimeString,
         remarks: remarksController.text,
@@ -839,6 +853,7 @@ class _LogBookState extends State<LogBook> {
       print("🔥 FINAL JSON:");
       print(jsonEncode(json));
 
+      // ✅ API Call
       bool success;
 
       if (logBook.id == null || logBook.id == 0) {
@@ -847,21 +862,20 @@ class _LogBookState extends State<LogBook> {
         success = await _logBookService.updateLogBook(logBook);
       }
 
+      // ✅ Success
       if (success) {
         print("✅ SUCCESS");
 
-        // 1️⃣ Refresh list
-
         resetForm();
+
         setState(() {
-          showForm = false; // hide form
+          showForm = false;
         });
-        print("projectId: $projectId");
+
         if (projectId != null) {
-          print("innnnn: $projectId");
           await fetchLogBook(projectId);
         }
-        // 2️⃣ Success message
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -872,14 +886,12 @@ class _LogBookState extends State<LogBook> {
             ),
           );
         }
-
-        // 3️⃣ Reset form
       } else {
         print("❌ FAILED");
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text("Something went wrong ❌"),
               backgroundColor: Colors.red,
             ),
@@ -897,6 +909,11 @@ class _LogBookState extends State<LogBook> {
           ),
         );
       }
+    } finally {
+      // ✅ Always reset button
+      setState(() {
+        isSubmitting = false;
+      });
     }
   }
 
@@ -982,13 +999,11 @@ class _LogBookState extends State<LogBook> {
       // 1️⃣ Equipment set
       selectedEquipment = findEquipment(data.equipmentID);
 
-// 2️⃣ 🔥 AssetTypes LOAD करो (MISSING STEP)
+// 2️⃣ 🔥 AssetTypes LOAD (MISSING STEP)
       await loadAssetTypes();
 
-// 3️⃣ अब category related API call
       await onCategoryChange(data.equipmentCategoryID);
 
-// 4️⃣ अब category set होगी
       selectedAssetType = findAssetType(data.equipmentCategoryID);
       print("API Category ID: ${data.equipmentCategoryID}");
       print("API Equipment ID: ${data.equipmentID}");
@@ -1519,10 +1534,14 @@ class _LogBookState extends State<LogBook> {
 
             /// 🔹 SAVE BUTTON
             ElevatedButton(
-              onPressed: () {
-                submitLogBook();
-              },
-              child: Text(isEditMode ? "Update" : "Submit"),
+              onPressed: isSubmitting ? null : submitLogBook, // 🔥 IMPORTANT
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(isEditMode ? "Update" : "Submit"),
             ),
             SizedBox(height: 50),
           ],

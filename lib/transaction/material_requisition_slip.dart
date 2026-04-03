@@ -324,19 +324,27 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       approvalStatus == "Draft" || approvalStatus == "Disapproved";
 
   int backPressCount = 0; // 🔹 State variable
+  bool isDataLoaded = false;
   @override
   void initState() {
     super.initState();
 
     if (widget.slipId != null) {
-      // 🔹 EDIT MODE
+      // 🔹 EDIT MODE (FROM DASHBOARD / CARD CLICK)
       isEditMode = true;
-      showForm = true;
+      showForm = false; // 👈 IMPORTANT (start with list/state first)
+      isDataLoaded = false;
+
       _loadEditFlow(widget.slipId!);
     } else {
-      // 🔹 CREATE MODE
+      // 🔹 CREATE / DASHBOARD LIST MODE
+      isEditMode = false;
+      showForm = false;
+      isDataLoaded = true;
+
       selectedSlipDateUtc = DateTime.now().toUtc();
       slipDateCtrl.text = formatDateSafe(selectedSlipDateUtc);
+
       fetchProjects();
     }
   }
@@ -363,7 +371,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       // ✅ Save projectID in SharedPrefs
       if (selectedProject != null) {
         await SharedPrefsHelper.saveProjectID(selectedProject!.id);
-        print("PROJECT SAVED IN PREFS => ${selectedProject!.id}");
+        // print("PROJECT SAVED IN PREFS => ${selectedProject!.id}");
       }
 
       int statusID = data['statusID'] ?? 0;
@@ -388,12 +396,12 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       await fetchMaterialIssueRequestByProjectID(selectedProject!.id);
 
       /// 🔹 LOAD SECTION / FLOOR
-      await loadSections(slipProjectId);
-      await loadFloors(slipProjectId);
+      // await loadSections(slipProjectId);
+      // await loadFloors(slipProjectId);
 
       /// 🔥 EXACT ANGULAR LOGIC
       setState(() {
-        showForm = true; // show form
+        // showForm = true; // show form
         if (statusID == 2 &&
             createdBy == awaitingApprovalForId &&
             currentUserId == createdBy) {
@@ -411,12 +419,15 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
         }
       });
       await _patchSlipData(data);
-      int awaitingApprovalForBeforeUpdate = awaitingApprovalForId;
+      // int awaitingApprovalForBeforeUpdate = awaitingApprovalForId;
     } catch (e) {
       print("❌ Error in loadEditFlow: $e");
       showSnack("Error loading MRIS");
     } finally {
-      setState(() => isLoading = false);
+      setState(() {
+        isDataLoaded = true;
+        showForm = true;
+      });
     }
   }
 
@@ -668,8 +679,20 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
     setState(() {});
   }
 
+  String lastEmployeeFilter = '';
+  List<EmployeeModel> employeeCache = [];
   Future<List<EmployeeModel>> loadEmployees(String filter) async {
-    if (employeeLoading || !employeeHasMore) return [];
+    /// RESET when search changes
+    if (filter != lastEmployeeFilter) {
+      employeePageNumber = 1;
+      employeeHasMore = true;
+      employeeCache.clear(); // 🔥 IMPORTANT
+      lastEmployeeFilter = filter;
+    }
+
+    if (employeeLoading) {
+      return employeeCache; // 🔥 RETURN OLD DATA
+    }
 
     employeeLoading = true;
 
@@ -681,17 +704,32 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
     if (result.isNotEmpty) {
       employeePageNumber++;
+      employeeCache.addAll(result); // 🔥 STORE DATA
     } else {
       employeeHasMore = false;
     }
 
     employeeLoading = false;
 
-    return result;
+    return employeeCache;
   }
 
+  List<ContractorModel> contractorCache = [];
+  String lastContractorFilter = '';
   Future<List<ContractorModel>> loadContractors(String filter) async {
-    if (contractorLoading || !contractorHasMore) return [];
+    print("🔍 FILTER => '$filter'");
+
+    /// ✅ RESET when search changes
+    if (filter != lastContractorFilter) {
+      contractorPageNumber = 1;
+      contractorHasMore = true;
+      contractorCache.clear(); // 🔥 IMPORTANT
+      lastContractorFilter = filter;
+    }
+
+    if (contractorLoading) {
+      return contractorCache; // 🔥 DON'T RETURN EMPTY
+    }
 
     contractorLoading = true;
 
@@ -703,12 +741,14 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
     if (result.isNotEmpty) {
       contractorPageNumber++;
+      contractorCache.addAll(result); // 🔥 STORE DATA
     } else {
       contractorHasMore = false;
     }
 
     contractorLoading = false;
-    return result;
+
+    return contractorCache;
   }
 
   void showSnack(String message) {
@@ -829,6 +869,10 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       print("isEditable: $isEditable");
       print("isApproval: $isApproval");
       Text("EditMode:$isEditMode  Editable:$isEditable  Approval:$isApproval");
+
+      print("PROJECT: $projectIdBeforeReset");
+      print("PROGRAM: $programId");
+      print("ITEMS: ${itemDetails.map((e) => e.itemId)}");
       bool success;
       // 🟢 SAVE / 🔵 UPDATE
       if (editingId == 0) {
@@ -861,7 +905,16 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
         await fetchMaterialIssueRequestByProjectID(selectedProject!.id);
       }
     } catch (e) {
-      showSnack(e.toString());
+      String message = "Something went wrong";
+
+      if (e is Map) {
+        // 🔥 ONLY TAKE "error" FIELD
+        if (e['error'] != null && e['error'].toString().isNotEmpty) {
+          message = e['error'];
+        }
+      }
+
+      showSnack(message);
     } finally {
       setState(() => isLoading = false);
     }
@@ -1086,6 +1139,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
   Future<UiItemDetail?> openItemSheet(UiItemDetail tempItem,
       {int? index}) async {
+    print("🔥 DIALOG BUILD STARTED");
     final item = tempItem;
 
     /// Controllers
@@ -1131,272 +1185,274 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    /// TITLE
-                    Text(
-                      index == null ? "Add Item" : "Item ${index + 1}",
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    /// ITEM DROPDOWN
-                    DropdownSearch<ItemModel>(
-                      selectedItem: selectedItem,
-                      popupProps: PopupProps.dialog(
-                        showSearchBox: true,
-                        // isFilterOnline: true,
-                        loadingBuilder: (context, search) =>
-                            const Center(child: CircularProgressIndicator()),
-                      ),
-                      asyncItems: (String filter) async {
-                        return _materialRequisitionSlipService
-                            .getReleasedProducts(
-                          search: filter,
-                          pageNumber: 1,
-                          pageSize: 20,
-                          projectID: selectedProject?.id ?? 0,
-                        );
-                      },
-                      itemAsString: (ItemModel item) => item.displayText,
-                      dropdownDecoratorProps: DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: "Select Item",
-                          border: OutlineInputBorder(),
-                          errorText: isItemSubmitted ? itemError : null,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                  maxWidth: MediaQuery.of(context).size.width,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      /// TITLE
+                      Text(
+                        index == null ? "Add Item" : "Item ${index + 1}",
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      onChanged: (ItemModel? itemModel) async {
-                        if (itemModel == null) return;
 
-                        setDialogState(() {
-                          selectedItem = itemModel;
-                          item.itemId = itemModel.id;
-                          item.item = itemModel.displayText;
-                          item.unit = itemModel.unit ?? '';
-                          unitController.text = item.unit;
-                        });
+                      const SizedBox(height: 12),
 
-                        // final projectId =
-                        //     await SharedPrefsHelper.getProjectID();
-                        final projectId = selectedProject?.id;
-                        print("projectId: ${projectId} (ID: ${itemModel.id})");
-                        if (projectId == null) return;
+                      /// SCROLLABLE CONTENT
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              /// ITEM DROPDOWN
+                              DropdownSearch<ItemModel>(
+                                selectedItem: selectedItem,
+                                dropdownBuilder: (context, selectedItem) {
+                                  if (selectedItem == null) {
+                                    return const Text("Select Item");
+                                  }
+                                  return Text(
+                                    selectedItem.displayText,
+                                    overflow: TextOverflow.ellipsis,
+                                  );
+                                },
+                                popupProps: PopupProps.dialog(
+                                  showSearchBox: true,
+                                  loadingBuilder: (context, search) =>
+                                      const Center(
+                                          child: CircularProgressIndicator()),
+                                  itemBuilder: (context, item, isSelected) {
+                                    return ListTile(
+                                      title: Text(
+                                        item.displayText,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                asyncItems: (String filter) async {
+                                  return _materialRequisitionSlipService
+                                      .getReleasedProducts(
+                                    search: filter,
+                                    pageNumber: 1,
+                                    pageSize: 20,
+                                    projectID: selectedProject?.id ?? 0,
+                                  );
+                                },
+                                itemAsString: (ItemModel item) =>
+                                    item.displayText,
+                                onChanged: (ItemModel? itemModel) async {
+                                  if (itemModel == null) return;
 
-                        final qty = await _materialRequisitionSlipService
-                            .getAvailableQuantityByProject(
-                                projectId, itemModel.id);
-                        print(
-                            "AVAILABLE QTY API => project:$projectId item:${itemModel.id}");
-                        print("AVAILABLE QTY RESPONSE => $qty");
-                        setDialogState(() {
-                          availableController.text = formatQty(qty);
-                        });
-                      },
-                    ),
+                                  setDialogState(() {
+                                    selectedItem = itemModel;
+                                    item.itemId = itemModel.id;
+                                    item.item = itemModel.displayText;
+                                    item.unit = itemModel.unit ?? '';
+                                    unitController.text = item.unit;
+                                  });
 
-                    const SizedBox(height: 8),
+                                  final projectId = selectedProject?.id;
+                                  if (projectId == null) return;
 
-                    /// UNIT / AVAILABLE / QTY
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: unitController,
-                            enabled: false,
-                            decoration: const InputDecoration(
-                              labelText: "Unit",
-                              border: OutlineInputBorder(),
-                            ),
+                                  final qty =
+                                      await _materialRequisitionSlipService
+                                          .getAvailableQuantityByProject(
+                                              projectId, itemModel.id);
+
+                                  setDialogState(() {
+                                    availableController.text = formatQty(qty);
+                                  });
+                                },
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              /// UNIT / AVAILABLE / QTY
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: unitController,
+                                      enabled: false,
+                                      decoration: const InputDecoration(
+                                        labelText: "Unit",
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: availableController,
+                                      enabled: false,
+                                      decoration: const InputDecoration(
+                                        labelText: "Available",
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: qtyController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: InputDecoration(
+                                        labelText: "Required Qty",
+                                        border: const OutlineInputBorder(),
+                                        errorText:
+                                            isItemSubmitted ? qtyError : null,
+                                      ),
+                                      onChanged: (v) {
+                                        setDialogState(() {
+                                          item.qty = int.tryParse(v) ?? 0;
+                                          qtyError = null;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              /// PLACE OF ISSUE
+                              TextField(
+                                controller: placeController,
+                                decoration: InputDecoration(
+                                  labelText: "Place Of Issue",
+                                  border: const OutlineInputBorder(),
+                                  errorText:
+                                      isItemSubmitted ? placeError : null,
+                                ),
+                                onChanged: (v) {
+                                  setDialogState(() {
+                                    item.placeOfIssue = v;
+                                    placeError = null;
+                                  });
+                                },
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              /// ACTIVITY
+                              DropdownSearch<ActivityModel>(
+                                selectedItem: selectedActivity,
+                                compareFn: (a, b) => a.id == b.id,
+                                asyncItems: (String filter) async {
+                                  if (selectedProject == null) return [];
+                                  return _materialRequisitionSlipService
+                                      .getActivities(
+                                    search: filter.trim(),
+                                    projectID: selectedProject!.id,
+                                  );
+                                },
+                                itemAsString: (a) => a.activityName,
+                                popupProps: const PopupProps.dialog(
+                                  showSearchBox: true,
+                                ),
+                                onChanged: (value) {
+                                  setDialogState(() {
+                                    selectedActivity = value;
+                                    item.activityNo = value?.id;
+                                    activityError = null;
+                                  });
+                                },
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              /// EQUIPMENT
+                              DropdownSearch<EquipmentModel>(
+                                selectedItem: selectedEquipment,
+                                asyncItems: (String filter) async {
+                                  return _materialRequisitionSlipService
+                                      .getEquipment(
+                                    search: filter,
+                                    pageNumber: 1,
+                                    pageSize: 20,
+                                  );
+                                },
+                                itemAsString: (e) => e.displayName,
+                                popupProps: const PopupProps.dialog(
+                                    showSearchBox: true),
+                                onChanged: (value) {
+                                  setDialogState(() {
+                                    selectedEquipment = value;
+                                    item.equipmentName =
+                                        value?.displayName ?? "";
+                                  });
+                                },
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              /// REMARKS
+                              TextField(
+                                decoration: const InputDecoration(
+                                  labelText: "Remarks",
+                                  border: OutlineInputBorder(),
+                                ),
+                                onChanged: (v) => item.remarks = v,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: availableController,
-                            enabled: false,
-                            decoration: const InputDecoration(
-                              labelText: "Available",
-                              border: OutlineInputBorder(),
-                            ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      /// BUTTONS
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, null),
+                            child: const Text("Cancel"),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: qtyController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: "Required Qty",
-                              border: const OutlineInputBorder(),
-                              errorText: isItemSubmitted ? qtyError : null,
-                            ),
-                            onChanged: (v) {
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
                               setDialogState(() {
-                                item.qty = int.tryParse(v) ?? 0;
-                                qtyError = null;
+                                isItemSubmitted = true;
+
+                                itemError = selectedItem == null
+                                    ? "Item required"
+                                    : null;
+
+                                final qty =
+                                    int.tryParse(qtyController.text) ?? 0;
+
+                                qtyError = qty <= 0
+                                    ? "Qty must be greater than 0"
+                                    : null;
+
+                                placeError = (item.placeOfIssue ?? "").isEmpty
+                                    ? "Place required"
+                                    : null;
                               });
+
+                              if (itemError == null &&
+                                  qtyError == null &&
+                                  placeError == null) {
+                                Navigator.pop(context, item);
+                              }
                             },
+                            child: const Text("Done"),
                           ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    /// PLACE OF ISSUE
-                    TextField(
-                      controller: placeController,
-                      decoration: InputDecoration(
-                        labelText: "Place Of Issue",
-                        border: const OutlineInputBorder(),
-                        errorText: isItemSubmitted ? placeError : null,
+                        ],
                       ),
-                      onChanged: (v) {
-                        setDialogState(() {
-                          item.placeOfIssue = v;
-                          placeError = null;
-                        });
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    /// ACTIVITY
-                    DropdownSearch<ActivityModel>(
-                      selectedItem: selectedActivity,
-                      compareFn: (a, b) => a.id == b.id,
-                      asyncItems: (String filter) async {
-                        if (selectedProject == null) return [];
-
-                        // ✅ Use the selected project directly
-                        final projectId = selectedProject!.id;
-                        print(
-                            "PROJECT USED FOR ACTIVITY => $projectId, SEARCH => '$filter'");
-
-                        return await _materialRequisitionSlipService
-                            .getActivities(
-                          search: filter.trim(),
-                          projectID: projectId,
-                        );
-                      },
-                      itemAsString: (a) => a.activityName,
-                      popupProps: const PopupProps.dialog(
-                        showSearchBox: true,
-                        isFilterOnline: true,
-                      ),
-                      dropdownDecoratorProps: DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: "Select Activity",
-                          border: OutlineInputBorder(),
-                          errorText: activityError,
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedActivity = value;
-                          item.selectedActivity = value;
-                          item.activityNo = value?.id;
-                          activityError = null;
-                        });
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    /// EQUIPMENT
-                    DropdownSearch<EquipmentModel>(
-                      selectedItem: selectedEquipment,
-                      asyncItems: (String filter) async {
-                        return _materialRequisitionSlipService.getEquipment(
-                          search: filter,
-                          pageNumber: 1,
-                          pageSize: 20,
-                        );
-                      },
-                      itemAsString: (e) => e.displayName,
-                      popupProps: const PopupProps.dialog(
-                        showSearchBox: true,
-                      ),
-                      dropdownDecoratorProps: const DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: "Select Equipment",
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      onChanged: (EquipmentModel? value) {
-                        selectedEquipment = value;
-                        item.equipmentName = value?.displayName ?? "";
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    /// REMARKS
-                    TextField(
-                      decoration: const InputDecoration(
-                        labelText: "Remarks",
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (v) => item.remarks = v,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    /// BUTTONS
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context, null);
-                          },
-                          child: const Text("Cancel"),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            setDialogState(() {
-                              isItemSubmitted = true;
-
-                              itemError =
-                                  selectedItem == null ? "Item required" : null;
-
-                              final qty = int.tryParse(qtyController.text) ?? 0;
-                              item.qty = qty;
-
-                              qtyError = qty <= 0
-                                  ? "Qty must be greater than 0"
-                                  : null;
-
-                              placeError = (item.placeOfIssue == null ||
-                                      item.placeOfIssue!.isEmpty)
-                                  ? "Place required"
-                                  : null;
-
-                              // activityError = selectedActivity == null
-                              //     ? "Activity required"
-                              //     : null;
-                            });
-
-                            if (itemError == null &&
-                                qtyError == null &&
-                                placeError == null &&
-                                activityError == null) {
-                              Navigator.pop(context, item);
-                            }
-                          },
-                          child: const Text("Done"),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -1491,22 +1547,21 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                 /// 🔹 HEADER CARD (ONE LINE LOOK)
                 if (header != null)
                   Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.blue.shade50,
-                          Colors.blue.shade100,
-                        ],
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.blue.shade50,
+                            Colors.blue.shade100,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        // 🔹 COL 1 – Slip No
-                        Expanded(
-                          flex: 4, // col-md-4
-                          child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 🔹 ROW 1 – Slip No (Full Width)
+                          Row(
                             children: [
                               const Icon(Icons.receipt_long, size: 18),
                               const SizedBox(width: 6),
@@ -1522,45 +1577,43 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                               ),
                             ],
                           ),
-                        ),
 
-                        // 🔹 COL 2 – Date
-                        Expanded(
-                          flex: 4, // col-md-4
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          const SizedBox(height: 6),
+
+                          // 🔹 ROW 2 – Date (Left) & Created By (Right)
+                          Row(
                             children: [
-                              const Icon(Icons.calendar_today, size: 14),
-                              const SizedBox(width: 6),
-                              Text(
-                                formatDateTimeSafe(header['transactionDate']),
-                                style: const TextStyle(fontSize: 12),
+                              // Date
+                              Row(
+                                children: [
+                                  const Icon(Icons.calendar_today, size: 14),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    formatDateTimeSafe(
+                                        header['transactionDate']),
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+
+                              const Spacer(), // 🔥 pushes next item to right
+
+                              // Created By
+                              Row(
+                                children: [
+                                  const Icon(Icons.person, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    header['createdBy'] ?? "-",
+                                    style: const TextStyle(fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ),
-
-                        // 🔹 COL 3 – Created By
-                        Expanded(
-                          flex: 4, // col-md-4
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              const Icon(Icons.person, size: 16),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  header['createdBy'] ?? "-",
-                                  style: const TextStyle(fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        ],
+                      )),
 
                 const SizedBox(height: 14),
 
@@ -1701,31 +1754,17 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        print("🔙 BACK BUTTON PRESSED");
-        print("📌 showForm: $showForm");
-        print("📌 selectedProject: ${selectedProject?.id}");
-        print("📌 materialIssueList length: ${materialIssueList.length}");
         if (isApprovalMode) {
-          // print("⬅️ Approval mode → direct back");
           return true; // Navigator.pop()
         }
-
         // FORM → LIST
         if (showForm) {
-          print("➡️ FORM OPEN → Going back to LIST");
-
           setState(() {
             showForm = false;
           });
-
           return false;
         }
-
-        // LIST → DASHBOARD
-        print("➡️ LIST SCREEN → Navigating to DASHBOARD");
-
         Navigator.of(context).popUntil((route) => route.isFirst);
-
         return false;
       },
       child: Scaffold(
@@ -1743,512 +1782,544 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                 },
               )
             : null,
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // 🔹 PROJECT DROPDOWN
-              if (!showForm) ...[
-                DropdownButtonFormField<Project>(
-                  value: selectedProject,
-                  hint: const Text("Select Project"),
-                  items: projectList.map((p) {
-                    return DropdownMenuItem<Project>(
-                      value: p,
-                      child: Text(p.name),
-                    );
-                  }).toList(),
-                  onChanged: onProjectChanged,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              // 🔹 PROJECT KE NICHE → MRIS LIST
-              if (selectedProject != null && !showForm) ...[
-                if (listLoading) const CircularProgressIndicator(),
-                if (!listLoading && materialIssueList.isEmpty)
-                  const Text(
-                    "No MRIS found for this project",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                if (!listLoading && materialIssueList.isNotEmpty)
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: materialIssueList.length,
-                    itemBuilder: (context, index) {
-                      final item = materialIssueList[index];
-                      // print("FULL ITEM DATA 👉 $item");
-                      return GestureDetector(
-                        onTap: item.approvalStatus == "Awaiting Approval"
-                            ? () {
-                                // print(
-                                //     "🟢 Disapproved Card Clicked ID 👉 ${item.id}");
-                                onSlipClick(context, item.id);
-                              }
-                            : null,
-                        child: Card(
-                          elevation: 3,
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                /// 🔹 Top Row
-                                Row(
-                                  children: [
-                                    /// Slip Number
-                                    Expanded(
-                                      flex: 4,
-                                      child: Text(
-                                        "Slip No: ${item.slipNumber}",
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ),
-
-                                    /// Approval Status
-                                    Expanded(
-                                      flex: 4,
-                                      child: Container(
-                                        alignment: Alignment.center,
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          gradient: item.approvalStatus ==
-                                                  "Approved"
-                                              ? const LinearGradient(colors: [
-                                                  Color(0xFF0F830B),
-                                                  Color(0xFF29B324)
-                                                ])
-                                              : item.approvalStatus ==
-                                                      "Awaiting Approval"
-                                                  ? const LinearGradient(
-                                                      colors: [
-                                                          Color(0xFF977171),
-                                                          Color(0xFFB58B8B)
-                                                        ])
-                                                  : const LinearGradient(
-                                                      colors: [
-                                                          Color(0xFF4E8D89),
-                                                          Color(0xFF6FBAB5)
-                                                        ]),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        child: Text(
-                                          item.approvalStatus,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                    /// Actions Button
-                                    Expanded(
-                                      flex: 4,
-                                      child: Align(
-                                        alignment: Alignment.centerRight,
-                                        child: ElevatedButton.icon(
-                                          icon: const Icon(Icons.visibility,
-                                              size: 18),
-                                          label: const Text("Actions"),
-                                          onPressed: () {
-                                            _openActionPopup(item.id);
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 12),
-
-                                /// 🔹 Second Row
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 4,
-                                      child: Text(
-                                          "Date: ${formatDateSafe(item.slipDate)}"),
-                                    ),
-                                    Expanded(
-                                      flex: 4,
-                                      child: Text(
-                                          "Floor: ${item.floorName ?? '-'}"),
-                                    ),
-                                    Expanded(
-                                      flex: 4,
-                                      child: Text(
-                                          "Section: ${item.sectionName ?? '-'}"),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 12),
-
-                                /// 🔹 Other Details
-                                Text("Employee: ${item.employeeName ?? '-'}"),
-                                const SizedBox(height: 6),
-                                Text(
-                                    "Contractor: ${item.contractorName ?? '-'}"),
-                                const SizedBox(height: 6),
-                                Text(
-                                    "Awaiting Approval For: ${item.AwaitingApprovalFor ?? '-'}"),
-                              ],
-                            ),
-                          ),
+        body: isDataLoaded
+            ? SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // 🔹 PROJECT DROPDOWN
+                    if (!showForm) ...[
+                      DropdownButtonFormField<Project>(
+                        value: selectedProject,
+                        hint: const Text("Select Project"),
+                        items: projectList.map((p) {
+                          return DropdownMenuItem<Project>(
+                            value: p,
+                            child: Text(p.name),
+                          );
+                        }).toList(),
+                        onChanged: onProjectChanged,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
                         ),
-                      );
-                    },
-                  )
-              ],
-
-              /// 🔒 FORM AREA (approval me fully disabled)
-              AbsorbPointer(
-                absorbing: isApprovalMode && !isEditable,
-                child: Opacity(
-                  opacity: (isApprovalMode && !isEditable) ? 0.6 : 1.0,
-                  child: Column(
-                    children: [
-                      if (showForm) ...[
-                        const SizedBox(height: 12),
-
-                        // Slip No
-                        TextField(
-                          controller: slipNoCtrl,
-                          enabled: false,
-                          decoration: const InputDecoration(
-                            labelText: "Slip Number",
-                            border: OutlineInputBorder(),
-                          ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    // 🔹 PROJECT KE NICHE → MRIS LIST
+                    if (selectedProject != null && !showForm) ...[
+                      if (listLoading) const CircularProgressIndicator(),
+                      if (!listLoading && materialIssueList.isEmpty)
+                        const Text(
+                          "No MRIS found for this project",
+                          style: TextStyle(color: Colors.grey),
                         ),
-
-                        const SizedBox(height: 12),
-
-                        // Slip Date
-                        TextField(
-                          controller: slipDateCtrl,
-                          readOnly: true,
-                          enabled: isEditable,
-                          onTap: _pickDate,
-                          decoration: const InputDecoration(
-                            labelText: "Slip Date",
-                            suffixIcon: Icon(Icons.calendar_today),
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // Section
-                        DropdownButtonFormField<int>(
-                          value: selectedSectionId,
-                          hint: const Text("Select Section"),
-                          items: sectionList.map((s) {
-                            return DropdownMenuItem<int>(
-                              value: s.id,
-                              child: Text(s.sectionName),
-                            );
-                          }).toList(),
-                          onChanged: isEditable
-                              ? (v) {
-                                  print("Section changed: $v");
-                                  setState(() => selectedSectionId = v);
-                                }
-                              : null,
-                          decoration: const InputDecoration(
-                            labelText: "Section",
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // Floor
-                        DropdownButtonFormField<int>(
-                          value: selectedFloorId,
-                          hint: const Text("Select Floor"),
-                          items: floorData.map((f) {
-                            return DropdownMenuItem<int>(
-                              value: f.id,
-                              child: Text(f.floorName),
-                            );
-                          }).toList(),
-                          onChanged: isEditable
-                              ? (v) => setState(() => selectedFloorId = v)
-                              : null,
-                          decoration: const InputDecoration(
-                            labelText: "Floor",
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // Employee
-                        DropdownSearch<EmployeeModel>(
-                          selectedItem: selectedEmployee,
-                          asyncItems: loadEmployees,
-                          enabled: isEditable,
-                          itemAsString: (e) => e.displayName,
-                          clearButtonProps: const ClearButtonProps(
-                            isVisible: true, // 🔥 clear icon show karega
-                          ),
-                          popupProps:
-                              const PopupProps.menu(showSearchBox: true),
-                          dropdownDecoratorProps: const DropDownDecoratorProps(
-                            dropdownSearchDecoration: InputDecoration(
-                              labelText: "Employee",
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          onChanged: (v) {
-                            setState(() {
-                              selectedEmployee = v;
-                            });
-                          },
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // Contractor
-                        DropdownSearch<ContractorModel>(
-                          selectedItem: selectedContractor,
-                          asyncItems: loadContractors,
-                          enabled: isEditable,
-                          itemAsString: (c) => c.displayName,
-                          compareFn: (a, b) => a.id == b.id,
-                          clearButtonProps: const ClearButtonProps(
-                            isVisible: true, // 🔥 clear icon
-                          ),
-                          popupProps:
-                              const PopupProps.menu(showSearchBox: true),
-                          dropdownDecoratorProps: const DropDownDecoratorProps(
-                            dropdownSearchDecoration: InputDecoration(
-                              labelText: "Contractor",
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          onChanged: (v) {
-                            setState(() {
-                              selectedContractor = v;
-                            });
-                          },
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Item Details Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "Item Details",
-                              style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.add),
-                              label: const Text("Add Line"),
-                              onPressed: isEditable
-                                  ? () async {
-                                      resetItemFields();
-                                      final result =
-                                          await openItemSheet(UiItemDetail());
-
-                                      if (result != null) {
-                                        setState(() => itemDetails.add(result));
-                                      }
-                                    }
-                                  : null,
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 12),
-
+                      if (!listLoading && materialIssueList.isNotEmpty)
                         ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: itemDetails.length,
-                          itemBuilder: (_, i) {
-                            final item = itemDetails[i];
-
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 6),
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Row for Item Name + Remove Button
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        _infoText("Item", item.item),
-                                        Row(
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.edit,
-                                                  color: Colors.blue),
-                                              onPressed: isEditable
-                                                  ? () => addItem(
-                                                      UiItemDetail.clone(item),
-                                                      index: i)
-                                                  : null,
+                          itemCount: materialIssueList.length,
+                          itemBuilder: (context, index) {
+                            final item = materialIssueList[index];
+                            // print("FULL ITEM DATA 👉 $item");
+                            return GestureDetector(
+                              onTap: item.approvalStatus == "Awaiting Approval"
+                                  ? () {
+                                      // print(
+                                      //     "🟢 Disapproved Card Clicked ID 👉 ${item.id}");
+                                      onSlipClick(context, item.id);
+                                    }
+                                  : null,
+                              child: Card(
+                                elevation: 3,
+                                margin: const EdgeInsets.symmetric(vertical: 6),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      /// 🔹 Top Row
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          /// 🔹 ROW 1 – Slip Number (Full Width)
+                                          Text(
+                                            "Slip No: ${item.slipNumber}",
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
                                             ),
-                                            IconButton(
-                                              icon: const Icon(Icons.delete,
-                                                  color: Colors.red),
-                                              onPressed: isEditable
-                                                  ? () => deleteItem(i)
-                                                  : null,
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
 
-                                    const Divider(height: 16),
+                                          const SizedBox(height: 6),
 
-                                    // Qty & Unit
-                                    _twoColRow(
-                                      _infoText(
-                                          "Required Qty", item.qty.toString()),
-                                      item.unit.isNotEmpty
-                                          ? _infoText("Unit", item.unit)
-                                          : const SizedBox(),
-                                    ),
+                                          /// 🔹 ROW 2 – Status (Left) & Actions (Right)
+                                          Row(
+                                            children: [
+                                              /// Approval Status
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 6),
+                                                decoration: BoxDecoration(
+                                                  gradient: item
+                                                              .approvalStatus ==
+                                                          "Approved"
+                                                      ? const LinearGradient(
+                                                          colors: [
+                                                              Color(0xFF0F830B),
+                                                              Color(0xFF29B324)
+                                                            ])
+                                                      : item.approvalStatus ==
+                                                              "Awaiting Approval"
+                                                          ? const LinearGradient(
+                                                              colors: [
+                                                                  Color(
+                                                                      0xFF977171),
+                                                                  Color(
+                                                                      0xFFB58B8B)
+                                                                ])
+                                                          : const LinearGradient(
+                                                              colors: [
+                                                                  Color(
+                                                                      0xFF4E8D89),
+                                                                  Color(
+                                                                      0xFF6FBAB5)
+                                                                ]),
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                child: Text(
+                                                  item.approvalStatus,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
 
-                                    // Available Qty (optional)
-                                    if (item.availableQty != null)
-                                      _infoText("Available Qty",
-                                          item.availableQty!.toString()),
+                                              const Spacer(), // 🔥 pushes button to right
 
-                                    // Place of Issue & Activity No
-                                    if (item.placeOfIssue.isNotEmpty ||
-                                        item.activityNo != null)
-                                      _twoColRow(
-                                        item.placeOfIssue.isNotEmpty
-                                            ? _infoText("Place Of Issue",
-                                                item.placeOfIssue)
-                                            : const SizedBox(),
-                                        item.activityNo != null
-                                            ? _infoText("Activity No",
-                                                item.activityNo.toString())
-                                            : const SizedBox(),
+                                              /// Actions Button
+                                              ElevatedButton.icon(
+                                                icon: const Icon(
+                                                    Icons.visibility,
+                                                    size: 18),
+                                                label: const Text("Actions"),
+                                                onPressed: () {
+                                                  _openActionPopup(item.id);
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+
+                                      /// 🔹 Second Row
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 4,
+                                            child: Text(
+                                                "Date: ${formatDateSafe(item.slipDate)}"),
+                                          ),
+                                          Expanded(
+                                            flex: 4,
+                                            child: Text(
+                                                "Floor: ${item.floorName ?? '-'}"),
+                                          ),
+                                          Expanded(
+                                            flex: 4,
+                                            child: Text(
+                                                "Section: ${item.sectionName ?? '-'}"),
+                                          ),
+                                        ],
                                       ),
 
-                                    // Equipment (optional)
-                                    if (item.equipmentName != null &&
-                                        item.equipmentName!.isNotEmpty)
-                                      _infoText(
-                                          "Equipment", item.equipmentName!),
+                                      const SizedBox(height: 12),
 
-                                    // Remarks (optional)
-                                    if (item.remarks.isNotEmpty)
-                                      _infoText("Remarks", item.remarks),
-                                  ],
+                                      /// 🔹 Other Details
+                                      Text(
+                                          "Employee: ${item.employeeName ?? '-'}"),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                          "Contractor: ${item.contractorName ?? '-'}"),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                          "Awaiting Approval For: ${item.AwaitingApprovalFor ?? '-'}"),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
                           },
-                        ),
-                      ],
+                        )
                     ],
-                  ),
-                ),
-              ),
 
-              /// 🔘 ACTION BUTTONS (ALWAYS ENABLED)
-              const SizedBox(height: 16),
+                    /// 🔒 FORM AREA (approval me fully disabled)
+                    AbsorbPointer(
+                      absorbing: isApprovalMode && !isEditable,
+                      child: Opacity(
+                        opacity: (isApprovalMode && !isEditable) ? 0.6 : 1.0,
+                        child: Column(
+                          children: [
+                            if (showForm) ...[
+                              const SizedBox(height: 12),
 
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Row(
-                  key: ValueKey(showForm),
-                  children: [
-                    if (showSubmitButton)
-                      Expanded(
-                        child: SizedBox(
-                          height: 45,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade600,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                              // Slip No
+                              TextField(
+                                controller: slipNoCtrl,
+                                enabled: false,
+                                decoration: const InputDecoration(
+                                  labelText: "Slip Number",
+                                  border: OutlineInputBorder(),
+                                ),
                               ),
-                            ),
-                            onPressed: isLoading ? null : saveMRIS,
-                            child: const Text(
-                              "Submit",
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ),
+
+                              const SizedBox(height: 12),
+
+                              // Slip Date
+                              TextField(
+                                controller: slipDateCtrl,
+                                readOnly: true,
+                                enabled: isEditable,
+                                onTap: _pickDate,
+                                decoration: const InputDecoration(
+                                  labelText: "Slip Date",
+                                  suffixIcon: Icon(Icons.calendar_today),
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Section
+                              DropdownButtonFormField<int>(
+                                value: selectedSectionId,
+                                hint: const Text("Select Section"),
+                                items: sectionList.map((s) {
+                                  return DropdownMenuItem<int>(
+                                    value: s.id,
+                                    child: Text(s.sectionName),
+                                  );
+                                }).toList(),
+                                onChanged: isEditable
+                                    ? (v) {
+                                        print("Section changed: $v");
+                                        setState(() => selectedSectionId = v);
+                                      }
+                                    : null,
+                                decoration: const InputDecoration(
+                                  labelText: "Section",
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Floor
+                              DropdownButtonFormField<int>(
+                                value: selectedFloorId,
+                                hint: const Text("Select Floor"),
+                                items: floorData.map((f) {
+                                  return DropdownMenuItem<int>(
+                                    value: f.id,
+                                    child: Text(f.floorName),
+                                  );
+                                }).toList(),
+                                onChanged: isEditable
+                                    ? (v) => setState(() => selectedFloorId = v)
+                                    : null,
+                                decoration: const InputDecoration(
+                                  labelText: "Floor",
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Employee
+                              DropdownSearch<EmployeeModel>(
+                                selectedItem: selectedEmployee,
+                                asyncItems: loadEmployees,
+                                enabled: isEditable,
+                                itemAsString: (e) => e.displayName,
+                                clearButtonProps: const ClearButtonProps(
+                                  isVisible: true,
+                                ),
+                                popupProps: const PopupProps.menu(
+                                  showSearchBox: true,
+                                  isFilterOnline: true,
+                                ),
+                                dropdownDecoratorProps:
+                                    const DropDownDecoratorProps(
+                                  dropdownSearchDecoration: InputDecoration(
+                                    labelText: "Employee",
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                onChanged: (v) {
+                                  setState(() {
+                                    selectedEmployee = v;
+                                  });
+                                },
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Contractor
+                              DropdownSearch<ContractorModel>(
+                                selectedItem: selectedContractor,
+                                asyncItems: loadContractors,
+                                enabled: isEditable,
+                                itemAsString: (c) => c.displayName,
+                                compareFn: (a, b) => a.id == b.id,
+                                clearButtonProps: const ClearButtonProps(
+                                  isVisible: true, // 🔥 clear icon
+                                ),
+                                popupProps: const PopupProps.menu(
+                                  showSearchBox: true,
+                                  isFilterOnline: true,
+                                ),
+                                dropdownDecoratorProps:
+                                    const DropDownDecoratorProps(
+                                  dropdownSearchDecoration: InputDecoration(
+                                    labelText: "Contractor",
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                onChanged: (v) {
+                                  setState(() {
+                                    selectedContractor = v;
+                                  });
+                                },
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // Item Details Header
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    "Item Details",
+                                    style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.add),
+                                    label: const Text("Add Line"),
+                                    onPressed: isEditable
+                                        ? () async {
+                                            resetItemFields();
+                                            final result = await openItemSheet(
+                                                UiItemDetail());
+                                            if (result != null) {
+                                              setState(() =>
+                                                  itemDetails.add(result));
+                                            }
+                                          }
+                                        : null,
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: itemDetails.length,
+                                itemBuilder: (_, i) {
+                                  final item = itemDetails[i];
+
+                                  return Card(
+                                    margin:
+                                        const EdgeInsets.symmetric(vertical: 6),
+                                    elevation: 2,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // Row for Item Name + Remove Button
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                // 🔥 IMPORTANT
+                                                child: _infoText(
+                                                    "Item", item.item),
+                                              ),
+                                              Row(
+                                                children: [
+                                                  IconButton(
+                                                    icon: const Icon(Icons.edit,
+                                                        color: Colors.blue),
+                                                    onPressed: isEditable
+                                                        ? () => addItem(
+                                                            UiItemDetail.clone(
+                                                                item),
+                                                            index: i)
+                                                        : null,
+                                                  ),
+                                                  IconButton(
+                                                    icon: const Icon(
+                                                        Icons.delete,
+                                                        color: Colors.red),
+                                                    onPressed: isEditable
+                                                        ? () => deleteItem(i)
+                                                        : null,
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+
+                                          const Divider(height: 16),
+
+                                          // Qty & Unit
+                                          _twoColRow(
+                                            _infoText("Required Qty",
+                                                item.qty.toString()),
+                                            item.unit.isNotEmpty
+                                                ? _infoText("Unit", item.unit)
+                                                : const SizedBox(),
+                                          ),
+
+                                          // Available Qty (optional)
+                                          if (item.availableQty != null)
+                                            _infoText("Available Qty",
+                                                item.availableQty!.toString()),
+
+                                          // Place of Issue & Activity No
+                                          if (item.placeOfIssue.isNotEmpty ||
+                                              item.activityNo != null)
+                                            _twoColRow(
+                                              item.placeOfIssue.isNotEmpty
+                                                  ? _infoText("Place Of Issue",
+                                                      item.placeOfIssue)
+                                                  : const SizedBox(),
+                                              item.activityNo != null
+                                                  ? _infoText(
+                                                      "Activity No",
+                                                      item.activityNo
+                                                          .toString())
+                                                  : const SizedBox(),
+                                            ),
+
+                                          // Equipment (optional)
+                                          if (item.equipmentName != null &&
+                                              item.equipmentName!.isNotEmpty)
+                                            _infoText("Equipment",
+                                                item.equipmentName!),
+
+                                          // Remarks (optional)
+                                          if (item.remarks.isNotEmpty)
+                                            _infoText("Remarks", item.remarks),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                    if (showApprovalButtons) ...[
-                      Expanded(
-                        child: SizedBox(
-                          height: 45,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green.shade600,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                    ),
+
+                    /// 🔘 ACTION BUTTONS (ALWAYS ENABLED)
+                    const SizedBox(height: 16),
+
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Row(
+                        key: ValueKey(showForm),
+                        children: [
+                          if (showSubmitButton)
+                            Expanded(
+                              child: SizedBox(
+                                height: 45,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue.shade600,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  onPressed: isLoading ? null : saveMRIS,
+                                  child: const Text(
+                                    "Submit",
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
                               ),
                             ),
-                            onPressed: approveMRIS,
-                            child: const Text(
-                              "Approve",
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SizedBox(
-                          height: 45,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red.shade600,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                          if (showApprovalButtons) ...[
+                            Expanded(
+                              child: SizedBox(
+                                height: 45,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green.shade600,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  onPressed: approveMRIS,
+                                  child: const Text(
+                                    "Approve",
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
                               ),
                             ),
-                            onPressed: disapproveMRIS,
-                            child: const Text(
-                              "Disapprove",
-                              style: TextStyle(fontWeight: FontWeight.w600),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: SizedBox(
+                                height: 45,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red.shade600,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  onPressed: disapproveMRIS,
+                                  child: const Text(
+                                    "Disapprove",
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          ],
+                        ],
                       ),
-                    ],
+                    )
                   ],
                 ),
               )
-            ],
-          ),
-        ),
+            : const Center(
+                child: CircularProgressIndicator(),
+              ),
       ),
     );
   }

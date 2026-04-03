@@ -213,132 +213,196 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
 
   Widget last6MonthChart() {
     if (trendDataMonth.isEmpty) return const SizedBox();
+    for (var item in trendDataMonth) {
+      print("""
+📅 Stage: ${item.stage}
+🔵 Issue: ${item.issueCount}
+🟢 NCR: ${item.ncrCount}
+🟠 GoodPractice: ${item.goodPracticeCount}
+📌 Total: ${item.totalCount}
+-------------------------
+""");
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
 
-    return SizedBox(
-      height: 350,
-      child: SfCartesianChart(
-        title: ChartTitle(text: 'Last 6 Months trend (by Observation count)'),
-        legend: const Legend(isVisible: true),
-        primaryXAxis: CategoryAxis(title: AxisTitle(text: "Last 6 Months")),
-        primaryYAxis: NumericAxis(title: AxisTitle(text: "Observation Count")),
-        series: <StackedColumnSeries<ObservationTrendMonth, String>>[
-          StackedColumnSeries<ObservationTrendMonth, String>(
-            dataSource: trendDataMonth,
-            xValueMapper: (d, _) => d.stage,
-            yValueMapper: (d, _) => d.issueCount,
-            name: 'Observation',
-            color: Colors.blue,
-            dataLabelSettings: const DataLabelSettings(
-              isVisible: true,
-              labelAlignment: ChartDataLabelAlignment.middle,
-            ),
-          ),
-          StackedColumnSeries<ObservationTrendMonth, String>(
-            dataSource: trendDataMonth,
-            xValueMapper: (d, _) => d.stage,
-            yValueMapper: (d, _) => d.ncrCount,
-            name: 'NCR',
-            color: Colors.green,
-            dataLabelSettings: const DataLabelSettings(
-              isVisible: true,
-              labelAlignment: ChartDataLabelAlignment.middle,
-            ),
-          ),
-          StackedColumnSeries<ObservationTrendMonth, String>(
-            dataSource: trendDataMonth,
-            xValueMapper: (d, _) => d.stage,
-            yValueMapper: (d, _) => d.goodPracticeCount,
-            name: 'Good Practice',
-            color: Colors.orange,
-            dataLabelSettings: DataLabelSettings(
-              isVisible: true,
-              labelAlignment: ChartDataLabelAlignment.middle,
-              builder: (data, point, series, pointIndex, seriesIndex) {
-                final d = data as ObservationTrendMonth;
+        return SizedBox(
+          height: 350,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width:
+                  isMobile ? trendDataMonth.length * 120 : constraints.maxWidth,
+              child: SfCartesianChart(
+                title: ChartTitle(
+                  text: 'Last 6 Months trend (by Observation count)',
+                ),
+                legend: Legend(
+                  isVisible: true,
+                  position:
+                      isMobile ? LegendPosition.bottom : LegendPosition.right,
+                ),
+                primaryXAxis: CategoryAxis(
+                  title: AxisTitle(text: "Last 6 Months"),
+                  labelRotation: isMobile ? -45 : 0,
+                ),
+                primaryYAxis: NumericAxis(
+                  title: AxisTitle(text: "Observation Count"),
+                ),
+                tooltipBehavior: TooltipBehavior(
+                  enable: true,
+                  header: '',
+                  format: 'point.x : point.y',
+                ),
+                series: <StackedColumnSeries<ObservationTrendMonth, String>>[
+                  /// 🔵 Observation
+                  StackedColumnSeries<ObservationTrendMonth, String>(
+                    dataSource: trendDataMonth,
+                    xValueMapper: (d, _) => d.stage,
+                    yValueMapper: (d, _) => d.issueCount,
+                    name: 'Observation',
+                    color: Colors.blue,
+                    dataLabelSettings: const DataLabelSettings(
+                      isVisible: true,
+                      labelAlignment: ChartDataLabelAlignment.middle,
+                    ),
+                  ),
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      d.totalCount.toString(), // 🔴 top total (69)
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                  /// 🟢 NCR
+                  StackedColumnSeries<ObservationTrendMonth, String>(
+                    dataSource: trendDataMonth,
+                    xValueMapper: (d, _) => d.stage,
+                    yValueMapper: (d, _) => d.ncrCount,
+                    name: 'NCR',
+                    color: Colors.green,
+                    dataLabelSettings: const DataLabelSettings(
+                      isVisible: true,
+                      labelAlignment: ChartDataLabelAlignment.middle,
                     ),
-                    // const SizedBox(height: 4),
-                    Text(
-                      d.goodPracticeCount.toString(), // 🟠 orange value (4)
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                      ),
+                  ),
+
+                  /// 🟠 Good Practice
+                  StackedColumnSeries<ObservationTrendMonth, String>(
+                    dataSource: trendDataMonth,
+                    xValueMapper: (d, _) => d.stage,
+                    yValueMapper: (d, _) => d.goodPracticeCount,
+                    name: 'Good Practice',
+                    color: Colors.orange,
+                    dataLabelSettings: DataLabelSettings(
+                      isVisible: true,
+                      labelAlignment: ChartDataLabelAlignment.middle,
+                      builder: (data, point, series, pointIndex, seriesIndex) {
+                        final d = data as ObservationTrendMonth;
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              d.totalCount.toString(),
+                              style: TextStyle(
+                                fontSize: isMobile ? 10 : 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                            Text(
+                              d.goodPracticeCount.toString(),
+                              style: TextStyle(
+                                fontSize: isMobile ? 9 : 11,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(height: isMobile ? 8 : 15),
+                          ],
+                        );
+                      },
                     ),
-                    const SizedBox(height: 15),
-                  ],
-                );
-              },
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget categoryChart() {
     if (categoryTrendData.isEmpty) return const SizedBox();
 
-    // Step 1: collect all categories
-    final Set<String> categorySet = {};
-    for (var item in categoryTrendData) {
-      categorySet.addAll(item.categoryData.keys);
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
 
-    final List<String> categories = categorySet.toList();
+        // Step 1: collect categories
+        final Set<String> categorySet = {};
+        for (var item in categoryTrendData) {
+          categorySet.addAll(item.categoryData.keys);
+        }
 
-    // Step 2: build chart series
-    List<StackedColumnSeries<CategoryTrend, String>> series =
-        categories.map((category) {
-      return StackedColumnSeries<CategoryTrend, String>(
-        name: category,
-        dataSource: categoryTrendData,
-        xValueMapper: (d, _) => d.stage,
-        yValueMapper: (d, _) {
-          return d.categoryData.containsKey(category)
-              ? d.categoryData[category]!
-              : 0; // ⭐ missing category = 0
-        },
-        dataLabelSettings: const DataLabelSettings(
-          isVisible: true,
-          labelAlignment: ChartDataLabelAlignment.middle,
-          overflowMode: OverflowMode.shift,
-        ),
-      );
-    }).toList();
+        final List<String> categories = categorySet.toList();
 
-    return SizedBox(
-      height: 380,
-      child: SfCartesianChart(
-        title: ChartTitle(text: "Last 6 Months trend (by Category)"),
-        legend: const Legend(isVisible: true, position: LegendPosition.right),
-        primaryXAxis: CategoryAxis(
-          labelRotation: -45,
-          title: AxisTitle(text: "Last 6 Months"),
-        ),
-        primaryYAxis: NumericAxis(
-          title: AxisTitle(text: "Observation Count"),
-        ),
-        tooltipBehavior: TooltipBehavior(
-          enable: true,
-          header: '',
-          format: 'point.x : point.y',
-        ),
-        series: series,
-      ),
+        // Step 2: build series
+        List<StackedColumnSeries<CategoryTrend, String>> series =
+            categories.map((category) {
+          return StackedColumnSeries<CategoryTrend, String>(
+            name: category,
+            dataSource: categoryTrendData,
+            xValueMapper: (d, _) => d.stage,
+            yValueMapper: (d, _) => d.categoryData.containsKey(category)
+                ? d.categoryData[category]!
+                : 0,
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              labelAlignment: ChartDataLabelAlignment.middle,
+              overflowMode: OverflowMode.shift,
+            ),
+          );
+        }).toList();
+
+        return SizedBox(
+          height: 380,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal, // 🔥 KEY FIX
+            child: SizedBox(
+              width: isMobile
+                  ? categoryTrendData.length * 120 // 🔥 space for each month
+                  : constraints.maxWidth,
+              child: SfCartesianChart(
+                title: ChartTitle(
+                  text: "Last 6 Months trend (by Category)",
+                ),
+
+                /// ✅ SAME legend (no change)
+                legend: const Legend(
+                  isVisible: true,
+                  position: LegendPosition.right,
+                ),
+
+                primaryXAxis: CategoryAxis(
+                  labelRotation: isMobile ? -45 : 0, // 🔥 mobile fix
+                  title: AxisTitle(text: "Last 6 Months"),
+                ),
+
+                primaryYAxis: NumericAxis(
+                  title: AxisTitle(text: "Observation Count"),
+                ),
+
+                tooltipBehavior: TooltipBehavior(
+                  enable: true,
+                  header: '',
+                  format: 'point.x : point.y',
+                ),
+
+                series: series,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
-
   // Widget categoryChart() {
   //   if (categoryTrendData.isEmpty) return const SizedBox();
 
@@ -419,7 +483,7 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Open Observation Summary'),
+        title: const Text('Quality Dashboard'),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
