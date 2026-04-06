@@ -235,18 +235,24 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
     );
   }
 
+  bool showObservation = true;
+  bool showNCR = true;
+  bool showGoodPractice = true;
+
+// 👇 helper function (TOTAL LOGIC)
+  int getTotal(ObservationTrendMonth d) {
+    int total = 0;
+
+    if (showObservation) total += d.issueCount;
+    if (showNCR) total += d.ncrCount;
+    if (showGoodPractice) total += d.goodPracticeCount;
+
+    return total;
+  }
+
   Widget last6MonthChart() {
     if (trendDataMonth.isEmpty) return const SizedBox();
-    for (var item in trendDataMonth) {
-      print("""
-📅 Stage: ${item.stage}
-🔵 Issue: ${item.issueCount}
-🟢 NCR: ${item.ncrCount}
-🟠 GoodPractice: ${item.goodPracticeCount}
-📌 Total: ${item.totalCount}
--------------------------
-""");
-    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
@@ -267,6 +273,18 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
                   position:
                       isMobile ? LegendPosition.bottom : LegendPosition.right,
                 ),
+                // 🔥 HERE IS THE CORRECT PLACE
+                onLegendTapped: (LegendTapArgs args) {
+                  setState(() {
+                    if (args.series.name == 'Observation') {
+                      showObservation = !showObservation;
+                    } else if (args.series.name == 'NCR') {
+                      showNCR = !showNCR;
+                    } else if (args.series.name == 'Good Practice') {
+                      showGoodPractice = !showGoodPractice;
+                    }
+                  });
+                },
                 primaryXAxis: CategoryAxis(
                   title: AxisTitle(text: "Last 6 Months"),
                   labelRotation: isMobile ? -45 : 0,
@@ -274,12 +292,8 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
                 primaryYAxis: NumericAxis(
                   title: AxisTitle(text: "Observation Count"),
                 ),
-                tooltipBehavior: TooltipBehavior(
-                  enable: true,
-                  header: '',
-                  format: 'point.x : point.y',
-                ),
-                series: <StackedColumnSeries<ObservationTrendMonth, String>>[
+                tooltipBehavior: TooltipBehavior(enable: true),
+                series: [
                   /// 🔵 Observation
                   StackedColumnSeries<ObservationTrendMonth, String>(
                     dataSource: trendDataMonth,
@@ -293,16 +307,45 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
                     ),
                   ),
 
-                  /// 🟢 NCR
+                  /// 🟢 NCR (🔥 TOTAL YAHI DIKHAYENGE)
                   StackedColumnSeries<ObservationTrendMonth, String>(
                     dataSource: trendDataMonth,
                     xValueMapper: (d, _) => d.stage,
                     yValueMapper: (d, _) => d.ncrCount,
                     name: 'NCR',
                     color: Colors.green,
-                    dataLabelSettings: const DataLabelSettings(
+                    dataLabelSettings: DataLabelSettings(
                       isVisible: true,
                       labelAlignment: ChartDataLabelAlignment.middle,
+                      builder: (data, point, series, pointIndex, seriesIndex) {
+                        final d = data as ObservationTrendMonth;
+
+                        // final total = getTotal(d);
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            /// 🔥 TOP → TOTAL
+                            // Text(
+                            //   total.toString(),
+                            //   style: TextStyle(
+                            //     fontWeight: FontWeight.bold,
+                            //     fontSize: 11,
+                            //     color: Colors.black,
+                            //   ),
+                            // ),
+
+                            /// 🔽 MIDDLE → NCR VALUE
+                            Text(
+                              d.ncrCount.toString(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
 
@@ -313,32 +356,34 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
                     yValueMapper: (d, _) => d.goodPracticeCount,
                     name: 'Good Practice',
                     color: Colors.orange,
-                    dataLabelSettings: DataLabelSettings(
+                    dataLabelSettings: const DataLabelSettings(
                       isVisible: true,
                       labelAlignment: ChartDataLabelAlignment.middle,
+                    ),
+                  ),
+
+                  /// 🔥 TOTAL as invisible line (won't affect stacking)
+                  LineSeries<ObservationTrendMonth, String>(
+                    dataSource: trendDataMonth,
+                    xValueMapper: (d, _) => d.stage,
+                    yValueMapper: (d, _) => getTotal(d),
+                    name: 'Total',
+                    isVisibleInLegend: false,
+                    color: Colors.transparent,
+                    markerSettings: const MarkerSettings(isVisible: false),
+                    enableTooltip: false,
+                    dataLabelSettings: DataLabelSettings(
+                      isVisible: true,
+                      labelAlignment: ChartDataLabelAlignment.top,
                       builder: (data, point, series, pointIndex, seriesIndex) {
                         final d = data as ObservationTrendMonth;
-
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              d.totalCount.toString(),
-                              style: TextStyle(
-                                fontSize: isMobile ? 10 : 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
-                            Text(
-                              d.goodPracticeCount.toString(),
-                              style: TextStyle(
-                                fontSize: isMobile ? 9 : 11,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(height: isMobile ? 8 : 15),
-                          ],
+                        return Text(
+                          getTotal(d).toString(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Colors.black,
+                          ),
                         );
                       },
                     ),

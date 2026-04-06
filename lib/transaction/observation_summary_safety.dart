@@ -237,6 +237,21 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
     );
   }
 
+  bool showObservation = true;
+  bool showNCR = true;
+  bool showGoodPractice = true;
+
+// 👇 helper function (TOTAL LOGIC)
+  int getTotal(ObservationTrendMonth d) {
+    int total = 0;
+
+    if (showObservation) total += d.issueCount;
+    if (showNCR) total += d.ncrCount;
+    if (showGoodPractice) total += d.goodPracticeCount;
+
+    return total;
+  }
+
   Widget last6MonthChart() {
     if (trendDataMonth.isEmpty) return const SizedBox();
 
@@ -260,6 +275,18 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
                   position:
                       isMobile ? LegendPosition.bottom : LegendPosition.right,
                 ),
+                // 🔥 HERE IS THE CORRECT PLACE
+                onLegendTapped: (LegendTapArgs args) {
+                  setState(() {
+                    if (args.series.name == 'Observation') {
+                      showObservation = !showObservation;
+                    } else if (args.series.name == 'NCR') {
+                      showNCR = !showNCR;
+                    } else if (args.series.name == 'Good Practice') {
+                      showGoodPractice = !showGoodPractice;
+                    }
+                  });
+                },
                 primaryXAxis: CategoryAxis(
                   title: AxisTitle(text: "Last 6 Months"),
                   labelRotation: isMobile ? -45 : 0,
@@ -295,8 +322,7 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
                       builder: (data, point, series, pointIndex, seriesIndex) {
                         final d = data as ObservationTrendMonth;
 
-                        // final total =
-                        //     d.issueCount + d.ncrCount + d.goodPracticeCount;
+                        // final total = getTotal(d);
 
                         return Column(
                           mainAxisSize: MainAxisSize.min,
@@ -335,6 +361,33 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
                     dataLabelSettings: const DataLabelSettings(
                       isVisible: true,
                       labelAlignment: ChartDataLabelAlignment.middle,
+                    ),
+                  ),
+
+                  /// 🔥 TOTAL as invisible line (won't affect stacking)
+                  LineSeries<ObservationTrendMonth, String>(
+                    dataSource: trendDataMonth,
+                    xValueMapper: (d, _) => d.stage,
+                    yValueMapper: (d, _) => getTotal(d),
+                    name: 'Total',
+                    isVisibleInLegend: false,
+                    color: Colors.transparent,
+                    markerSettings: const MarkerSettings(isVisible: false),
+                    enableTooltip: false,
+                    dataLabelSettings: DataLabelSettings(
+                      isVisible: true,
+                      labelAlignment: ChartDataLabelAlignment.top,
+                      builder: (data, point, series, pointIndex, seriesIndex) {
+                        final d = data as ObservationTrendMonth;
+                        return Text(
+                          getTotal(d).toString(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Colors.black,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
