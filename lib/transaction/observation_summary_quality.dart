@@ -173,7 +173,7 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
               children: [
                 Text(
                   selectedProjectIds.length == projectData.length
-                      ? 'All Projects'
+                      ? 'All Projects Selected'
                       : '${selectedProjectIds.length} Selected',
                 ),
                 const Icon(Icons.arrow_drop_down),
@@ -189,22 +189,46 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
               borderRadius: BorderRadius.circular(8),
               color: Colors.white,
             ),
-            constraints: const BoxConstraints(maxHeight: 240),
+            constraints: const BoxConstraints(maxHeight: 300),
             child: ListView(
               shrinkWrap: true,
-              children: projectData.map((p) {
-                return CheckboxListTile(
+              children: [
+                // ⭐ SELECT ALL OPTION
+                CheckboxListTile(
                   dense: true,
-                  value: selectedProjectIds.contains(p.id),
+                  title: const Text("Select All Projects"),
+                  value: selectedProjectIds.length == projectData.length,
                   onChanged: (val) {
-                    onCheckboxChange(p.id, val ?? false);
+                    setState(() {
+                      if (val == true) {
+                        selectedProjectIds =
+                            projectData.map((p) => p.id).toList();
+                      } else {
+                        selectedProjectIds.clear();
+                      }
+                    });
                   },
-                  title: Text(
-                    p.projectName,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                );
-              }).toList(),
+                ),
+
+                const Divider(height: 1),
+
+                // INDIVIDUAL ITEMS
+                ...projectData.map((p) {
+                  return CheckboxListTile(
+                    dense: true,
+                    value: selectedProjectIds.contains(p.id),
+                    onChanged: (val) {
+                      onCheckboxChange(p.id, val ?? false);
+
+                      setState(() {}); // refresh UI
+                    },
+                    title: Text(
+                      p.projectName,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+              ],
             ),
           ),
       ],

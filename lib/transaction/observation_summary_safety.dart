@@ -102,19 +102,21 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
 
   Future<void> fetchTrendChart() async {
     try {
-      // debugPrint("FETCH TREND CHART START");
-
       trendDataMonth = await _service.getLastSixMonthObservationSummary(
         functionId,
         selectedProjectIds,
       );
 
-      // debugPrint("TREND DATA LENGTH → ${trendDataMonth.length}");
+      // 🔥 PRINT START
+      print("===== TREND DATA =====");
 
-      // for (var e in trendDataMonth) {
-      //   print(
-      //       "Stage: ${e.stage} NCR: ${e.ncrCount} GoodPractice: ${e.goodPracticeCount}");
-      // }
+      for (var d in trendDataMonth) {
+        print(
+          "📅 ${d.stage} | 🔵 Obs: ${d.issueCount} | 🟢 NCR: ${d.ncrCount} | 🟠 GP: ${d.goodPracticeCount}",
+        );
+      }
+
+      print("===== END =====");
 
       setState(() {});
     } catch (e) {
@@ -173,7 +175,7 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
               children: [
                 Text(
                   selectedProjectIds.length == projectData.length
-                      ? 'All Projects'
+                      ? 'All Projects Selected'
                       : '${selectedProjectIds.length} Selected',
                 ),
                 const Icon(Icons.arrow_drop_down),
@@ -189,22 +191,46 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
               borderRadius: BorderRadius.circular(8),
               color: Colors.white,
             ),
-            constraints: const BoxConstraints(maxHeight: 240),
+            constraints: const BoxConstraints(maxHeight: 300),
             child: ListView(
               shrinkWrap: true,
-              children: projectData.map((p) {
-                return CheckboxListTile(
+              children: [
+                // ⭐ SELECT ALL OPTION
+                CheckboxListTile(
                   dense: true,
-                  value: selectedProjectIds.contains(p.id),
+                  title: const Text("Select All Projects"),
+                  value: selectedProjectIds.length == projectData.length,
                   onChanged: (val) {
-                    onCheckboxChange(p.id, val ?? false);
+                    setState(() {
+                      if (val == true) {
+                        selectedProjectIds =
+                            projectData.map((p) => p.id).toList();
+                      } else {
+                        selectedProjectIds.clear();
+                      }
+                    });
                   },
-                  title: Text(
-                    p.projectName,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                );
-              }).toList(),
+                ),
+
+                const Divider(height: 1),
+
+                // INDIVIDUAL ITEMS
+                ...projectData.map((p) {
+                  return CheckboxListTile(
+                    dense: true,
+                    value: selectedProjectIds.contains(p.id),
+                    onChanged: (val) {
+                      onCheckboxChange(p.id, val ?? false);
+
+                      setState(() {}); // refresh UI
+                    },
+                    title: Text(
+                      p.projectName,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+              ],
             ),
           ),
       ],
@@ -241,12 +267,8 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
                 primaryYAxis: NumericAxis(
                   title: AxisTitle(text: "Observation Count"),
                 ),
-                tooltipBehavior: TooltipBehavior(
-                  enable: true,
-                  header: '',
-                  format: 'point.x : point.y',
-                ),
-                series: <StackedColumnSeries<ObservationTrendMonth, String>>[
+                tooltipBehavior: TooltipBehavior(enable: true),
+                series: [
                   /// 🔵 Observation
                   StackedColumnSeries<ObservationTrendMonth, String>(
                     dataSource: trendDataMonth,
@@ -260,16 +282,46 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
                     ),
                   ),
 
-                  /// 🟢 NCR
+                  /// 🟢 NCR (🔥 TOTAL YAHI DIKHAYENGE)
                   StackedColumnSeries<ObservationTrendMonth, String>(
                     dataSource: trendDataMonth,
                     xValueMapper: (d, _) => d.stage,
                     yValueMapper: (d, _) => d.ncrCount,
                     name: 'NCR',
                     color: Colors.green,
-                    dataLabelSettings: const DataLabelSettings(
+                    dataLabelSettings: DataLabelSettings(
                       isVisible: true,
                       labelAlignment: ChartDataLabelAlignment.middle,
+                      builder: (data, point, series, pointIndex, seriesIndex) {
+                        final d = data as ObservationTrendMonth;
+
+                        // final total =
+                        //     d.issueCount + d.ncrCount + d.goodPracticeCount;
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            /// 🔥 TOP → TOTAL
+                            // Text(
+                            //   total.toString(),
+                            //   style: TextStyle(
+                            //     fontWeight: FontWeight.bold,
+                            //     fontSize: 11,
+                            //     color: Colors.black,
+                            //   ),
+                            // ),
+
+                            /// 🔽 MIDDLE → NCR VALUE
+                            Text(
+                              d.ncrCount.toString(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
 
@@ -280,34 +332,9 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
                     yValueMapper: (d, _) => d.goodPracticeCount,
                     name: 'Good Practice',
                     color: Colors.orange,
-                    dataLabelSettings: DataLabelSettings(
+                    dataLabelSettings: const DataLabelSettings(
                       isVisible: true,
                       labelAlignment: ChartDataLabelAlignment.middle,
-                      builder: (data, point, series, pointIndex, seriesIndex) {
-                        final d = data as ObservationTrendMonth;
-
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              d.totalCount.toString(),
-                              style: TextStyle(
-                                fontSize: isMobile ? 10 : 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
-                            Text(
-                              d.goodPracticeCount.toString(),
-                              style: TextStyle(
-                                fontSize: isMobile ? 9 : 11,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(height: isMobile ? 8 : 15),
-                          ],
-                        );
-                      },
                     ),
                   ),
                 ],
@@ -394,81 +421,6 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
       },
     );
   }
-  // Widget categoryChart() {
-  //   if (categoryTrendData.isEmpty) return const SizedBox();
-
-  //   /// STEP 1: collect categories dynamically
-  //   final Set<String> categorySet = {};
-  //   for (var item in categoryTrendData) {
-  //     categorySet.addAll(item.categoryData.keys);
-  //   }
-
-  //   final List<String> categories = categorySet.toList();
-
-  //   /// STEP 2: create stacked series
-  //   List<StackedColumnSeries<CategoryTrend, String>> series =
-  //       categories.map((category) {
-  //     return StackedColumnSeries<CategoryTrend, String>(
-  //       name: category,
-  //       width: 0.9,
-  //       spacing: 0.15,
-  //       dataSource: categoryTrendData,
-  //       xValueMapper: (d, _) => d.stage,
-  //       yValueMapper: (d, _) => d.categoryData[category] ?? 0,
-
-  //       /// ⭐ Jugad for small labels
-  //       dataLabelSettings: DataLabelSettings(
-  //         isVisible: true,
-  //         labelPosition: ChartDataLabelPosition.outside,
-  //         overflowMode: OverflowMode.shift,
-  //         labelAlignment: ChartDataLabelAlignment.outer,
-  //       ),
-  //     );
-  //   }).toList();
-
-  //   return SizedBox(
-  //     height: 500, // ⭐ height increase jugad
-  //     child: SfCartesianChart(
-  //       margin: const EdgeInsets.all(16),
-
-  //       title: ChartTitle(
-  //         text: "Last 6 Months Trend (Category)",
-  //       ),
-
-  //       /// LEGEND
-  //       legend: const Legend(
-  //         isVisible: true,
-  //         position: LegendPosition.right,
-  //         overflowMode: LegendItemOverflowMode.wrap,
-  //       ),
-
-  //       /// X AXIS
-  //       primaryXAxis: CategoryAxis(
-  //         labelRotation: -45,
-  //         title: AxisTitle(text: "Last 6 Months"),
-  //         majorGridLines: const MajorGridLines(width: 0),
-  //       ),
-
-  //       /// ⭐ Y AXIS jugad
-  //       primaryYAxis: NumericAxis(
-  //         minimum: 0,
-  //         interval: 5,
-  //         title: AxisTitle(text: "Observation Count"),
-  //         majorGridLines: const MajorGridLines(width: 0.5),
-  //       ),
-
-  //       /// TOOLTIP
-  //       tooltipBehavior: TooltipBehavior(
-  //         enable: true,
-  //         header: '',
-  //         format: 'point.x : point.y',
-  //       ),
-
-  //       /// SERIES
-  //       series: series,
-  //     ),
-  //   );
-  // }
 
   @override
   Widget build(BuildContext context) {
