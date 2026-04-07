@@ -549,12 +549,16 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
   // Date Picker (UTC)
   Future<void> _pickDate() async {
+    final DateTime now = DateTime.now();
+
+    // 👇 Last month ki same date (approx)
+    final DateTime lastMonthDate = DateTime(now.year, now.month - 1, now.day);
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: selectedSlipDateUtc?.toLocal() ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      // lastDate: DateTime(2100),
-      lastDate: DateTime.now(),
+      initialDate: selectedSlipDateUtc?.toLocal() ?? now,
+      firstDate: lastMonthDate, // 👈 yaha change
+      lastDate: now, // 👈 future block
     );
 
     if (picked != null) {
@@ -565,7 +569,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
           picked.day,
         );
 
-        slipDateCtrl.text = formatDateSafe(picked); // same format
+        slipDateCtrl.text = formatDateSafe(picked);
       });
 
       print("📅 Picked Date (Local): $picked");
@@ -1357,6 +1361,16 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                   );
                                 },
                                 itemAsString: (a) => a.activityName,
+
+                                // 👇 ADD THIS
+                                dropdownDecoratorProps:
+                                    const DropDownDecoratorProps(
+                                  dropdownSearchDecoration: InputDecoration(
+                                    labelText: "Activity No",
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+
                                 popupProps: const PopupProps.dialog(
                                   showSearchBox: true,
                                 ),
@@ -1383,8 +1397,19 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                   );
                                 },
                                 itemAsString: (e) => e.displayName,
+
+                                // 👇 ADD THIS
+                                dropdownDecoratorProps:
+                                    const DropDownDecoratorProps(
+                                  dropdownSearchDecoration: InputDecoration(
+                                    labelText: "Equipment",
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+
                                 popupProps: const PopupProps.dialog(
-                                    showSearchBox: true),
+                                  showSearchBox: true,
+                                ),
                                 onChanged: (value) {
                                   setDialogState(() {
                                     selectedEquipment = value;

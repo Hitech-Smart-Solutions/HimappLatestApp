@@ -1011,10 +1011,15 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
                                   'Unknown';
                               return Align(
                                 alignment: Alignment.centerLeft,
-                                child: Text(name,
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600)),
+                                child: Text(
+                                  name,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: false,
+                                ),
                               );
                             }).toList();
                           },

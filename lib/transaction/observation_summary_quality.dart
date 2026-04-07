@@ -23,22 +23,28 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
   List<Project> projectData = [];
   bool dropdownOpen = false;
 
-  /// 🔴 Demo IDs (API ke hisaab se change karo)
   int functionId = 12;
   List<int> selectedProjectIds = [];
-  // 32822,
-  //   32798,
-  //   32823,
-  //   32815,
-  //   32797,
-  //   32796,
-  //   32818
 
   List<ObservationTrend> trendData = [];
 
   List<ObservationTableRow> tableData = [];
   List<ObservationTrendMonth> trendDataMonth = [];
   List<CategoryTrend> categoryTrendData = [];
+
+  bool showObservation = true;
+  bool showNCR = true;
+  bool showGoodPractice = true;
+
+  TextEditingController searchCtrl = TextEditingController();
+  List<Project> filteredProjects = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchProjectData();
+    filteredProjects = projectData;
+  }
 
   void onCheckboxChange(int projectId, bool isChecked) {
     setState(() {
@@ -49,41 +55,47 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
       }
     });
 
-    // Refresh summary & charts on project selection change
     fetchSummary();
     fetchTrendChart();
     fetchCategoryChart();
   }
 
-  @override
-  void initState() {
-    super.initState();
+  void filterProjects(String value) {
+    setState(() {
+      filteredProjects = projectData
+          .where(
+              (p) => p.projectName.toLowerCase().contains(value.toLowerCase()))
+          .toList();
+    });
+  }
 
-    fetchProjectData();
-    // fetchSummary();
-    // fetchTrendChart();
-    // fetchCategoryChart();
+  int getTotal(ObservationTrendMonth d) {
+    int total = 0;
+
+    if (showObservation) total += d.issueCount;
+    if (showNCR) total += d.ncrCount;
+    if (showGoodPractice) total += d.goodPracticeCount;
+
+    return total;
   }
 
   Future<void> fetchProjectData() async {
     final userId =
         await SharedPrefsHelper.getUserId(); // tumhara existing method
     final companyId = await SharedPrefsHelper.getCompanyId();
-    print("USER ID → $userId");
-    print("COMPANY ID → $companyId");
     final projects = await _service.fetchProjects(companyId!, userId!);
+
     setState(() {
       projectData = projects;
-      // ✅ SELECT ALL PROJECTS BY DEFAULT
+      filteredProjects = projects;
       selectedProjectIds = projectData.map((p) => p.id).toList();
     });
-    // ✅ Trigger summary load
+
     await fetchSummary();
     await fetchTrendChart();
     await fetchCategoryChart();
   }
 
-  /// 🔹 API CALL
   Future<void> fetchSummary() async {
     setState(() => isLoading = true);
 
@@ -102,19 +114,10 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
 
   Future<void> fetchTrendChart() async {
     try {
-      // debugPrint("FETCH TREND CHART START");
-
       trendDataMonth = await _service.getLastSixMonthObservationSummary(
         functionId,
         selectedProjectIds,
       );
-
-      // debugPrint("TREND DATA LENGTH → ${trendDataMonth.length}");
-
-      // for (var e in trendDataMonth) {
-      //   print(
-      //       "Stage: ${e.stage} NCR: ${e.ncrCount} GoodPractice: ${e.goodPracticeCount}");
-      // }
 
       setState(() {});
     } catch (e) {
@@ -133,7 +136,6 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
     });
   }
 
-  /// 🔹 Angular ka buildTable yaha
   List<ObservationTableRow> buildTable(List<ObservationSummary> data) {
     final rows = data.map((d) {
       return ObservationTableRow(
@@ -189,65 +191,82 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
               borderRadius: BorderRadius.circular(8),
               color: Colors.white,
             ),
-            constraints: const BoxConstraints(maxHeight: 300),
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                // ⭐ SELECT ALL OPTION
-                CheckboxListTile(
-                  dense: true,
-                  title: const Text("Select All Projects"),
-                  value: selectedProjectIds.length == projectData.length,
-                  onChanged: (val) {
-                    setState(() {
-                      if (val == true) {
-                        selectedProjectIds =
-                            projectData.map((p) => p.id).toList();
-                      } else {
-                        selectedProjectIds.clear();
-                      }
-                    });
-                  },
-                ),
-
-                const Divider(height: 1),
-
-                // INDIVIDUAL ITEMS
-                ...projectData.map((p) {
-                  return CheckboxListTile(
-                    dense: true,
-                    value: selectedProjectIds.contains(p.id),
-                    onChanged: (val) {
-                      onCheckboxChange(p.id, val ?? false);
-
-                      setState(() {}); // refresh UI
-                    },
-                    title: Text(
-                      p.projectName,
-                      overflow: TextOverflow.ellipsis,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.5,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // 🔍 SEARCH BOX (same dropdown ke andar)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextField(
+                      controller: searchCtrl,
+                      onChanged: filterProjects,
+                      decoration: InputDecoration(
+                        hintText: "Search Project...",
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        isDense: true,
+                      ),
                     ),
-                  );
-                }).toList(),
-              ],
+                  ),
+
+                  // 📋 LIST
+                  SizedBox(
+                    height: 200,
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.only(
+                        bottom:
+                            MediaQuery.of(context).viewInsets.bottom, // 👈 FIX
+                      ),
+                      children: [
+                        CheckboxListTile(
+                          dense: true,
+                          title: const Text("Select All Projects"),
+                          value:
+                              selectedProjectIds.length == projectData.length,
+                          onChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                selectedProjectIds =
+                                    projectData.map((p) => p.id).toList();
+                              } else {
+                                selectedProjectIds.clear();
+                              }
+                            });
+                          },
+                        ),
+
+                        const Divider(height: 1),
+
+                        // 🔥 FILTERED LIST
+                        ...filteredProjects.map((p) {
+                          return CheckboxListTile(
+                            dense: true,
+                            value: selectedProjectIds.contains(p.id),
+                            onChanged: (val) {
+                              onCheckboxChange(p.id, val ?? false);
+                              setState(() {});
+                            },
+                            title: Text(
+                              p.projectName,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
       ],
     );
-  }
-
-  bool showObservation = true;
-  bool showNCR = true;
-  bool showGoodPractice = true;
-
-// 👇 helper function (TOTAL LOGIC)
-  int getTotal(ObservationTrendMonth d) {
-    int total = 0;
-
-    if (showObservation) total += d.issueCount;
-    if (showNCR) total += d.ncrCount;
-    if (showGoodPractice) total += d.goodPracticeCount;
-
-    return total;
   }
 
   Widget last6MonthChart() {
@@ -270,8 +289,7 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
                 ),
                 legend: Legend(
                   isVisible: true,
-                  position:
-                      isMobile ? LegendPosition.bottom : LegendPosition.right,
+                  position: LegendPosition.right,
                 ),
                 // 🔥 HERE IS THE CORRECT PLACE
                 onLegendTapped: (LegendTapArgs args) {
@@ -296,6 +314,8 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
                 series: [
                   /// 🔵 Observation
                   StackedColumnSeries<ObservationTrendMonth, String>(
+                    // width: 0.5,
+                    // spacing: 0.2,
                     dataSource: trendDataMonth,
                     xValueMapper: (d, _) => d.stage,
                     yValueMapper: (d, _) => d.issueCount,
@@ -310,6 +330,8 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
                   /// 🟢 NCR (🔥 TOTAL YAHI DIKHAYENGE)
                   StackedColumnSeries<ObservationTrendMonth, String>(
                     dataSource: trendDataMonth,
+                    // width: 0.5,
+                    // spacing: 0.2,
                     xValueMapper: (d, _) => d.stage,
                     yValueMapper: (d, _) => d.ncrCount,
                     name: 'NCR',
@@ -351,6 +373,8 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
 
                   /// 🟠 Good Practice
                   StackedColumnSeries<ObservationTrendMonth, String>(
+                    // width: 0.5,
+                    // spacing: 0.2,
                     dataSource: trendDataMonth,
                     xValueMapper: (d, _) => d.stage,
                     yValueMapper: (d, _) => d.goodPracticeCount,
@@ -472,81 +496,6 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
       },
     );
   }
-  // Widget categoryChart() {
-  //   if (categoryTrendData.isEmpty) return const SizedBox();
-
-  //   /// STEP 1: collect categories dynamically
-  //   final Set<String> categorySet = {};
-  //   for (var item in categoryTrendData) {
-  //     categorySet.addAll(item.categoryData.keys);
-  //   }
-
-  //   final List<String> categories = categorySet.toList();
-
-  //   /// STEP 2: create stacked series
-  //   List<StackedColumnSeries<CategoryTrend, String>> series =
-  //       categories.map((category) {
-  //     return StackedColumnSeries<CategoryTrend, String>(
-  //       name: category,
-  //       width: 0.9,
-  //       spacing: 0.15,
-  //       dataSource: categoryTrendData,
-  //       xValueMapper: (d, _) => d.stage,
-  //       yValueMapper: (d, _) => d.categoryData[category] ?? 0,
-
-  //       /// ⭐ Jugad for small labels
-  //       dataLabelSettings: DataLabelSettings(
-  //         isVisible: true,
-  //         labelPosition: ChartDataLabelPosition.outside,
-  //         overflowMode: OverflowMode.shift,
-  //         labelAlignment: ChartDataLabelAlignment.outer,
-  //       ),
-  //     );
-  //   }).toList();
-
-  //   return SizedBox(
-  //     height: 500, // ⭐ height increase jugad
-  //     child: SfCartesianChart(
-  //       margin: const EdgeInsets.all(16),
-
-  //       title: ChartTitle(
-  //         text: "Last 6 Months Trend (Category)",
-  //       ),
-
-  //       /// LEGEND
-  //       legend: const Legend(
-  //         isVisible: true,
-  //         position: LegendPosition.right,
-  //         overflowMode: LegendItemOverflowMode.wrap,
-  //       ),
-
-  //       /// X AXIS
-  //       primaryXAxis: CategoryAxis(
-  //         labelRotation: -45,
-  //         title: AxisTitle(text: "Last 6 Months"),
-  //         majorGridLines: const MajorGridLines(width: 0),
-  //       ),
-
-  //       /// ⭐ Y AXIS jugad
-  //       primaryYAxis: NumericAxis(
-  //         minimum: 0,
-  //         interval: 5,
-  //         title: AxisTitle(text: "Observation Count"),
-  //         majorGridLines: const MajorGridLines(width: 0.5),
-  //       ),
-
-  //       /// TOOLTIP
-  //       tooltipBehavior: TooltipBehavior(
-  //         enable: true,
-  //         header: '',
-  //         format: 'point.x : point.y',
-  //       ),
-
-  //       /// SERIES
-  //       series: series,
-  //     ),
-  //   );
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -712,4 +661,3 @@ class _ObservationSummaryQualityState extends State<ObservationSummaryQuality> {
     );
   }
 }
-//////////////////////////////////////////////////////////////////////////
