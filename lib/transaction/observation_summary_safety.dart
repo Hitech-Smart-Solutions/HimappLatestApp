@@ -4,77 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:himappnew/model/observation_summary_Model.dart';
 import 'package:himappnew/service/observation_summary_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
-
-/// 🔹 API CLIENT (Simple demo)
-// class ApiClient {
-//   static final Dio dio = Dio(
-//     BaseOptions(
-//       baseUrl: 'https://YOUR_BASE_URL_HERE', // 🔴 change this
-//       connectTimeout: const Duration(seconds: 30),
-//       receiveTimeout: const Duration(seconds: 30),
-//     ),
-//   );
-// }
-
-/// 🔹 MODEL: API se jo data aata hai
-// class ObservationSummary {
-//   final String stage;
-//   final int overdueCount;
-//   final int dueCount;
-//   final int totalCount;
-
-//   ObservationSummary({
-//     required this.stage,
-//     required this.overdueCount,
-//     required this.dueCount,
-//     required this.totalCount,
-//   });
-
-//   factory ObservationSummary.fromJson(Map<String, dynamic> json) {
-//     return ObservationSummary(
-//       stage: json['stage'] ?? '',
-//       overdueCount: json['overdue_count'] ?? 0,
-//       dueCount: json['due_count'] ?? 0,
-//       totalCount: json['total_count'] ?? 0,
-//     );
-//   }
-// }
-
-/// 🔹 TABLE ke liye model
-// class ObservationTableRow {
-//   final String stage;
-//   final int overdue;
-//   final int due;
-//   final int total;
-
-//   ObservationTableRow({
-//     required this.stage,
-//     required this.overdue,
-//     required this.due,
-//     required this.total,
-//   });
-// }
-
-/// 🔹 SERVICE
-// class ObservationService {
-//   Future<List<ObservationSummary>> getObservationSummary(
-//     int functionId,
-//     List<int> projectIds,
-//   ) async {
-//     final query = projectIds.map((e) => 'projectId=$e').join('&');
-
-//     final response = await ApiClient.dio.get(
-//       '/api/DashboardObservation/GetSiteObservationSummaryForProject/$functionId?$query',
-//     );
-
-//     final data =
-//         response.data is String ? jsonDecode(response.data) : response.data;
-
-//     final List list = data['value']['projectObservationSummary'] ?? [];
-
-//     return list.map((e) => ObservationSummary.fromJson(e)).toList();
-//   }
-// }
+import 'package:fl_chart/fl_chart.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 /// 🔹 MAIN SCREEN
 class ObservationSummarySafety extends StatefulWidget {
@@ -92,11 +23,29 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
   List<Project> projectData = [];
   bool dropdownOpen = false;
 
-  /// 🔴 Demo IDs (API ke hisaab se change karo)
-  int functionId = 1;
-  List<int> selectedProjectIds = [1, 2];
+  int functionId = 13;
+  List<int> selectedProjectIds = [];
+
+  List<ObservationTrend> trendData = [];
 
   List<ObservationTableRow> tableData = [];
+  List<ObservationTrendMonth> trendDataMonth = [];
+  List<CategoryTrend> categoryTrendData = [];
+
+  TextEditingController searchCtrl = TextEditingController();
+  List<Project> filteredProjects = [];
+
+  bool showObservation = true;
+  bool showNCR = true;
+  bool showGoodPractice = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    fetchProjectData();
+    filteredProjects = projectData;
+  }
 
   void onCheckboxChange(int projectId, bool isChecked) {
     setState(() {
@@ -107,40 +56,48 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
       }
     });
 
-    // 🔥 PROJECT CHANGE → SUMMARY REFRESH
+    // Refresh summary & charts on project selection change
     fetchSummary();
+    fetchTrendChart();
+    fetchCategoryChart();
   }
 
-  @override
-  void initState() {
-    super.initState();
+  void filterProjects(String value) {
+    setState(() {
+      filteredProjects = projectData
+          .where(
+              (p) => p.projectName.toLowerCase().contains(value.toLowerCase()))
+          .toList();
+    });
+  }
 
-    fetchProjectData();
-    fetchSummary();
+  int getTotal(ObservationTrendMonth d) {
+    int total = 0;
+
+    if (showObservation) total += d.issueCount;
+    if (showNCR) total += d.ncrCount;
+    if (showGoodPractice) total += d.goodPracticeCount;
+
+    return total;
   }
 
   Future<void> fetchProjectData() async {
     final userId =
         await SharedPrefsHelper.getUserId(); // tumhara existing method
     final companyId = await SharedPrefsHelper.getCompanyId();
-
     final projects = await _service.fetchProjects(companyId!, userId!);
-
-    print('✅ Projects count: ${projects.length}');
-    print('✅ Projects data: $projects');
 
     setState(() {
       projectData = projects;
-
-      // ✅ SELECT ALL PROJECTS BY DEFAULT
+      filteredProjects = projects;
       selectedProjectIds = projectData.map((p) => p.id).toList();
     });
 
-    // ✅ Trigger summary load
-    fetchSummary();
+    await fetchSummary();
+    await fetchTrendChart();
+    await fetchCategoryChart();
   }
 
-  /// 🔹 API CALL
   Future<void> fetchSummary() async {
     setState(() => isLoading = true);
 
@@ -149,7 +106,6 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
         functionId,
         selectedProjectIds,
       );
-
       tableData = buildTable(data);
     } catch (e) {
       debugPrint('❌ Error: $e');
@@ -158,7 +114,30 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
     }
   }
 
-  /// 🔹 Angular ka buildTable yaha
+  Future<void> fetchTrendChart() async {
+    try {
+      trendDataMonth = await _service.getLastSixMonthObservationSummary(
+        functionId,
+        selectedProjectIds,
+      );
+
+      setState(() {});
+    } catch (e) {
+      debugPrint("Trend chart error: $e");
+    }
+  }
+
+  Future<void> fetchCategoryChart() async {
+    final data = await _service.getLastSixMonthCategorySummary(
+      functionId,
+      selectedProjectIds,
+    );
+
+    setState(() {
+      categoryTrendData = data;
+    });
+  }
+
   List<ObservationTableRow> buildTable(List<ObservationSummary> data) {
     final rows = data.map((d) {
       return ObservationTableRow(
@@ -198,7 +177,7 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
               children: [
                 Text(
                   selectedProjectIds.length == projectData.length
-                      ? 'All Projects'
+                      ? 'All Projects Selected'
                       : '${selectedProjectIds.length} Selected',
                 ),
                 const Icon(Icons.arrow_drop_down),
@@ -214,25 +193,309 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
               borderRadius: BorderRadius.circular(8),
               color: Colors.white,
             ),
-            constraints: const BoxConstraints(maxHeight: 240),
-            child: ListView(
-              shrinkWrap: true,
-              children: projectData.map((p) {
-                return CheckboxListTile(
-                  dense: true,
-                  value: selectedProjectIds.contains(p.id),
-                  onChanged: (val) {
-                    onCheckboxChange(p.id, val ?? false);
-                  },
-                  title: Text(
-                    p.projectName,
-                    overflow: TextOverflow.ellipsis,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.5,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // 🔍 SEARCH BOX (same dropdown ke andar)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextField(
+                      controller: searchCtrl,
+                      onChanged: filterProjects,
+                      decoration: InputDecoration(
+                        hintText: "Search Project...",
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        isDense: true,
+                      ),
+                    ),
                   ),
-                );
-              }).toList(),
+
+                  // 📋 LIST
+                  SizedBox(
+                    height: 200,
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.only(
+                        bottom:
+                            MediaQuery.of(context).viewInsets.bottom, // 👈 FIX
+                      ),
+                      children: [
+                        CheckboxListTile(
+                          dense: true,
+                          title: const Text("Select All Projects"),
+                          value:
+                              selectedProjectIds.length == projectData.length,
+                          onChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                selectedProjectIds =
+                                    projectData.map((p) => p.id).toList();
+                              } else {
+                                selectedProjectIds.clear();
+                              }
+                            });
+                          },
+                        ),
+
+                        const Divider(height: 1),
+
+                        // 🔥 FILTERED LIST
+                        ...filteredProjects.map((p) {
+                          return CheckboxListTile(
+                            dense: true,
+                            value: selectedProjectIds.contains(p.id),
+                            onChanged: (val) {
+                              onCheckboxChange(p.id, val ?? false);
+                              setState(() {});
+                            },
+                            title: Text(
+                              p.projectName,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
       ],
+    );
+  }
+
+  Widget last6MonthChart() {
+    if (trendDataMonth.isEmpty) return const SizedBox();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+
+        return SizedBox(
+          height: 350,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width:
+                  isMobile ? trendDataMonth.length * 120 : constraints.maxWidth,
+              child: SfCartesianChart(
+                title: ChartTitle(
+                  text: 'Last 6 Months trend (by Observation count)',
+                ),
+                legend: Legend(
+                  isVisible: true,
+                  position: LegendPosition.right,
+                ),
+                // 🔥 HERE IS THE CORRECT PLACE
+                onLegendTapped: (LegendTapArgs args) {
+                  setState(() {
+                    if (args.series.name == 'Observation') {
+                      showObservation = !showObservation;
+                    } else if (args.series.name == 'NCR') {
+                      showNCR = !showNCR;
+                    } else if (args.series.name == 'Good Practice') {
+                      showGoodPractice = !showGoodPractice;
+                    }
+                  });
+                },
+                primaryXAxis: CategoryAxis(
+                  title: AxisTitle(text: "Last 6 Months"),
+                  labelRotation: isMobile ? -45 : 0,
+                ),
+                primaryYAxis: NumericAxis(
+                  title: AxisTitle(text: "Observation Count"),
+                ),
+                tooltipBehavior: TooltipBehavior(enable: true),
+                series: [
+                  /// 🔵 Observation
+                  StackedColumnSeries<ObservationTrendMonth, String>(
+                    // width: 0.5,
+                    // spacing: 0.2,
+                    dataSource: trendDataMonth,
+                    xValueMapper: (d, _) => d.stage,
+                    yValueMapper: (d, _) => d.issueCount,
+                    name: 'Observation',
+                    color: Colors.blue,
+                    dataLabelSettings: const DataLabelSettings(
+                      isVisible: true,
+                      labelAlignment: ChartDataLabelAlignment.middle,
+                    ),
+                  ),
+
+                  /// 🟢 NCR (🔥 TOTAL YAHI DIKHAYENGE)
+                  StackedColumnSeries<ObservationTrendMonth, String>(
+                    dataSource: trendDataMonth,
+                    // width: 0.5,
+                    // spacing: 0.2,
+                    xValueMapper: (d, _) => d.stage,
+                    yValueMapper: (d, _) => d.ncrCount,
+                    name: 'NCR',
+                    color: Colors.green,
+                    dataLabelSettings: DataLabelSettings(
+                      isVisible: true,
+                      labelAlignment: ChartDataLabelAlignment.middle,
+                      builder: (data, point, series, pointIndex, seriesIndex) {
+                        final d = data as ObservationTrendMonth;
+
+                        // final total = getTotal(d);
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            /// 🔥 TOP → TOTAL
+                            // Text(
+                            //   total.toString(),
+                            //   style: TextStyle(
+                            //     fontWeight: FontWeight.bold,
+                            //     fontSize: 11,
+                            //     color: Colors.black,
+                            //   ),
+                            // ),
+
+                            /// 🔽 MIDDLE → NCR VALUE
+                            Text(
+                              d.ncrCount.toString(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+
+                  /// 🟠 Good Practice
+                  StackedColumnSeries<ObservationTrendMonth, String>(
+                    // width: 0.5,
+                    // spacing: 0.2,
+                    dataSource: trendDataMonth,
+                    xValueMapper: (d, _) => d.stage,
+                    yValueMapper: (d, _) => d.goodPracticeCount,
+                    name: 'Good Practice',
+                    color: Colors.orange,
+                    dataLabelSettings: const DataLabelSettings(
+                      isVisible: true,
+                      labelAlignment: ChartDataLabelAlignment.middle,
+                    ),
+                  ),
+
+                  /// 🔥 TOTAL as invisible line (won't affect stacking)
+                  LineSeries<ObservationTrendMonth, String>(
+                    dataSource: trendDataMonth,
+                    xValueMapper: (d, _) => d.stage,
+                    yValueMapper: (d, _) => getTotal(d),
+                    name: 'Total',
+                    isVisibleInLegend: false,
+                    color: Colors.transparent,
+                    markerSettings: const MarkerSettings(isVisible: false),
+                    enableTooltip: false,
+                    dataLabelSettings: DataLabelSettings(
+                      isVisible: true,
+                      labelAlignment: ChartDataLabelAlignment.top,
+                      builder: (data, point, series, pointIndex, seriesIndex) {
+                        final d = data as ObservationTrendMonth;
+                        return Text(
+                          getTotal(d).toString(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Colors.black,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget categoryChart() {
+    if (categoryTrendData.isEmpty) return const SizedBox();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+
+        // Step 1: collect categories
+        final Set<String> categorySet = {};
+        for (var item in categoryTrendData) {
+          categorySet.addAll(item.categoryData.keys);
+        }
+
+        final List<String> categories = categorySet.toList();
+
+        // Step 2: build series
+        List<StackedColumnSeries<CategoryTrend, String>> series =
+            categories.map((category) {
+          return StackedColumnSeries<CategoryTrend, String>(
+            name: category,
+            dataSource: categoryTrendData,
+            xValueMapper: (d, _) => d.stage,
+            yValueMapper: (d, _) => d.categoryData.containsKey(category)
+                ? d.categoryData[category]!
+                : 0,
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              labelAlignment: ChartDataLabelAlignment.middle,
+              overflowMode: OverflowMode.shift,
+            ),
+          );
+        }).toList();
+
+        return SizedBox(
+          height: 380,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal, // 🔥 KEY FIX
+            child: SizedBox(
+              width: isMobile
+                  ? categoryTrendData.length * 120 // 🔥 space for each month
+                  : constraints.maxWidth,
+              child: SfCartesianChart(
+                title: ChartTitle(
+                  text: "Last 6 Months trend (by Category)",
+                ),
+
+                /// ✅ SAME legend (no change)
+                legend: const Legend(
+                  isVisible: true,
+                  position: LegendPosition.right,
+                ),
+
+                primaryXAxis: CategoryAxis(
+                  labelRotation: isMobile ? -45 : 0, // 🔥 mobile fix
+                  title: AxisTitle(text: "Last 6 Months"),
+                ),
+
+                primaryYAxis: NumericAxis(
+                  title: AxisTitle(text: "Observation Count"),
+                ),
+
+                tooltipBehavior: TooltipBehavior(
+                  enable: true,
+                  header: '',
+                  format: 'point.x : point.y',
+                ),
+
+                series: series,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -240,7 +503,7 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Open Observation Summary'),
+        title: const Text('Safety Dashboard'),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -257,7 +520,46 @@ class _ObservationSummarySafetyState extends State<ObservationSummarySafety> {
                   // 📊 OBSERVATION TABLE
                   tableData.isEmpty
                       ? const Center(child: Text('No Data Found'))
-                      : Expanded(child: observationTable()),
+                      : Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                /// TABLE (FULL WIDTH)
+                                observationTable(),
+
+                                const SizedBox(height: 20),
+
+                                /// STAGE CHART
+                                Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: last6MonthChart(),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 20),
+
+                                /// CATEGORY CHART
+                                Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: categoryChart(),
+                                  ),
+                                ),
+                                // Card(
+                                //   child: Padding(
+                                //     padding: const EdgeInsets.all(12),
+                                //     child: categoryChart(),
+                                //   ),
+                                // ),
+                                const SizedBox(
+                                  height: 10,
+                                )
+                              ],
+                            ),
+                          ),
+                        )
                 ],
               ),
             ),

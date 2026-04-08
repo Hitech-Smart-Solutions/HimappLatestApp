@@ -4,6 +4,8 @@ import '../shared_prefs_helper.dart';
 class ApiClient {
   static final Dio dio = Dio(
     BaseOptions(
+      //  baseUrl: 'https://d3dbm3mdf4kbfk.cloudfront.net', // Production
+      //  baseUrl: 'https://d94acvrm8bvo5.cloudfront.net', // test
       baseUrl: 'https://d3dbm3mdf4kbfk.cloudfront.net', // Production
       // baseUrl: 'https://d94acvrm8bvo5.cloudfront.net', // test
       connectTimeout: const Duration(seconds: 20),

@@ -24,27 +24,27 @@ class MaterialRequisitionSlipService {
         },
       );
 
-      final rawData = response.data;
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
 
-      // ✅ Safety: decode if String
-      final Map<String, dynamic> data =
-          rawData is String ? jsonDecode(rawData) : rawData;
-
+      /// ✅ DIRECT ACCESS (correct)
       final table1 = data['Table1'];
 
-      // ✅ MOST IMPORTANT GUARD
-      if (table1 == null || table1 is! List) {
-        print("⚠️ Table1 empty or not List => $table1");
-        return [];
+      if (table1 is List) {
+        if (table1.isEmpty) {
+          print("⚠️ No data found");
+          return [];
+        }
+
+        return table1.map((e) => MaterialIssue.fromJson(e)).toList();
       }
 
-      return table1
-          .map((e) => MaterialIssue.fromJson(e as Map<String, dynamic>))
-          .toList();
+      print("❌ Table1 not found or invalid");
+      return [];
     } catch (e, s) {
       print("❌ MATERIAL ISSUE API ERROR => $e");
       print("📍 STACK TRACE => $s");
-      rethrow;
+      return [];
     }
   }
 
@@ -248,7 +248,7 @@ class MaterialRequisitionSlipService {
       final payload = request.toJson();
 
       debugPrint("===== MRIS API PAYLOAD =====");
-      debugPrint(payload.toString());
+      debugPrint(const JsonEncoder.withIndent('  ').convert(payload));
 
       final response = await ApiClient.dio.post(
         '/api/MaterialIssueRequest/CreateMaterialIssue',
@@ -256,15 +256,15 @@ class MaterialRequisitionSlipService {
       );
 
       return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException catch (e) {
+      debugPrint("❌ STATUS: ${e.response?.statusCode}");
+      debugPrint("❌ DATA: ${e.response?.data}");
+
+      // 🔥 THROW ONLY RESPONSE DATA
+      throw e.response?.data;
     } catch (e) {
-      if (e is DioException) {
-        debugPrint("❌ STATUS: ${e.response?.statusCode}");
-        debugPrint("❌ DATA: ${e.response?.data}");
-        debugPrint("❌ HEADERS: ${e.response?.headers}");
-      } else {
-        debugPrint("❌ ERROR: $e");
-      }
-      rethrow;
+      debugPrint("❌ ERROR: $e");
+      throw {"error": "Something went wrong"};
     }
   }
 
@@ -337,14 +337,20 @@ class MaterialRequisitionSlipService {
       final response = await ApiClient.dio.get(
         '/api/MaterialIssueRequest/GetMaterialIssuesAwaitingApproval/$userId/$programId',
       );
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
+      final table1 = data['table1'];
 
-      if (response.data != null && response.data['table1'] != null) {
-        return List.from(response.data['table1']);
+      if (table1 == null || table1 is! List) {
+        print("❌ table1 missing or not a List");
+        return [];
       }
 
-      return [];
-    } catch (e) {
-      debugPrint('❌ API Error: $e');
+      return List.from(table1);
+    } catch (e, stack) {
+      print("❌ API ERROR");
+      print(e);
+      print(stack);
       return [];
     }
   }
@@ -357,7 +363,10 @@ class MaterialRequisitionSlipService {
       final response = await ApiClient.dio.get(
         '/api/MaterialIssueRequest/GetMaterialIssueByID/$id/$programId',
       );
-      return response.data;
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
+      if (data == null) return null;
+      return data; // raw return (safe)
     } catch (e) {
       debugPrint("❌ Get By ID Error: $e");
       return null;

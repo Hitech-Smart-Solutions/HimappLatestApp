@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:himappnew/model/page_permission.dart';
 import 'package:himappnew/service/material_requisition_slip_Service.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/service/project_service.dart';
@@ -96,6 +97,23 @@ class _AwaitingApprovalMrisPageState extends State<AwaitingApprovalMrisPage> {
           projectService: ProjectService(),
           slipId: id,
           isApproval: true,
+          pagePermission: PagePermission(
+            programId: 0,
+            companyId: 0,
+            moduleId: 0,
+            programName: 'MRIS',
+            isModuleAdmin: false,
+            canAdd: false,
+            canView: false,
+            canEdit: false,
+            canDelete: false,
+            canExport: false,
+            pageName: 'MRIS',
+            moduleName: 'Store',
+            iconName: 'inventory',
+            moduleIconName: 'store',
+            projectId: 0,
+          ),
         ),
       ),
     );
@@ -140,41 +158,44 @@ class _AwaitingApprovalMrisPageState extends State<AwaitingApprovalMrisPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               /// 🔹 Slip + Status + Action
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 6,
-                    child: Text(
-                      item['slipNumber'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  /// 🔹 Slip Number (Full Width)
+                  Text(
+                    item['slipNumber'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
 
-                  Expanded(
-                    flex: 3,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: _statusChip(context, item['status']),
-                    ),
-                  ),
+                  const SizedBox(height: 8),
 
-                  /// 🔹 Actions button (popup only)
-                  Expanded(
-                    flex: 3,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.visibility, size: 18),
-                        label: const Text("Actions"),
-                        onPressed: () {
-                          // ❗️button tap par card click trigger na ho
-                          _openActionPopup(item['id']);
-                        },
+                  /// 🔹 Status + Actions (50-50)
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _statusChip(context, item['status']),
+                        ),
                       ),
-                    ),
+                      Expanded(
+                        flex: 6,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.visibility, size: 18),
+                            label: const Text("Actions"),
+                            onPressed: () {
+                              _openActionPopup(item['id']);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -320,22 +341,21 @@ class _AwaitingApprovalMrisPageState extends State<AwaitingApprovalMrisPage> {
                 /// 🔹 HEADER CARD (ONE LINE LOOK)
                 if (header != null)
                   Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.blue.shade50,
-                          Colors.blue.shade100,
-                        ],
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.blue.shade50,
+                            Colors.blue.shade100,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        // 🔹 COL 1 – Slip No
-                        Expanded(
-                          flex: 4, // col-md-4
-                          child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          /// 🔹 ROW 1 – Slip No (Full Width)
+                          Row(
                             children: [
                               const Icon(Icons.receipt_long, size: 18),
                               const SizedBox(width: 6),
@@ -351,45 +371,46 @@ class _AwaitingApprovalMrisPageState extends State<AwaitingApprovalMrisPage> {
                               ),
                             ],
                           ),
-                        ),
 
-                        // 🔹 COL 2 – Date
-                        Expanded(
-                          flex: 4, // col-md-4
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          const SizedBox(height: 6),
+
+                          /// 🔹 ROW 2 – Date + Created By (50-50)
+                          Row(
                             children: [
-                              const Icon(Icons.calendar_today, size: 14),
-                              const SizedBox(width: 6),
-                              Text(
-                                formatDate(header['transactionDate']),
-                                style: const TextStyle(fontSize: 12),
+                              Expanded(
+                                flex: 6, // col-md-6
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today, size: 14),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      formatDate(header['transactionDate']),
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
-                        ),
-
-                        // 🔹 COL 3 – Created By
-                        Expanded(
-                          flex: 4, // col-md-4
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              const Icon(Icons.person, size: 16),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  header['createdBy'] ?? "-",
-                                  style: const TextStyle(fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
+                              Expanded(
+                                flex: 6, // col-md-6
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    const Icon(Icons.person, size: 16),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        header['createdBy'] ?? "-",
+                                        style: const TextStyle(fontSize: 12),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        ],
+                      )),
 
                 const SizedBox(height: 14),
 
