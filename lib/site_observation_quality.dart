@@ -1065,6 +1065,24 @@ class _SiteObservationState extends State<SiteObservationQuality> {
     });
   }
 
+  String? validateNotFutureDate(String dateText) {
+    if (dateText.isEmpty) return null;
+
+    try {
+      final selectedDate = DateFormat(uiDateFormat).parseStrict(dateText);
+
+      final now = DateTime.now();
+
+      if (selectedDate.isAfter(now)) {
+        return 'Observation time cannot be in the future.';
+      }
+    } catch (e) {
+      return 'Invalid date format';
+    }
+
+    return null;
+  }
+
   Future<void> submitForm({bool isDraft = false}) async {
     // 🔒 SUBMIT TIME DATE VALIDATION ONLY
     if (_dateController.text.isNotEmpty &&
@@ -1126,6 +1144,16 @@ class _SiteObservationState extends State<SiteObservationQuality> {
           isDueDateEnabled && _dateDueDateController.text.isNotEmpty
               ? _dateDueDateController.text
               : null;
+      // final DateTime? finalDueDate = dueDateValue != null
+      //     ? DateFormat(uiDateFormat).parse(_dateDueDateController.text)
+      //     : null;
+      // final startDate = DateFormat(uiDateFormat).parse(_dateController.text);
+
+      final startDate =
+          DateFormat(uiDateFormat).parseStrict(_dateController.text);
+
+      final dueDate =
+          DateFormat(uiDateFormat).parseStrict(_dateDueDateController.text);
 
       final observationIdToSend =
           (siteObservationId != null && siteObservationId! > 0)
@@ -1261,12 +1289,16 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         uniqueID: const Uuid().v4(),
         id: siteObservationId ?? 0,
         siteObservationCode: "",
-        trancationDate: formatDateForApi(DateTime.now().toUtc()),
+        trancationDate: formatDateForApi(startDate.toUtc()),
         observationRaisedBy: userID,
         observationID: selectedObservationTemplateId!,
         observationTypeID: selectedObservationTypeObj.id,
         issueTypeID: selectedIssueTypeObj.id,
-        dueDate: formatDateForApiNullable(dueDateValue),
+        // dueDate: formatDateForApi(formatDateForApiNullable(finalDueDate)?.toUtc()),
+        // dueDate: dueDate != null ? formatDateForApi(dueDate.toUtc()) : null,
+        dueDate: _dateDueDateController.text.isNotEmpty
+            ? formatDateForApi(dueDate.toUtc())
+            : null,
         observationDescription: observationDescription,
         userDescription: '',
         complianceRequired: isComplianceRequired,
@@ -1296,9 +1328,20 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         siteObservationActivity: finalActivityList,
       );
 
+      debugPrint("----- DATE DEBUG START -----");
+      debugPrint("UI StartDate: ${_dateController.text}");
+      debugPrint("UI DueDate: ${_dateDueDateController.text}");
+      debugPrint("Parsed StartDate: $startDate");
+      debugPrint("UTC StartDate: ${startDate.toUtc()}");
+      debugPrint("API TransactionDate: ${formatDateForApi(startDate.toUtc())}");
+      debugPrint("API DueDate1: ${formatDateForApiNullable(dueDateValue)}");
+      debugPrint("API DueDate: ${commonFields.dueDate}");
+      debugPrint("----- DATE DEBUG END -----");
+
       bool success = false;
 
       if (siteObservationId == null || siteObservationId == 0) {
+        // return;
         success = await widget._siteObservationService
             .submitSiteObservation(commonFields);
       } else {
@@ -2600,8 +2643,28 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                         key: _formKey,
                                         child: Column(
                                           children: [
+                                            // TextFormField(
+                                            //   controller: _dateController,
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Start Date',
+                                            //     hintText:
+                                            //         'Select a date and time',
+                                            //     border: OutlineInputBorder(),
+                                            //     suffixIcon: IconButton(
+                                            //       icon: Icon(
+                                            //           Icons.calendar_today),
+                                            //       onPressed: isEditMode
+                                            //           ? () => _onStartDateTap(
+                                            //               context)
+                                            //           : null,
+                                            //     ),
+                                            //   ),
+                                            //   readOnly: true,
+                                            // ),
+
                                             TextFormField(
                                               controller: _dateController,
+                                              readOnly: true,
                                               decoration: InputDecoration(
                                                 labelText: 'Start Date',
                                                 hintText:
@@ -2616,7 +2679,9 @@ class _SiteObservationState extends State<SiteObservationQuality> {
                                                       : null,
                                                 ),
                                               ),
-                                              readOnly: true,
+                                              validator: (value) =>
+                                                  validateNotFutureDate(
+                                                      value ?? ''),
                                             ),
 
                                             SizedBox(height: 20),

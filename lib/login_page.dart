@@ -7,7 +7,7 @@ import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'service/company_service.dart';
 import 'service/login_service.dart';
-import 'site_observation_safety.dart';
+// import 'site_observation_safety.dart';
 
 class MyCustomForm extends StatefulWidget {
   final bool isDarkMode;
@@ -20,7 +20,8 @@ class MyCustomForm extends StatefulWidget {
   });
 
   @override
-  _MyCustomFormState createState() => _MyCustomFormState();
+  // _MyCustomFormState createState() => _MyCustomFormState();
+  State<MyCustomForm> createState() => _MyCustomFormState();
 }
 
 class _MyCustomFormState extends State<MyCustomForm> {
@@ -45,6 +46,9 @@ class _MyCustomFormState extends State<MyCustomForm> {
     );
 
     final result = await _loginService.login(username, password);
+
+    if (!mounted) return; // ✅ ADD THIS
+
     Navigator.pop(context);
 
     if (result['success']) {
@@ -58,15 +62,16 @@ class _MyCustomFormState extends State<MyCustomForm> {
         await SharedPrefsHelper.saveUserId(userId);
         await SharedPrefsHelper.saveToken(token);
         await SharedPrefsHelper.saveUserName(userName);
-        // print("✅ Saved UserName: $userName");
 
-        // ✅ STEP: Get Firebase token
         final fcmToken = await FirebaseMessaging.instance.getToken();
-        // print("✅ FCM Token: $fcmToken");
+
+        if (!mounted) return; // ✅ AGAIN (after await)
+
         if (fcmToken != null) {
-          // ✅ STEP: Call API to save mobileAppToken
           await _loginService.updateUserMobileAppToken(userId, fcmToken);
         }
+
+        if (!mounted) return; // ✅ AGAIN
 
         _showBusinessesModal();
       } else {

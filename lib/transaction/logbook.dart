@@ -2678,9 +2678,15 @@ class _LogBookState extends State<LogBook> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (logbookData.isEmpty) {
+    final validData = logbookData.where((item) {
+      return item.logBookCode != null && item.logBookCode!.trim().isNotEmpty;
+    }).toList();
+    if (validData.isEmpty) {
       return const Center(child: Text("No Data Found"));
     }
+    // if (logbookData.isEmpty) {
+    //   return const Center(child: Text("No Data Found"));
+    // }
 
     return ListView.builder(
       itemCount: logbookData.length,

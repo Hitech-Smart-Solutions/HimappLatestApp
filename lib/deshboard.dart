@@ -1,5 +1,5 @@
 import 'dart:ui';
-import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:animated_widgets/widgets/scale_animated.dart';
 import 'package:himappnew/awaitingapprovals/awaiting_approval_mris_page.dart';
@@ -8,10 +8,10 @@ import 'package:himappnew/constants.dart';
 import 'package:himappnew/labour_registration_page.dart';
 import 'package:himappnew/model/page_permission.dart';
 import 'package:himappnew/model/siteobservation_model.dart';
-import 'package:himappnew/observation_ncr.dart';
+// import 'package:himappnew/observation_ncr.dart';
 import 'package:himappnew/service/app_update_service.dart';
 import 'package:himappnew/service/labour_registration_service.dart';
-import 'package:himappnew/service/material_requisition_slip_Service.dart';
+import 'package:himappnew/service/material_requisition_slip_service.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/service/user_role_permission_service.dart';
@@ -23,12 +23,15 @@ import 'package:himappnew/transaction/observation_quality_ncr.dart';
 import 'package:himappnew/transaction/observation_safety_ncr.dart';
 import 'package:himappnew/transaction/observation_summary_quality.dart';
 import 'package:himappnew/transaction/observation_summary_safety.dart';
+import 'package:himappnew/transaction/quality/quality_checklist.dart';
 import 'package:himappnew/ui/update_popup.dart';
 import 'login_page.dart';
 import 'site_observation_safety.dart';
 import 'package:himappnew/service/firebase_messaging_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_html/flutter_html.dart';
+
+import 'package:package_info_plus/package_info_plus.dart';
 
 class DashboardPage extends StatefulWidget {
   final String companyName;
@@ -70,15 +73,14 @@ class _DashboardPageState extends State<DashboardPage> {
 
 // Module wise group ke liye
   Map<String, List<PagePermission>> moduleWisePages = {};
-  String appVersion = "";
 // Loading flag
   bool permissionLoading = true;
   final List<String> allowedModules = [
     "Safety",
     "Quality",
     "Store",
-    "Analytics"
-        "PlantAndMachinery"
+    "Analytics",
+    "PlantAndMachinery",
   ];
   final allowedPrograms = {
     "Quality Observation",
@@ -87,7 +89,8 @@ class _DashboardPageState extends State<DashboardPage> {
     "Material Issue Slip",
     "Safety Analytics",
     "Quality Analytics",
-    "LogBook"
+    "LogBook",
+    "Quality Checklist",
   };
 
   bool isAllowedProgram(String program) {
@@ -101,9 +104,12 @@ class _DashboardPageState extends State<DashboardPage> {
   int awaitingApprovalCount = 0;
   bool statsLoading = true;
 
+  String appVersion = "";
+
   @override
   void initState() {
     super.initState();
+    getAppVersion();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAppUpdate();
     });
@@ -111,6 +117,7 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadStats();
     _fetchUnreadCount(); // to show badge on start
     _loadAwaitingApprovalCount();
+    // _refreshDashboard();
     // Init appPages WITHOUT pagePermission
     appPages = {
       "Quality Observation": () => SiteObservationQuality(
@@ -135,6 +142,7 @@ class _DashboardPageState extends State<DashboardPage> {
               projectId: 0,
             ),
           ),
+      "Quality Checklist": () => QualityChecklistPage(),
       "Safety Observation": () => SiteObservationSafety(
             companyName: widget.companyName,
             projectService: widget.projectService,
@@ -185,6 +193,14 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadPermissions();
   }
 
+  Future<void> getAppVersion() async {
+    final info = await PackageInfo.fromPlatform();
+
+    setState(() {
+      appVersion = "${info.version}+${info.buildNumber}";
+    });
+  }
+
   Future<void> _checkAppUpdate() async {
     final forceUpdate = await AppUpdateService.shouldForceUpdate();
 
@@ -224,10 +240,10 @@ class _DashboardPageState extends State<DashboardPage> {
       final permissions = await _permissionService.fetchPagePermissions(userId);
 
       // Debug: print all fetched permissions
-      // for (final p in permissions) {
-      //   debugPrint(
-      //       "Permission fetched: ${p.programName}, Module: ${p.moduleName}, canView: ${p.canView}");
-      // }
+      for (final p in permissions) {
+        debugPrint(
+            "Permission fetched: ${p.programName}, Module: ${p.moduleName}, canView: ${p.canView}");
+      }
 
       final filtered = permissions.toList();
       final grouped = _groupByModule(filtered);
@@ -304,7 +320,8 @@ class _DashboardPageState extends State<DashboardPage> {
         userId,
         AppPages.materialIssueSlipProgramId,
       );
-
+      debugPrint("API HIT - Awaiting Approval");
+      debugPrint("Count: ${data.length}");
       setState(() {
         awaitingApprovalCount = data.length; // ✅ int
         statsLoading = false;
@@ -317,215 +334,252 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _refreshDashboard() async {
+    setState(() {
+      isLoading = true;
+      statsLoading = true;
+      permissionLoading = true;
+    });
+
+    await Future.wait([
+      _loadStats(),
+      _fetchUnreadCount(),
+      _loadAwaitingApprovalCount(),
+      _loadPermissions(),
+    ]);
+
+    setState(() {
+      isLoading = false;
+      statsLoading = false;
+      permissionLoading = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: _buildDrawer(context),
-      appBar: AppBar(
-        title: Text("Dashboard - ${widget.companyName}"),
-        actions: [
-          Stack(
-            children: [
-              IconButton(
-                icon: Icon(Icons.notifications),
-                onPressed: () async {
-                  int? userId = await SharedPrefsHelper.getUserId();
-                  List<NotificationModel> notifications = await widget
-                      .siteObservationService
-                      .getNotificationsByUserID(userId!);
+        drawer: _buildDrawer(context),
+        appBar: AppBar(
+          title: Text("Dashboard - ${widget.companyName}"),
+          actions: [
+            Stack(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.notifications),
+                  onPressed: () async {
+                    int? userId = await SharedPrefsHelper.getUserId();
+                    List<NotificationModel> notifications = await widget
+                        .siteObservationService
+                        .getNotificationsByUserID(userId!);
 
-                  setState(() {
-                    _unreadCount = 0; // Mark as read in UI
-                    _dialogNotifications =
-                        List.from(notifications); // ✅ IMPORTANT
-                  });
+                    setState(() {
+                      _unreadCount = 0; // Mark as read in UI
+                      _dialogNotifications =
+                          List.from(notifications); // ✅ IMPORTANT
+                    });
 
-                  _dialogNotifications = List.from(notifications);
+                    _dialogNotifications = List.from(notifications);
 
-                  showDialog(
-                    context: context,
-                    builder: (_) => StatefulBuilder(
-                      builder: (context, dialogSetState) => AlertDialog(
-                        title: Text("Notifications"),
-                        content: SizedBox(
-                          width: double.maxFinite,
-                          child: _dialogNotifications.isEmpty
-                              ? Center(child: Text("No notifications"))
-                              : ListView.builder(
-                                  itemCount: _dialogNotifications.length,
-                                  itemBuilder: (context, index) {
-                                    final n = _dialogNotifications[index];
-                                    return Card(
-                                      elevation: 2,
-                                      margin: EdgeInsets.symmetric(vertical: 8),
-                                      child: ListTile(
-                                        title: Text(n.programRowCode ??
-                                            'ProgramRowCode'),
-                                        subtitle: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(n.programName ?? 'NoMessage'),
-                                            Html(
-                                                data:
-                                                    n.notificationDescription ??
-                                                        ''),
-                                          ],
-                                        ),
-                                        trailing: IconButton(
-                                          icon: Icon(Icons.close),
-                                          onPressed: () async {
-                                            int? userId =
-                                                await SharedPrefsHelper
-                                                    .getUserId();
-                                            if (userId == null) {
-                                              print("❌ userId null");
-                                              return;
-                                            }
-
-                                            final notification =
-                                                _dialogNotifications[index];
-                                            final notificationId =
-                                                notification.id;
-                                            if (notificationId == null) {
-                                              print("❌ notificationId null");
-                                              return;
-                                            }
-
-                                            bool success = await widget
-                                                .siteObservationService
-                                                .deleteNotification(
-                                              notificationId.toString(),
-                                              userId,
-                                              AppSettings.DEVICEID['Mobile']!,
-                                            );
-                                            if (success) {
-                                              // ✅ Dialog UI update
-                                              dialogSetState(() {
-                                                _dialogNotifications
-                                                    .removeAt(index);
-                                              });
-
-                                              // ✅ Badge / parent UI update
-                                              if (notification.isMobileRead ==
-                                                  false) {
-                                                setState(() {
-                                                  _unreadCount = (_unreadCount -
-                                                          1)
-                                                      .clamp(0, _unreadCount);
-                                                });
+                    showDialog(
+                      context: context,
+                      builder: (_) => StatefulBuilder(
+                        builder: (context, dialogSetState) => AlertDialog(
+                          title: Text("Notifications"),
+                          content: SizedBox(
+                            width: double.maxFinite,
+                            child: _dialogNotifications.isEmpty
+                                ? Center(child: Text("No notifications"))
+                                : ListView.builder(
+                                    itemCount: _dialogNotifications.length,
+                                    itemBuilder: (context, index) {
+                                      final n = _dialogNotifications[index];
+                                      return Card(
+                                        elevation: 2,
+                                        margin:
+                                            EdgeInsets.symmetric(vertical: 8),
+                                        child: ListTile(
+                                          title: Text(n.programRowCode ??
+                                              'ProgramRowCode'),
+                                          subtitle: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                  n.programName ?? 'NoMessage'),
+                                              Html(
+                                                  data:
+                                                      n.notificationDescription ??
+                                                          ''),
+                                            ],
+                                          ),
+                                          trailing: IconButton(
+                                            icon: Icon(Icons.close),
+                                            onPressed: () async {
+                                              int? userId =
+                                                  await SharedPrefsHelper
+                                                      .getUserId();
+                                              if (userId == null) {
+                                                print("❌ userId null");
+                                                return;
                                               }
-                                            } else {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                const SnackBar(
-                                                  content:
-                                                      Text("❌ Delete failed"),
-                                                ),
+
+                                              final notification =
+                                                  _dialogNotifications[index];
+                                              final notificationId =
+                                                  notification.id;
+                                              if (notificationId == null) {
+                                                print("❌ notificationId null");
+                                                return;
+                                              }
+
+                                              bool success = await widget
+                                                  .siteObservationService
+                                                  .deleteNotification(
+                                                notificationId.toString(),
+                                                userId,
+                                                AppSettings.DEVICEID['Mobile']!,
                                               );
-                                            }
-                                          },
+                                              if (success) {
+                                                // ✅ Dialog UI update
+                                                dialogSetState(() {
+                                                  _dialogNotifications
+                                                      .removeAt(index);
+                                                });
+
+                                                // ✅ Badge / parent UI update
+                                                if (notification.isMobileRead ==
+                                                    false) {
+                                                  setState(() {
+                                                    _unreadCount =
+                                                        (_unreadCount - 1)
+                                                            .clamp(0,
+                                                                _unreadCount);
+                                                  });
+                                                }
+                                              } else {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                    content:
+                                                        Text("❌ Delete failed"),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                          actions: [
+                            // ✅ CLEAR ALL BUTTON
+                            TextButton(
+                              child: const Text("Clear All"),
+                              onPressed: () async {
+                                int? userId =
+                                    await SharedPrefsHelper.getUserId();
+                                if (userId == null) return;
+
+                                // copy list to avoid index crash
+                                final List<NotificationModel> unreadList =
+                                    List.from(_dialogNotifications);
+
+                                for (final n in unreadList) {
+                                  if (n.id == null) continue;
+
+                                  await widget.siteObservationService
+                                      .deleteNotification(
+                                    n.id.toString(),
+                                    userId,
+                                    AppSettings.DEVICEID['Mobile']!,
+                                  );
+                                }
+
+                                // UI update (same as web optimistic update)
+                                dialogSetState(() {
+                                  _dialogNotifications.clear();
+                                });
+
+                                setState(() {
+                                  _unreadCount = 0;
+                                });
+                              },
+                            ),
+
+                            // ❌ CLOSE BUTTON (already tha)
+                            TextButton(
+                              child: const Text("Close"),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ],
                         ),
-                        actions: [
-                          // ✅ CLEAR ALL BUTTON
-                          TextButton(
-                            child: const Text("Clear All"),
-                            onPressed: () async {
-                              int? userId = await SharedPrefsHelper.getUserId();
-                              if (userId == null) return;
-
-                              // copy list to avoid index crash
-                              final List<NotificationModel> unreadList =
-                                  List.from(_dialogNotifications);
-
-                              for (final n in unreadList) {
-                                if (n.id == null) continue;
-
-                                await widget.siteObservationService
-                                    .deleteNotification(
-                                  n.id.toString(),
-                                  userId,
-                                  AppSettings.DEVICEID['Mobile']!,
-                                );
-                              }
-
-                              // UI update (same as web optimistic update)
-                              dialogSetState(() {
-                                _dialogNotifications.clear();
-                              });
-
-                              setState(() {
-                                _unreadCount = 0;
-                              });
-
-                              print("🧹 CLEAR ALL DONE (WEB LOGIC)");
-                            },
-                          ),
-
-                          // ❌ CLOSE BUTTON (already tha)
-                          TextButton(
-                            child: const Text("Close"),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ],
                       ),
-                    ),
-                  );
-                },
-              ),
-              if (_unreadCount > 0)
-                Positioned(
-                  right: 7,
-                  top: 7,
-                  child: Container(
-                    padding: EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      '$_unreadCount',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
+                    );
+                  },
+                ),
+                if (_unreadCount > 0)
+                  Positioned(
+                    right: 7,
+                    top: 7,
+                    child: Container(
+                      padding: EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
                       ),
-                      textAlign: TextAlign.center,
+                      constraints: BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '$_unreadCount',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            ),
 
-          // Theme toggle icon
-          IconButton(
-            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            onPressed: widget.onToggleTheme,
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildGreetingCard(widget.userName),
-            const SizedBox(height: 20),
-            _buildStatsCards(context),
-            const SizedBox(height: 30),
-            Center(),
+            // Theme toggle icon
+            IconButton(
+              icon:
+                  Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+              onPressed: widget.onToggleTheme,
+            ),
           ],
         ),
-      ),
-    );
+        body: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _refreshDashboard,
+              child: SingleChildScrollView(
+                physics: AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildGreetingCard(widget.userName),
+                    const SizedBox(height: 20),
+                    _buildStatsCards(context),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              right: 16,
+              bottom: 10,
+              child: Text(
+                "Version: $appVersion",
+              ),
+            ),
+          ],
+        ));
   }
 
   Widget _buildGreetingCard(String userName) {
@@ -803,7 +857,8 @@ class _DashboardPageState extends State<DashboardPage> {
       "Material Issue Slip",
       "Safety Analytics",
       "Quality Analytics",
-      "LogBook"
+      "LogBook",
+      "Quality Checklist",
     ];
 
     // print("🔹 allowedModules: $allowedModules");
@@ -901,6 +956,26 @@ class _DashboardPageState extends State<DashboardPage> {
               );
             },
           ),
+          const Divider(),
+
+          const SizedBox(height: 20), // 👈 thodi space upar se
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Align(
+              alignment:
+                  Alignment.centerLeft, // ya centerRight agar right me chahiye
+              child: Text(
+                "Version: $appVersion",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20), // 👈 neeche bhi space
         ],
       ),
     );
@@ -931,6 +1006,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return Icons.visibility;
       case "Quality Observation":
         return Icons.fact_check;
+      case "Quality Checklist":
+        return Icons.checklist;
       case "Material Issue Slip":
         return Icons.receipt_long;
       case "Safety Analytics":
@@ -963,6 +1040,8 @@ class _DashboardPageState extends State<DashboardPage> {
           siteObservationService: widget.siteObservationService,
           pagePermission: p,
         );
+      case "Quality Checklist":
+        return QualityChecklistPage();
       case "Material Issue Slip": // 🔥 updated
         return MaterialRequisitionSlip(
           projectService: widget.projectService,

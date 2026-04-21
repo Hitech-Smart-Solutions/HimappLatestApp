@@ -14,8 +14,8 @@ class UpdatePopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false, // 🔒 Back button disable
+    return PopScope(
+      canPop: false, // 🔒 back button disable
       child: AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -67,12 +67,6 @@ class UpdatePopup extends StatelessWidget {
               label: const Text(
                 'Update from Play Store',
                 style: TextStyle(fontSize: 15),
-              ),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
               ),
               onPressed: _openPlayStore,
             ),

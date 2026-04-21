@@ -1,7 +1,7 @@
-import 'dart:convert';
+// import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:himappnew/model/page_permission.dart';
-import 'package:himappnew/service/material_requisition_slip_Service.dart';
+import 'package:himappnew/service/material_requisition_slip_service.dart';
 import 'package:himappnew/constants.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
@@ -514,24 +514,48 @@ class _AwaitingApprovalMrisPageState extends State<AwaitingApprovalMrisPage> {
   }
 
   @override
+  // Widget build(BuildContext context) {
+  //   onWillPop:
+  //   () async {
+  //     Navigator.pop(context, true);
+  //     return false;
+  //   };
+  //   return Scaffold(
+  //     appBar: AppBar(title: const Text("Material Issue – Awaiting Approval")),
+  //     body: isLoading
+  //         ? const Center(child: CircularProgressIndicator())
+  //         : ListView.builder(
+  //             padding: const EdgeInsets.all(12),
+  //             itemCount: awaitingMRISData.length,
+  //             itemBuilder: (context, index) {
+  //               final item = awaitingMRISData[index];
+  //               return _materialIssueCard(context, item);
+  //             },
+  //           ),
+  //   );
+  // }
+  @override
   Widget build(BuildContext context) {
-    onWillPop:
-    () async {
-      Navigator.pop(context, true);
-      return false;
-    };
-    return Scaffold(
-      appBar: AppBar(title: const Text("Material Issue – Awaiting Approval")),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: awaitingMRISData.length,
-              itemBuilder: (context, index) {
-                final item = awaitingMRISData[index];
-                return _materialIssueCard(context, item);
-              },
-            ),
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pop(context, true);
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Material Issue – Awaiting Approval"),
+        ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: awaitingMRISData.length,
+                itemBuilder: (context, index) {
+                  final item = awaitingMRISData[index];
+                  return _materialIssueCard(context, item);
+                },
+              ),
+      ),
     );
   }
 }

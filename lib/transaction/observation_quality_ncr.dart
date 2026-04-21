@@ -57,7 +57,7 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
           }
 
           final observations = snapshot.data!;
-          print("Observations: ${snapshot.data!}");
+          // print("Observations: ${snapshot.data!}");
           return ListView.builder(
             itemCount: observations.length,
             itemBuilder: (context, index) {
@@ -222,7 +222,7 @@ class _ObservationQCNCRPageState extends State<ObservationQCNCRPage> {
         );
       },
     );
-    print("Returned from page => $result");
+    // print("Returned from page => $result");
     if (result == true) {
       // 🔁 Reload list OR remove item manually from the local list
       setState(() {

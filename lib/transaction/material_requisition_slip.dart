@@ -5,7 +5,7 @@ import 'package:himappnew/constants.dart';
 import 'package:himappnew/model/material_requisition_slip_model.dart';
 import 'package:himappnew/model/page_permission.dart';
 import 'package:himappnew/model/project_model.dart';
-import 'package:himappnew/service/material_requisition_slip_Service.dart';
+import 'package:himappnew/service/material_requisition_slip_service.dart';
 import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
 import 'dart:convert';
@@ -30,29 +30,34 @@ class MaterialRequisitionSlip extends StatefulWidget {
 }
 
 class UiItemDetail {
-  int? id; // backend item detail ID (nullable)
-  int lineNumber; // required by API
+  int? id;
+  int lineNumber;
   int itemId;
   String item;
   String unit;
-  int qty;
-  int? availableQty;
+
+  double qty; // ✅ actual qty (35.76)
+  double requiredQty; // ✅ user input (2.8)
+  double issueQty; // ✅ separate field
+
+  double? availableQty;
   int? activityNo;
   String? equipmentName;
   String remarks;
   String placeOfIssue;
 
-  // For dropdowns / pre-selection
   ActivityModel? selectedActivity;
   EquipmentModel? selectedEquipment;
 
   UiItemDetail({
-    this.id, // optional for new items
+    this.id,
     this.lineNumber = 0,
     this.itemId = 0,
     this.item = '',
     this.unit = '',
     this.qty = 0,
+    this.requiredQty = 0, // ✅ NEW
+    this.issueQty = 0, // ✅ NEW
     this.availableQty,
     this.activityNo,
     this.equipmentName,
@@ -69,6 +74,8 @@ class UiItemDetail {
         item = other.item,
         unit = other.unit,
         qty = other.qty,
+        requiredQty = other.requiredQty, // ✅ NEW
+        issueQty = other.issueQty, // ✅ NEW
         availableQty = other.availableQty,
         activityNo = other.activityNo,
         equipmentName = other.equipmentName,
@@ -102,7 +109,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
   EmployeeModel? selectedEmployee;
   int employeePageNumber = 1;
-  final int employeePageSize = 50;
+  final int employeePageSize = 1000;
   bool employeeLoading = false;
   bool employeeHasMore = true;
 
@@ -213,14 +220,14 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
   ContractorModel? selectedContractor;
   int contractorPageNumber = 1;
-  final int contractorPageSize = 500;
+  final int contractorPageSize = 1000;
   bool contractorLoading = false;
   bool contractorHasMore = true;
   String contractorSearchText = '';
 
   List<EquipmentModel> equipmentList = [];
   int equipmentPageNumber = 1;
-  final int equipmentPageSize = 50;
+  final int equipmentPageSize = 1000;
   bool equipmentLoading = false;
   bool equipmentHasMore = true;
   String equipmentSearchText = '';
@@ -316,7 +323,8 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
   String? status;
   String? syncStatus;
 
-  bool get isApprovalMode => widget.isApproval == true;
+  // bool get isApprovalMode => widget.isApproval == true;
+  bool isApprovalMode = false; // ✅ make it variable
   String approvalStatus = "";
   bool get showSubmitButton => showForm && !isApproval && isEditable;
   bool get showApprovalButtons => showForm && isApproval;
@@ -328,6 +336,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
   @override
   void initState() {
     super.initState();
+    isApprovalMode = widget.isApproval == true;
 
     if (widget.slipId != null) {
       // 🔹 EDIT MODE (FROM DASHBOARD / CARD CLICK)
@@ -358,6 +367,8 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
         slipId,
         programId,
       );
+
+      print("🔥 API Response for Slip ID $slipId: $data");
 
       if (data == null) {
         setState(() => isLoading = false);
@@ -518,6 +529,31 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
             }
           }
 
+          /// 🔥🔥🔥 EQUIPMENT FIX (YAHI DALNA HAI)
+          final equipmentIdStr = d['equipmentId_ISPL']?.toString();
+
+          EquipmentModel? selectedEquipment;
+
+          if (equipmentIdStr != null && equipmentIdStr.isNotEmpty) {
+            final equipmentList =
+                await _materialRequisitionSlipService.getEquipment(
+              search: '',
+              pageNumber: 1,
+              pageSize: 50,
+            );
+
+            try {
+              selectedEquipment = equipmentList.firstWhere(
+                (e) => e.id.toString() == equipmentIdStr,
+              );
+            } catch (e) {
+              selectedEquipment = EquipmentModel(
+                id: int.tryParse(equipmentIdStr) ?? 0,
+                displayName: "Equipment #$equipmentIdStr",
+              );
+            }
+          }
+
           itemDetails.add(
             UiItemDetail(
               id: d['id'],
@@ -525,18 +561,24 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
               itemId: itemId,
               item: itemModel?.displayText ?? 'Item #$itemId',
               unit: itemModel?.unit ?? d['unit'] ?? '',
-              qty: (d['requiredQty'] as num).toInt(),
+              qty: (d['qty'] as num?)?.toDouble() ?? 0,
               placeOfIssue: d['placeOfIssue'] ?? '',
               remarks: d['remarks'] ?? '',
-              availableQty: d['qty'] != null ? (d['qty'] as num).toInt() : null,
+              requiredQty: (d['requiredQty'] as num?)?.toDouble() ?? 0,
+              issueQty: (d['issueQty'] as num?)?.toDouble() ?? 0,
+              availableQty: (d['qty'] as num?)?.toDouble(),
               activityNo: activityNo,
-              equipmentName: d['equipmentId_ISPL'] ?? '',
+              selectedEquipment: selectedEquipment,
+              equipmentName: selectedEquipment?.displayName ?? '',
               selectedActivity: selectedActivity,
             ),
           );
         } else {
           print("⚠️ Skipping duplicate item with id: ${d['id']}");
         }
+
+        print("👉 API Equipment ID: ${d['equipmentId_ISPL']}");
+        print("👉 Mapped Equipment: ${selectedEquipment?.displayName}");
       }
       setState(() {
         showForm = true;
@@ -552,12 +594,12 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
     final DateTime now = DateTime.now();
 
     // 👇 Last month ki same date (approx)
-    final DateTime lastMonthDate = DateTime(now.year, now.month - 1, now.day);
+    // final DateTime lastMonthDate = DateTime(now.year, now.month - 1, now.day);
 
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: selectedSlipDateUtc?.toLocal() ?? now,
-      firstDate: lastMonthDate, // 👈 yaha change
+      firstDate: DateTime(2000), // 👈 yaha change
       lastDate: now, // 👈 future block
     );
 
@@ -799,6 +841,27 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
           selectedProject?.id; // ✅ preserve current project
 
       final int? userId = await SharedPrefsHelper.getUserId();
+
+      if (selectedSectionId == null || selectedSectionId == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Section is required"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      if (selectedFloorId == null || selectedFloorId == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Floor is required"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
       if (itemDetails.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -832,54 +895,51 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       }
 
       final request = MaterialIssueRequest(
-          id: editingId,
-          dataAreaId: "hppl",
-          slipNumber: slipNoCtrl.text,
-          site: "SITE",
-          sectionID: selectedSectionId ?? 0,
-          floorID: selectedFloorId ?? 0,
+        id: editingId,
+        dataAreaId: "hppl",
+        slipNumber: slipNoCtrl.text,
+        site: "SITE",
+        sectionID: selectedSectionId ?? 0,
+        floorID: selectedFloorId ?? 0,
 
-          // 🔥 IMPORTANT
-          status: "Posted",
-          isplMaterialIssueType: 1,
-          slipDate: selectedSlipDateUtc ?? DateTime.now().toUtc(),
-          projectID: projectIdBeforeReset ?? 0,
-          contractorID: selectedContractor?.id,
-          employeeID: selectedEmployee?.id,
-          isActive: true,
-          programId: programId,
-          LastModifiedBy: userId,
-          createdBy: userId,
-          // awaitingApprovalFor:
-          //     awaitingApprovalForBeforeUpdate, // 🔹 YE FIELD ADD KARO
-          details: itemDetails
-              .map((ui) => ItemDetail(
-                    id: ui.id, // ✅ Existing backend ID
-                    lineNumber: ui.lineNumber,
-                    itemID: ui.itemId,
-                    equipmentIdISPL: ui.selectedEquipment?.id?.toString() ?? '',
-                    placeOfIssue: ui.placeOfIssue,
-                    unit: ui.unit,
-                    activityID: ui.selectedActivity?.id ?? 0,
-                    projectID: projectIdBeforeReset ?? 0,
-                    remarks: ui.remarks,
-                    requiredQty: ui.qty,
-                    issueQty: ui.qty,
-                    qty: ui.qty,
-                    journalNum: '',
-                  ))
-              .toList());
-      print("showForm: $showForm");
-      print("isEditable: $isEditable");
-      print("isApproval: $isApproval");
-      Text("EditMode:$isEditMode  Editable:$isEditable  Approval:$isApproval");
+        // 🔥 IMPORTANT
+        status: "Posted",
+        isplMaterialIssueType: 1,
+        slipDate: selectedSlipDateUtc ?? DateTime.now().toUtc(),
+        projectID: projectIdBeforeReset ?? 0,
+        contractorID: selectedContractor?.id,
+        employeeID: selectedEmployee?.id,
+        isActive: true,
+        programId: programId,
+        lastModifiedBy: userId,
+        createdBy: userId,
+        // awaitingApprovalFor:
+        //     awaitingApprovalForBeforeUpdate, // 🔹 YE FIELD ADD KARO
+        details: itemDetails.asMap().entries.map((entry) {
+          int index = entry.key;
+          var ui = entry.value;
+          return ItemDetail(
+            id: ui.id,
+            lineNumber: index + 1, // 🔥 FIX (UNIQUE)
+            itemID: ui.itemId,
+            equipmentIdISPL: ui.selectedEquipment?.id?.toString() ?? '',
+            placeOfIssue: ui.placeOfIssue,
+            unit: ui.unit,
+            activityID: ui.selectedActivity?.id ?? 0,
+            projectID: projectIdBeforeReset ?? 0,
+            remarks: ui.remarks,
+            requiredQty: ui.requiredQty,
+            issueQty: ui.issueQty,
+            qty: ui.availableQty ?? 0,
+            journalNum: '',
+          );
+        }).toList(),
+      );
 
-      print("PROJECT: $projectIdBeforeReset");
-      print("PROGRAM: $programId");
-      print("ITEMS: ${itemDetails.map((e) => e.itemId)}");
       bool success;
       // 🟢 SAVE / 🔵 UPDATE
       if (editingId == 0) {
+        // return; // 🔹 TEMPORARY DISABLE CREATE
         success =
             await _materialRequisitionSlipService.submitMaterialIssue(request);
       } else {
@@ -898,10 +958,11 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
         setState(() {
           resetForm(); // 🔥 form reset
-          isEditable = false;
-          isApproval = false;
+          isEditable = true; // ✅ IMPORTANT
+          isApprovalMode = false;
+
+          showForm = false;
           isEditMode = false;
-          editingId = 0;
           approvalStatus = "";
         });
 
@@ -947,7 +1008,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
     resetItemFields();
 
     // Form flags
-    showForm = false;
+    // showForm = false;
   }
 
   void resetItemFields() {
@@ -1147,7 +1208,9 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
     final item = tempItem;
 
     /// Controllers
-    final qtyController = TextEditingController(text: item.qty.toString());
+    final qtyController = TextEditingController(
+      text: item.requiredQty > 0 ? item.requiredQty.toString() : '',
+    );
     final unitController = TextEditingController(text: item.unit);
     final availableController =
         TextEditingController(text: item.availableQty?.toString() ?? '');
@@ -1159,9 +1222,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
     ActivityModel? selectedActivity = item.selectedActivity;
 
-    EquipmentModel? selectedEquipment = (item.equipmentName ?? '').isNotEmpty
-        ? EquipmentModel(id: 0, displayName: item.equipmentName!)
-        : null;
+    EquipmentModel? selectedEquipment = item.selectedEquipment;
 
     final placeController =
         TextEditingController(text: item.placeOfIssue ?? '');
@@ -1177,6 +1238,10 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
         availableController.text = formatQty(qty);
       }
     }
+
+    final remarksController = TextEditingController(
+      text: item.remarks,
+    );
 
     return showDialog<UiItemDetail?>(
       context: context,
@@ -1275,6 +1340,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
                                   setDialogState(() {
                                     availableController.text = formatQty(qty);
+                                    item.availableQty = qty;
                                   });
                                 },
                               ),
@@ -1318,7 +1384,8 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                       ),
                                       onChanged: (v) {
                                         setDialogState(() {
-                                          item.qty = int.tryParse(v) ?? 0;
+                                          item.requiredQty =
+                                              double.tryParse(v) ?? 0;
                                           qtyError = null;
                                         });
                                       },
@@ -1377,7 +1444,10 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                 onChanged: (value) {
                                   setDialogState(() {
                                     selectedActivity = value;
+
                                     item.activityNo = value?.id;
+                                    item.selectedActivity = value; // ✅ ADD THIS
+
                                     activityError = null;
                                   });
                                 },
@@ -1415,6 +1485,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                     selectedEquipment = value;
                                     item.equipmentName =
                                         value?.displayName ?? "";
+                                    item.selectedEquipment = value;
                                   });
                                 },
                               ),
@@ -1423,6 +1494,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
                               /// REMARKS
                               TextField(
+                                controller: remarksController, // ✅ ADD THIS
                                 decoration: const InputDecoration(
                                   labelText: "Remarks",
                                   border: OutlineInputBorder(),
@@ -1454,12 +1526,13 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                     ? "Item required"
                                     : null;
 
-                                final qty =
-                                    int.tryParse(qtyController.text) ?? 0;
+                                final value = qtyController.text.trim();
+                                final qty = double.tryParse(value);
 
-                                qtyError = qty <= 0
-                                    ? "Qty must be greater than 0"
-                                    : null;
+                                qtyError =
+                                    (value.isEmpty || qty == null || qty <= 0)
+                                        ? "Qty must be greater than 0"
+                                        : null;
 
                                 placeError = (item.placeOfIssue ?? "").isEmpty
                                     ? "Place required"
@@ -1796,13 +1869,19 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
         appBar: AppBar(
           title: const Text("Material Issue Slip"),
         ),
-        floatingActionButton: (selectedProject != null && !showForm)
+        floatingActionButton: (selectedProject != null &&
+                !showForm &&
+                widget.pagePermission.canAdd)
             ? FloatingActionButton(
                 child: const Icon(Icons.add),
                 onPressed: () {
                   setState(() {
                     resetForm();
-                    showForm = true; // 👈 form open
+                    isEditable = true;
+                    isEditMode = false;
+                    isApprovalMode = false;
+
+                    showForm = true;
                   });
                 },
               )
@@ -1975,8 +2054,12 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                       Text(
                                           "Contractor: ${item.contractorName ?? '-'}"),
                                       const SizedBox(height: 6),
-                                      Text(
-                                          "Awaiting Approval For: ${item.AwaitingApprovalFor ?? '-'}"),
+                                      if (item.approvalStatus ==
+                                          "Awaiting Approval") ...[
+                                        Text(
+                                          "Awaiting Approval For: ${item.awaitingApprovalFor ?? '-'}",
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -2164,7 +2247,11 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                 itemCount: itemDetails.length,
                                 itemBuilder: (_, i) {
                                   final item = itemDetails[i];
+                                  print(
+                                      "INDEX: $i  QTY: ${item.qty}  HASH: ${item.hashCode}");
 
+                                  print(
+                                      "👉 RequiredQty UI: ${item.requiredQty}");
                                   return Card(
                                     margin:
                                         const EdgeInsets.symmetric(vertical: 6),
@@ -2215,8 +2302,10 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
 
                                           // Qty & Unit
                                           _twoColRow(
-                                            _infoText("Required Qty",
-                                                item.qty.toString()),
+                                            _infoText(
+                                              "Required Qty",
+                                              item.requiredQty.toString(),
+                                            ),
                                             item.unit.isNotEmpty
                                                 ? _infoText("Unit", item.unit)
                                                 : const SizedBox(),
@@ -2237,9 +2326,11 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                                   : const SizedBox(),
                                               item.activityNo != null
                                                   ? _infoText(
-                                                      "Activity No",
-                                                      item.activityNo
-                                                          .toString())
+                                                      "Activity",
+                                                      item.selectedActivity
+                                                              ?.activityName ??
+                                                          "-",
+                                                    )
                                                   : const SizedBox(),
                                             ),
 

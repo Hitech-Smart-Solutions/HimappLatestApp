@@ -6,7 +6,6 @@ import 'package:himappnew/service/project_service.dart';
 import 'package:himappnew/service/site_observation_service.dart';
 import 'package:himappnew/login_page.dart';
 import 'package:himappnew/shared_prefs_helper.dart';
-
 import 'package:himappnew/service/app_update_service.dart';
 import 'package:himappnew/ui/update_popup.dart';
 
@@ -15,11 +14,12 @@ void main() async {
   await Firebase.initializeApp();
   await FirebaseMessagingService.initialize();
 
-  runApp(MyAppWrapper());
+  runApp(const MyAppWrapper());
 }
 
 /// 👇 Yeh widget wrap karta hai poori app ko with fixed [textScaleFactor]
 class MyAppWrapper extends StatelessWidget {
+  const MyAppWrapper({super.key});
   @override
   Widget build(BuildContext context) {
     return Builder(

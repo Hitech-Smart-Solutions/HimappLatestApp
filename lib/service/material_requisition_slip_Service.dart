@@ -249,7 +249,11 @@ class MaterialRequisitionSlipService {
 
       debugPrint("===== MRIS API PAYLOAD =====");
       debugPrint(const JsonEncoder.withIndent('  ').convert(payload));
-
+      print("===== FINAL QTY GOING TO API =====");
+      for (var d in payload['Details']) {
+        print(
+            "Line: ${d['LineNumber']}  Qty: ${d['Qty']}  Required: ${d['RequiredQty']}");
+      }
       final response = await ApiClient.dio.post(
         '/api/MaterialIssueRequest/CreateMaterialIssue',
         data: payload,

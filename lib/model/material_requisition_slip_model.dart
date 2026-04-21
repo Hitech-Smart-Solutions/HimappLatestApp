@@ -10,7 +10,7 @@ class MaterialIssue {
   final String syncStatus;
   final bool isActive;
   final String approvalStatus;
-  final String? AwaitingApprovalFor;
+  final String? awaitingApprovalFor;
 
   MaterialIssue({
     required this.id,
@@ -23,7 +23,7 @@ class MaterialIssue {
     required this.syncStatus,
     required this.isActive,
     required this.approvalStatus,
-    this.AwaitingApprovalFor,
+    this.awaitingApprovalFor,
   });
 
   factory MaterialIssue.fromJson(Map<String, dynamic> json) {
@@ -40,7 +40,7 @@ class MaterialIssue {
       syncStatus: json['SyncStatus'] ?? '',
       isActive: json['IsActive'] ?? false,
       approvalStatus: json['ApprovalStatus'] ?? '',
-      AwaitingApprovalFor: json['AwaitingApprovalFor'],
+      awaitingApprovalFor: json['AwaitingApprovalFor'],
     );
   }
 
@@ -57,14 +57,14 @@ class MaterialIssue {
       'syncStatus': syncStatus,
       'isActive': isActive,
       'approvalStatus': approvalStatus,
-      'AwaitingApprovalFor': AwaitingApprovalFor,
+      'awaitingApprovalFor': awaitingApprovalFor,
     };
   }
 
   /// 🔹 Optional: override toString() for easy console print
   @override
   String toString() {
-    return 'MaterialIssue(id: $id, slipNumber: $slipNumber, status: $approvalStatus, floor: $floorName, section: $sectionName, employee: $employeeName, contractor: $contractorName, awaitingApprovalFor: $AwaitingApprovalFor)';
+    return 'MaterialIssue(id: $id, slipNumber: $slipNumber, status: $approvalStatus, floor: $floorName, section: $sectionName, employee: $employeeName, contractor: $contractorName, awaitingApprovalFor: $awaitingApprovalFor)';
   }
 }
 
@@ -203,7 +203,7 @@ class MaterialIssueRequest {
   bool isActive;
   int? programId;
   int? createdBy; // 👈 New field for CreatedBy
-  int? LastModifiedBy; // 👈 New field for LastModifiedBy
+  int? lastModifiedBy; // 👈 New field for LastModifiedBy
   List<ItemDetail> details;
 
   MaterialIssueRequest({
@@ -222,7 +222,7 @@ class MaterialIssueRequest {
     required this.isActive,
     this.programId,
     this.createdBy, // 👈 Initialize in constructor
-    this.LastModifiedBy, // 👈 Initialize in constructor
+    this.lastModifiedBy, // 👈 Initialize in constructor
     required this.details,
   });
 
@@ -257,7 +257,7 @@ class MaterialIssueRequest {
       "IsActive": isActive,
       "ProgramId": programId,
       "CreatedBy": createdBy,
-      "LastModifiedBy": LastModifiedBy,
+      "LastModifiedBy": lastModifiedBy,
       "Details": details.map((e) => e.toJson()).toList(),
     };
 
@@ -275,7 +275,7 @@ class MaterialIssueRequest {
 }
 
 class ItemDetail {
-  int? id; // ✅ backend detail ID for update
+  int? id;
   int lineNumber;
   int itemID;
   String equipmentIdISPL;
@@ -284,13 +284,15 @@ class ItemDetail {
   int activityID;
   int projectID;
   String remarks;
-  int requiredQty;
-  int issueQty;
-  int qty;
+
+  double requiredQty; // ✅ FIX
+  double issueQty; // ✅ FIX
+  double qty; // ✅ FIX
+
   String journalNum;
 
   ItemDetail({
-    this.id, // ✅ add this
+    this.id,
     required this.lineNumber,
     required this.itemID,
     required this.equipmentIdISPL,

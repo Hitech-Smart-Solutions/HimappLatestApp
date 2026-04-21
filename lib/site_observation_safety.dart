@@ -1062,6 +1062,24 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     });
   }
 
+  String? validateNotFutureDate(String dateText) {
+    if (dateText.isEmpty) return null;
+
+    try {
+      final selectedDate = DateFormat(uiDateFormat).parseStrict(dateText);
+
+      final now = DateTime.now();
+
+      if (selectedDate.isAfter(now)) {
+        return 'Observation time cannot be in the future.';
+      }
+    } catch (e) {
+      return 'Invalid date format';
+    }
+
+    return null;
+  }
+
   Future<void> submitForm({bool isDraft = false}) async {
     // 🔴 START vs DUE TIME VALIDATION
     if (_dateController.text.isNotEmpty &&
@@ -1123,6 +1141,12 @@ class _SiteObservationState extends State<SiteObservationSafety> {
           isDueDateEnabled && _dateDueDateController.text.isNotEmpty
               ? _dateDueDateController.text
               : null;
+
+      final startDate =
+          DateFormat(uiDateFormat).parseStrict(_dateController.text);
+
+      final dueDate =
+          DateFormat(uiDateFormat).parseStrict(_dateDueDateController.text);
 
       final observationIdToSend =
           (siteObservationId != null && siteObservationId! > 0)
@@ -1258,12 +1282,16 @@ class _SiteObservationState extends State<SiteObservationSafety> {
         uniqueID: const Uuid().v4(),
         id: siteObservationId ?? 0,
         siteObservationCode: "",
-        trancationDate: formatDateForApi(DateTime.now().toUtc()),
+        // trancationDate: formatDateForApi(DateTime.now().toUtc()),
+        trancationDate: formatDateForApi(startDate.toUtc()),
         observationRaisedBy: userID,
         observationID: selectedObservationObj.id,
         observationTypeID: selectedObservationTypeObj.id,
         issueTypeID: selectedIssueTypeObj.id,
-        dueDate: formatDateForApiNullable(dueDateValue),
+        // dueDate: formatDateForApiNullable(dueDateValue),
+        dueDate: _dateDueDateController.text.isNotEmpty
+            ? formatDateForApi(dueDate.toUtc())
+            : null,
         observationDescription: observationDescription,
         userDescription: '',
         complianceRequired: isComplianceRequired,
@@ -2634,8 +2662,28 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                         key: _formKey,
                                         child: Column(
                                           children: [
+                                            // TextFormField(
+                                            //   controller: _dateController,
+                                            //   decoration: InputDecoration(
+                                            //     labelText: 'Start Date',
+                                            //     hintText:
+                                            //         'Select a date and time',
+                                            //     border: OutlineInputBorder(),
+                                            //     suffixIcon: IconButton(
+                                            //       icon: Icon(
+                                            //           Icons.calendar_today),
+                                            //       onPressed: isEditMode
+                                            //           ? () => _onStartDateTap(
+                                            //               context)
+                                            //           : null,
+                                            //     ),
+                                            //   ),
+                                            //   readOnly: true,
+                                            // ),
+
                                             TextFormField(
                                               controller: _dateController,
+                                              readOnly: true,
                                               decoration: InputDecoration(
                                                 labelText: 'Start Date',
                                                 hintText:
@@ -2650,7 +2698,9 @@ class _SiteObservationState extends State<SiteObservationSafety> {
                                                       : null,
                                                 ),
                                               ),
-                                              readOnly: true,
+                                              validator: (value) =>
+                                                  validateNotFutureDate(
+                                                      value ?? ''),
                                             ),
 
                                             SizedBox(height: 20),
