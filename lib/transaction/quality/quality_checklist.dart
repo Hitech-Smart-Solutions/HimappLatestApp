@@ -189,15 +189,15 @@ class _QualityChecklistPageState extends State<QualityChecklistPage> {
 
       if (projects.isNotEmpty) {
         await SharedPrefsHelper.saveProjectID(projects[0].id);
+        await fetchQualityChecklists(projects[0].id);
       }
     } catch (e) {
       setState(() => isLoading = false);
-      print("Error fetching projects: $e");
+      debugPrint("Error fetching projects: $e");
     }
   }
 
   Future<void> fetchQualityChecklists(int projectId) async {
-    print("Fetching quality checklists for project ID: $projectId");
     setState(() => isLoading = true);
     try {
       final fetched = await _qualityChecklistService.fetchQualityChecklists(
@@ -230,7 +230,7 @@ class _QualityChecklistPageState extends State<QualityChecklistPage> {
         checklistMappingList = data;
       });
     } catch (e) {
-      print("Error: $e");
+      debugPrint("Error: $e");
     }
   }
 
@@ -903,11 +903,11 @@ class _QualityChecklistPageState extends State<QualityChecklistPage> {
       onWillPop: () async {
         if (showForm) {
           setState(() {
-            showForm = false; // 👈 form close karo
+            showForm = false;
           });
-          return false; // 👈 page pop mat karo
+          return false;
         }
-        return true; // 👈 normal back (dashboard)
+        return true;
       },
       child: Scaffold(
         backgroundColor: Colors.grey[100],

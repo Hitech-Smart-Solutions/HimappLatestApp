@@ -21,13 +21,7 @@ import 'package:dropdown_search/dropdown_search.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as path;
 import 'dart:io';
-// import 'package:permission_handler/permission_handler.dart';
-
-// import 'package:intl/intl.dart';
-// import 'package:media_scanner/media_scanner.dart';
-// import 'package:device_info_plus/device_info_plus.dart';
 
 class SiteObservationQuality extends StatefulWidget {
   final String companyName;
@@ -205,8 +199,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
   String url = AppSettings.url;
 
-  List<String> uploadedFiles = []; // server se aaye filenames
-  List<String> selectedFileNames = []; // UI ke liye
+  List<String> uploadedFiles = []; // filenames
+  List<String> selectedFileNames = []; // UI
   List<Uint8List?> selectedFileBytes = []; // image preview
   List<String> uploadedFromList = []; // Camera / Gallery / File
 
@@ -626,7 +620,7 @@ class _SiteObservationState extends State<SiteObservationQuality> {
 
 // Fetch Observations
   Future<void> fetchSiteObservationsQuality(int projectId) async {
-    print("Fetching site observations for project ID: $projectId");
+    // print("Fetching site observations for project ID: $projectId");
     setState(() => isLoading = true);
     try {
       final fetched =
@@ -1202,8 +1196,8 @@ class _SiteObservationState extends State<SiteObservationQuality> {
       List<SiteObservationActivity> finalActivityList = [];
 
       // ----------------------------
-// DocUploaded – NO DUPLICATE + STATUS SAFE
-// ----------------------------
+      // DocUploaded – NO DUPLICATE + STATUS SAFE
+      // ----------------------------
       final existingDocNames = <String>{};
 
       for (final a in activityList) {
@@ -1327,16 +1321,6 @@ class _SiteObservationState extends State<SiteObservationQuality> {
         lastModifiedDate: formatDateForApi(DateTime.now().toUtc()),
         siteObservationActivity: finalActivityList,
       );
-
-      debugPrint("----- DATE DEBUG START -----");
-      debugPrint("UI StartDate: ${_dateController.text}");
-      debugPrint("UI DueDate: ${_dateDueDateController.text}");
-      debugPrint("Parsed StartDate: $startDate");
-      debugPrint("UTC StartDate: ${startDate.toUtc()}");
-      debugPrint("API TransactionDate: ${formatDateForApi(startDate.toUtc())}");
-      debugPrint("API DueDate1: ${formatDateForApiNullable(dueDateValue)}");
-      debugPrint("API DueDate: ${commonFields.dueDate}");
-      debugPrint("----- DATE DEBUG END -----");
 
       bool success = false;
 

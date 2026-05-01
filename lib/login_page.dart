@@ -99,6 +99,7 @@ class _MyCustomFormState extends State<MyCustomForm> {
   }
 
   void _showBusinessesModal() {
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -145,38 +146,41 @@ class _MyCustomFormState extends State<MyCustomForm> {
                             return Column(
                               children: companies.map((company) {
                                 return ListTile(
-                                  title: Text(company.name),
-                                  onTap: () async {
-                                    setState(() {
-                                      _selectedBusiness = company.name;
-                                    });
-                                    await SharedPrefsHelper.saveCompanyId(
-                                        company.id);
-                                    // Save company name too
-                                    await SharedPrefsHelper.saveCompanyName(
-                                        company.name);
+                                    title: Text(company.name),
+                                    onTap: () async {
+                                      final selectedName = company.name;
 
-                                    // Save username as well (so it persists after app restart)
-                                    await SharedPrefsHelper.saveUserName(
-                                        userNameController.text);
-                                    Navigator.of(context).pop();
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => DashboardPage(
-                                          isDarkMode: true,
-                                          onToggleTheme: widget.onToggleTheme,
-                                          userName: userNameController.text,
-                                          companyName: _selectedBusiness ??
-                                              'Default Company',
-                                          projectService: ProjectService(),
-                                          siteObservationService:
-                                              SiteObservationService(),
+                                      await SharedPrefsHelper.saveCompanyId(
+                                          company.id);
+                                      await SharedPrefsHelper.saveCompanyName(
+                                          company.name);
+                                      await SharedPrefsHelper.saveUserName(
+                                          userNameController.text);
+
+                                      if (!mounted) return;
+
+                                      setState(() {
+                                        _selectedBusiness = selectedName;
+                                      });
+
+                                      Navigator.of(this.context)
+                                          .pop(); // ✅ force State context
+
+                                      Navigator.pushReplacement(
+                                        this.context, // ✅ SAFE
+                                        MaterialPageRoute(
+                                          builder: (_) => DashboardPage(
+                                            isDarkMode: true,
+                                            onToggleTheme: widget.onToggleTheme,
+                                            userName: userNameController.text,
+                                            companyName: selectedName,
+                                            projectService: ProjectService(),
+                                            siteObservationService:
+                                                SiteObservationService(),
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  },
-                                );
+                                      );
+                                    });
                               }).toList(),
                             );
                           } else {
@@ -189,6 +193,149 @@ class _MyCustomFormState extends State<MyCustomForm> {
                   },
                 ),
               ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String? validateUserInput(String value) {
+    value = value.trim();
+
+    if (value.isEmpty) {
+      return "Please enter Email / Mobile / Employee Code";
+    }
+
+    // 📧 Email
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    if (emailRegex.hasMatch(value)) {
+      return null;
+    }
+
+    // 📱 Mobile (exactly 10 digits)
+    if (RegExp(r'^[0-9]{10}$').hasMatch(value)) {
+      return null;
+    }
+
+    // ❌ If only digits but NOT 10 digit
+    if (RegExp(r'^[0-9]+$').hasMatch(value)) {
+      if (value.length < 10) {
+        return null; // ✅ Employee Code
+      }
+      return "Mobile number must be exactly 10 digits";
+    }
+
+    // 🆔 Employee Code (must contain at least 1 letter OR mixed)
+    if (RegExp(r'^(?=.*[A-Za-z])[A-Za-z0-9]+$').hasMatch(value)) {
+      return null;
+    }
+
+    return "Enter valid Email / Mobile / Employee Code";
+  }
+
+  Future<void> _onForgotPassword() async {
+    TextEditingController inputController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final width = MediaQuery.of(context).size.width;
+
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 400, // 📱 mobile + 💻 tablet friendly
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 🔵 Icon
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Colors.blue.withOpacity(0.1),
+                      child: const Icon(Icons.lock_reset, color: Colors.blue),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 🔤 Title
+                    const Text(
+                      "Forgot Username/Forgot Password",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    const Text(
+                      "Enter Email / Mobile / Employee Code",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // 🔥 Floating Label TextField
+                    TextFormField(
+                      controller: inputController,
+                      decoration: InputDecoration(
+                        labelText: "Email / Mobile / Employee Code", // 👈 FIX
+                        prefixIcon: const Icon(Icons.person_outline),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      validator: (value) => validateUserInput(value!.trim()),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // 🔘 Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("Cancel"),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              if (!(formKey.currentState?.validate() ?? false))
+                                return;
+
+                              final value = inputController.text.trim();
+                              Navigator.pop(context);
+
+                              final message =
+                                  await _loginService.forgotPassword(value);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(message ?? "Done")),
+                              );
+                            },
+                            child: const Text("Submit"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
@@ -279,6 +426,21 @@ class _MyCustomFormState extends State<MyCustomForm> {
                             return null;
                           },
                           controller: passwordController,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 350,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                _onForgotPassword();
+                              },
+                              child: const Text(
+                                  "Forgot Username/Forgot Password?"),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 16),

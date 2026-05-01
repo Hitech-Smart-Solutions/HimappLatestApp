@@ -4,7 +4,7 @@ import 'package:himappnew/network/api_client.dart';
 
 class ProjectService {
   Future<List<Project>> fetchProject(int userID, int companyID) async {
-    print('🔍 Fetching projects for UserID: $userID, CompanyID: $companyID');
+    // print('🔍 Fetching projects for UserID: $userID, CompanyID: $companyID');
     try {
       final response = await ApiClient.dio.get(
         '/api/UserRolePermission/GetProjectPermissionByUserandCompanyID/$userID/$companyID',
@@ -12,7 +12,7 @@ class ProjectService {
 
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
-      print('✅ Raw API Response: $data');
+      // print('✅ Raw API Response: $data');
 
       /// 🔹 Handle all possible API formats
       final table1 = data?['Value']?['Table1'] ??

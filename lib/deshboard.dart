@@ -235,15 +235,15 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _loadPermissions() async {
     try {
       final userId = await SharedPrefsHelper.getUserId() ?? 0;
-      debugPrint("Fetching permissions for userId: $userId");
+      // debugPrint("Fetching permissions for userId: $userId");
 
       final permissions = await _permissionService.fetchPagePermissions(userId);
 
       // Debug: print all fetched permissions
-      for (final p in permissions) {
-        debugPrint(
-            "Permission fetched: ${p.programName}, Module: ${p.moduleName}, canView: ${p.canView}");
-      }
+      // for (final p in permissions) {
+      //   debugPrint(
+      //       "Permission fetched: ${p.programName}, Module: ${p.moduleName}, canView: ${p.canView}");
+      // }
 
       final filtered = permissions.toList();
       final grouped = _groupByModule(filtered);
@@ -254,11 +254,11 @@ class _DashboardPageState extends State<DashboardPage> {
       });
 
       // Debug: print grouped map
-      debugPrint("Grouped modules:");
-      grouped.forEach((module, pages) {
-        debugPrint(
-            "Module: $module, Pages: ${pages.map((e) => e.programName).join(", ")}");
-      });
+      // debugPrint("Grouped modules:");
+      // grouped.forEach((module, pages) {
+      //   debugPrint(
+      //       "Module: $module, Pages: ${pages.map((e) => e.programName).join(", ")}");
+      // });
     } catch (e) {
       debugPrint("Failed to load permissions: $e");
       setState(() {
@@ -286,7 +286,7 @@ class _DashboardPageState extends State<DashboardPage> {
         });
       }
     } catch (e) {
-      print("Error loading stats: $e");
+      debugPrint("Error loading stats: $e");
       setState(() {
         isLoading = false;
       });
@@ -301,7 +301,7 @@ class _DashboardPageState extends State<DashboardPage> {
     //     await getNotificationsByUserID(userId);
 
     List<NotificationModel> notifications =
-        await widget.siteObservationService.getNotificationsByUserID(userId!);
+        await widget.siteObservationService.getNotificationsByUserID(userId);
 
     final unread = notifications.where((n) => n.isMobileRead == false).toList();
 
@@ -320,8 +320,8 @@ class _DashboardPageState extends State<DashboardPage> {
         userId,
         AppPages.materialIssueSlipProgramId,
       );
-      debugPrint("API HIT - Awaiting Approval");
-      debugPrint("Count: ${data.length}");
+      // debugPrint("API HIT - Awaiting Approval");
+      // debugPrint("Count: ${data.length}");
       setState(() {
         awaitingApprovalCount = data.length; // ✅ int
         statsLoading = false;
@@ -398,39 +398,33 @@ class _DashboardPageState extends State<DashboardPage> {
                                         margin:
                                             EdgeInsets.symmetric(vertical: 8),
                                         child: ListTile(
-                                          title: Text(n.programRowCode ??
-                                              'ProgramRowCode'),
+                                          title: Text(n.programRowCode),
                                           subtitle: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                  n.programName ?? 'NoMessage'),
+                                              Text(n.programName),
                                               Html(
-                                                  data:
-                                                      n.notificationDescription ??
-                                                          ''),
+                                                  data: n
+                                                      .notificationDescription),
                                             ],
                                           ),
                                           trailing: IconButton(
-                                            icon: Icon(Icons.close),
+                                            icon: const Icon(Icons.close),
                                             onPressed: () async {
                                               int? userId =
                                                   await SharedPrefsHelper
                                                       .getUserId();
+
                                               if (userId == null) {
-                                                print("❌ userId null");
+                                                debugPrint("❌ userId null");
                                                 return;
                                               }
 
                                               final notification =
                                                   _dialogNotifications[index];
                                               final notificationId =
-                                                  notification.id;
-                                              if (notificationId == null) {
-                                                print("❌ notificationId null");
-                                                return;
-                                              }
+                                                  notification.id; // int (safe)
 
                                               bool success = await widget
                                                   .siteObservationService
@@ -439,6 +433,11 @@ class _DashboardPageState extends State<DashboardPage> {
                                                 userId,
                                                 AppSettings.DEVICEID['Mobile']!,
                                               );
+
+                                              if (!mounted) {
+                                                return;
+                                              }
+
                                               if (success) {
                                                 // ✅ Dialog UI update
                                                 dialogSetState(() {

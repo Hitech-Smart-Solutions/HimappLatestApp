@@ -84,4 +84,33 @@ class LoginService {
       print("Body: ${e.response?.data}");
     }
   }
+
+  Future<String?> forgotPassword(String email) async {
+    try {
+      // print("📤 Forgot Password API CALL");
+      // print("➡️ Email: $email");
+
+      final response = await ApiClient.dio.post(
+        '/api/UserMaster/forgot-password',
+        data: {
+          "Email": email,
+        },
+      );
+
+      // print("✅ API RESPONSE RECEIVED");
+      // print("Status Code: ${response.statusCode}");
+      // print("Response Data: ${response.data}");
+
+      return response.data["message"];
+    } on DioException catch (e) {
+      print("❌ API ERROR");
+      print("Status: ${e.response?.statusCode}");
+      print("Error Data: ${e.response?.data}");
+
+      return e.response?.data["message"] ?? "Something went wrong";
+    } catch (e) {
+      print("❌ UNEXPECTED ERROR: $e");
+      return "Unexpected error occurred";
+    }
+  }
 }

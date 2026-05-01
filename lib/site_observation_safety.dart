@@ -1548,7 +1548,7 @@ class _SiteObservationState extends State<SiteObservationSafety> {
     observedById = matchedObservedBy['id'] as int;
 
     final violationTypeName = observation.violationTypeName ?? '';
-    print("Violation Type Name: $violationTypeName");
+    // print("Violation Type Name: $violationTypeName");
 
     final matchedViolationType =
         ObservationViolationTypeConstants.violationType.firstWhere(
@@ -1629,11 +1629,11 @@ class _SiteObservationState extends State<SiteObservationSafety> {
 
     selectedUsers = selectedUserObjects.map((u) => u.userName).toList();
 
-    debugPrint('✅ FINAL SELECTED USERS = $selectedUsers');
+    // debugPrint('✅ FINAL SELECTED USERS = $selectedUsers');
 
 // 🔹 DEBUG
-    debugPrint('============= POST FRAME SELECTED USERS =============');
-    debugPrint(selectedUsers.toString());
+    // debugPrint('============= POST FRAME SELECTED USERS =============');
+    // debugPrint(selectedUsers.toString());
 
     // ================= FILES =================
     final List<String> mergedNames = [];

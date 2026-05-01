@@ -74,7 +74,7 @@ class _AwaitingApprovalMrisPageState extends State<AwaitingApprovalMrisPage> {
         awaitingMRISData = data;
         isLoading = false;
       });
-      debugPrint('API Response: $awaitingMRISData');
+      // debugPrint('API Response: $awaitingMRISData');
     } catch (e) {
       setState(() {
         isLoading = false;
