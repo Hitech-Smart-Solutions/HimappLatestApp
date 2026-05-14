@@ -34,6 +34,19 @@ class _MyCustomFormState extends State<MyCustomForm> {
   final LoginService _loginService = LoginService();
   final CompanyService _companyService = CompanyService();
 
+  bool showResult = false;
+
+  Map<String, dynamic>? userData;
+  bool isLoading = false;
+  // Map<String, String> dummyData = {
+  //   "username": "rajesh.kumar",
+  //   "email": "raj***@hitech.com",
+  //   "phone": "+91 98****456",
+  //   "department": "Structural Engineering",
+  //   "empCode": "000983",
+  //   "project": "Metro Rail Phase-3"
+  // };
+
   Future<void> _login() async {
     final username = userNameController.text;
     final password = passwordController.text;
@@ -234,110 +247,211 @@ class _MyCustomFormState extends State<MyCustomForm> {
     return "Enter valid Email / Mobile / Employee Code";
   }
 
+  String _maskEmail(String email) {
+    return email; // 👈 no masking
+  }
+
+  String _maskMobile(String mobile) {
+    return mobile; // 👈 no masking
+  }
+
   Future<void> _onForgotPassword() async {
-    TextEditingController inputController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+    // TextEditingController inputController = TextEditingController();
+    // final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        final width = MediaQuery.of(context).size.width;
+        final formKey = GlobalKey<FormState>();
+        TextEditingController inputController = TextEditingController();
 
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 400, // 📱 mobile + 💻 tablet friendly
-            ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 🔵 Icon
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Colors.blue.withOpacity(0.1),
-                      child: const Icon(Icons.lock_reset, color: Colors.blue),
-                    ),
+        bool showResult = false;
 
-                    const SizedBox(height: 16),
-
-                    // 🔤 Title
-                    const Text(
-                      "Forgot Username/Forgot Password",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    const Text(
-                      "Enter Email / Mobile / Employee Code",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // 🔥 Floating Label TextField
-                    TextFormField(
-                      controller: inputController,
-                      decoration: InputDecoration(
-                        labelText: "Email / Mobile / Employee Code", // 👈 FIX
-                        prefixIcon: const Icon(Icons.person_outline),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      validator: (value) => validateUserInput(value!.trim()),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // 🔘 Buttons
-                    Row(
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text("Cancel"),
+                        // 🔵 ICON + TITLE same rahega
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: Colors.blue.withOpacity(0.1),
+                          child: const Icon(Icons.person_search,
+                              color: Colors.blue),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        Text(
+                          showResult ? "Forgot Password" : "Forgot Username",
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              if (!(formKey.currentState?.validate() ?? false))
-                                return;
 
-                              final value = inputController.text.trim();
-                              Navigator.pop(context);
+                        const SizedBox(height: 8),
 
-                              final message =
-                                  await _loginService.forgotPassword(value);
+                        Text(
+                          showResult
+                              ? "Click below to reset your password"
+                              : "Enter Email / Mobile / Employee Code",
+                          textAlign: TextAlign.center,
+                          style:
+                              const TextStyle(fontSize: 13, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 20),
 
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(message ?? "Done")),
-                              );
+                        // 🔥 STEP 1 → INPUT UI
+                        if (!showResult) ...[
+                          TextFormField(
+                            controller: inputController,
+                            decoration: InputDecoration(
+                              labelText: "Email / Mobile / Employee Code",
+                              prefixIcon: const Icon(Icons.person_outline),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            validator: (value) =>
+                                validateUserInput(value!.trim()),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("Cancel"),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    if (!(formKey.currentState?.validate() ??
+                                        false)) return;
+
+                                    final value = inputController.text.trim();
+
+                                    setState(() {
+                                      isLoading = true;
+                                    });
+
+                                    final data = await _loginService
+                                        .forgotUsername(value, channel: 2);
+
+                                    setState(() {
+                                      isLoading = false;
+                                      userData = data;
+                                      showResult = data != null;
+                                    });
+
+                                    if (data == null) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text("User not found")),
+                                      );
+                                    }
+                                  },
+                                  child: const Text("Retrieve"),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+
+                        // 🔥 STEP 2 → RESULT UI
+                        if (showResult && userData != null) ...[
+                          const SizedBox(height: 10),
+
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Username: ${userData!["userName"]}",
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                    "Email: ${_maskEmail(userData!["email"])}"),
+                                Text(
+                                    "Mobile: ${_maskMobile(userData!["mobileNumber"])}"),
+                                Text(
+                                    "Department: ${userData!["departmentName"]}"),
+                                Text("Emp Code: ${userData!["employeeCode"]}"),
+                                Text("Project: ${userData!["projectName"]}"),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // 🔴 Reset Password Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                if (userData == null) return;
+
+                                final email =
+                                    userData!["email"]; // 👈 API se aaya email
+
+                                final message =
+                                    await _loginService.forgotPassword(email);
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content:
+                                          Text(message ?? "Reset link sent")),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
+                              child: const Text("Send Reset Link"),
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          // 🔙 Back button (optional)
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                showResult = false; // 🔁 back to input
+                              });
                             },
-                            child: const Text("Submit"),
+                            child: const Text("Search Again"),
                           ),
-                        ),
+                        ]
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );

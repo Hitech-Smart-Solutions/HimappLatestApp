@@ -85,32 +85,63 @@ class LoginService {
     }
   }
 
-  Future<String?> forgotPassword(String email) async {
+  Future<String?> forgotPassword(
+    String input, {
+    int? channel,
+  }) async {
     try {
-      // print("📤 Forgot Password API CALL");
-      // print("➡️ Email: $email");
+      final requestBody = {
+        "Input": input,
+        "Channel": channel ?? 2, // 👈 ensure always sent
+      };
+
+      print("📤 REQUEST (Forgot Password): $requestBody");
 
       final response = await ApiClient.dio.post(
         '/api/UserMaster/forgot-password',
-        data: {
-          "Email": email,
-        },
+        data: requestBody,
       );
 
-      // print("✅ API RESPONSE RECEIVED");
-      // print("Status Code: ${response.statusCode}");
-      // print("Response Data: ${response.data}");
+      print("📥 RESPONSE: ${response.data}");
 
       return response.data["message"];
     } on DioException catch (e) {
       print("❌ API ERROR");
       print("Status: ${e.response?.statusCode}");
-      print("Error Data: ${e.response?.data}");
+      print("Body: ${e.response?.data}");
 
       return e.response?.data["message"] ?? "Something went wrong";
     } catch (e) {
       print("❌ UNEXPECTED ERROR: $e");
       return "Unexpected error occurred";
+    }
+  }
+
+  Future<Map<String, dynamic>?> forgotUsername(
+    String input, {
+    int? channel,
+  }) async {
+    try {
+      // print("📤 REQUEST BODY: Input=$input, Channel=$channel");
+
+      final response = await ApiClient.dio.post(
+        '/api/UserMaster/forgot-username',
+        data: {
+          "Input": input,
+          if (channel != null) "Channel": channel,
+        },
+      );
+
+      // print("📥 FULL RESPONSE: ${response.data}");
+
+      if (response.data["isSuccess"] == true) {
+        return response.data["user"];
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print("❌ ERROR: $e");
+      return null;
     }
   }
 }

@@ -935,6 +935,8 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
           );
         }).toList(),
       );
+      final jsonString = jsonEncode(request.toJson());
+      print("📌 Full MRIS Payload: $jsonString");
 
       bool success;
       // 🟢 SAVE / 🔵 UPDATE
