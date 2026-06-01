@@ -215,32 +215,58 @@ class MaterialRequisitionSlipService {
     }
   }
 
+  // Future<List<ActivityModel>> getActivities({
+  //   required String search,
+  //   required int projectID,
+  // }) async {
+  //   try {
+  //     final response = await ApiClient.dio.get(
+  //       '/api/MaterialIssueRequest/GetWBSActivityForDropdown',
+  //       queryParameters: {
+  //         'search': search.trim().isEmpty ? "" : search.trim(),
+  //         'pageNumber': 1,
+  //         'pageSize': 10000,
+  //         'projectID': projectID,
+  //       },
+  //     );
+
+  //     // print("PROJECT SENT => $projectID");
+  //     // print("SEARCH SENT => '$search'");
+  //     // print("ACTIVITY API RESPONSE => ${response.data}");
+
+  //     final List list = response.data['data'] ?? [];
+
+  //     return list.map((e) => ActivityModel.fromJson(e)).toList();
+  //   } catch (e) {
+  //     print("❌ ACTIVITY API ERROR => $e");
+  //     return [];
+  //   }
+  // }
+
   Future<List<ActivityModel>> getActivities({
     required String search,
     required int projectID,
+    required int itemID,
+    required bool isManualActivity,
   }) async {
-    try {
-      final response = await ApiClient.dio.get(
-        '/api/MaterialIssueRequest/GetWBSActivityForDropdown',
-        queryParameters: {
-          'search': search.trim().isEmpty ? "" : search.trim(),
-          'pageNumber': 1,
-          'pageSize': 10000,
-          'projectID': projectID,
-        },
-      );
+    final response = await ApiClient.dio.get(
+      '/api/MaterialIssueRequest/GetWBSActivityForDropdown',
+      queryParameters: {
+        "search": search,
+        "projectID": projectID,
+        "itemID": itemID,
+        "isManualActivity": isManualActivity,
+        "headerID": 0,
+        "pageNumber": 1,
+        "pageSize": 10000,
+      },
+    );
 
-      // print("PROJECT SENT => $projectID");
-      // print("SEARCH SENT => '$search'");
-      // print("ACTIVITY API RESPONSE => ${response.data}");
+    print("ACTIVITY API RESPONSE => ${response.data}");
 
-      final List list = response.data['data'] ?? [];
-
-      return list.map((e) => ActivityModel.fromJson(e)).toList();
-    } catch (e) {
-      print("❌ ACTIVITY API ERROR => $e");
-      return [];
-    }
+    return (response.data['data'] as List)
+        .map((e) => ActivityModel.fromJson(e))
+        .toList();
   }
 
   Future<bool> submitMaterialIssue(MaterialIssueRequest request) async {

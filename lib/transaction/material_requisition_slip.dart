@@ -234,6 +234,7 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
   EquipmentModel? selectedEquipment;
 
   List<ActivityModel> activityList = [];
+  bool isManualActivity = false;
   int activityPageNumber = 1;
   final int activityPageSize = 20;
   bool activityLoading = false;
@@ -503,6 +504,8 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
       final allActivities = await _materialRequisitionSlipService.getActivities(
         search: '',
         projectID: data['projectID'],
+        itemID: data['itemID'] ?? 0,
+        isManualActivity: data['isManualActivity'] ?? false,
       );
 
       for (final d in data['details']) {
@@ -1287,29 +1290,80 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                               /// ITEM DROPDOWN
                               DropdownSearch<ItemModel>(
                                 selectedItem: selectedItem,
+
+                                // SELECTED VALUE
                                 dropdownBuilder: (context, selectedItem) {
                                   if (selectedItem == null) {
                                     return const Text("Select Item");
                                   }
-                                  return Text(
-                                    selectedItem.displayText,
-                                    overflow: TextOverflow.ellipsis,
+
+                                  return Row(
+                                    children: [
+                                      if (selectedItem.isFavorite == true)
+                                        const Padding(
+                                          padding: EdgeInsets.only(right: 4),
+                                          child: Text(
+                                            "★",
+                                            style: TextStyle(
+                                              color: Colors.orange,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                      Expanded(
+                                        child: Text(
+                                          selectedItem.displayText,
+                                          // overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   );
                                 },
+
                                 popupProps: PopupProps.dialog(
                                   showSearchBox: true,
+
+                                  searchFieldProps: TextFieldProps(
+                                    decoration: InputDecoration(
+                                      hintText: "Search Item",
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+
                                   loadingBuilder: (context, search) =>
                                       const Center(
-                                          child: CircularProgressIndicator()),
+                                    child: CircularProgressIndicator(),
+                                  ),
+
+                                  // DROPDOWN LIST ITEM
                                   itemBuilder: (context, item, isSelected) {
                                     return ListTile(
-                                      title: Text(
-                                        item.displayText,
-                                        overflow: TextOverflow.ellipsis,
+                                      title: Row(
+                                        children: [
+                                          if (item.isFavorite == true)
+                                            const Padding(
+                                              padding:
+                                                  EdgeInsets.only(right: 4),
+                                              child: Text(
+                                                "★",
+                                                style: TextStyle(
+                                                  color: Colors.orange,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ),
+                                          Expanded(
+                                            child: Text(
+                                              item.displayText,
+                                              // overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     );
                                   },
                                 ),
+
                                 asyncItems: (String filter) async {
                                   return _materialRequisitionSlipService
                                       .getReleasedProducts(
@@ -1319,15 +1373,19 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                     projectID: selectedProject?.id ?? 0,
                                   );
                                 },
+
                                 itemAsString: (ItemModel item) =>
                                     item.displayText,
+
                                 onChanged: (ItemModel? itemModel) async {
                                   if (itemModel == null) return;
 
                                   setDialogState(() {
                                     selectedItem = itemModel;
+
                                     item.itemId = itemModel.id;
                                     item.item = itemModel.displayText;
+
                                     item.unit = itemModel.unit ?? '';
                                     unitController.text = item.unit;
                                   });
@@ -1338,11 +1396,26 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                   final qty =
                                       await _materialRequisitionSlipService
                                           .getAvailableQuantityByProject(
-                                              projectId, itemModel.id);
+                                    projectId,
+                                    itemModel.id,
+                                  );
+
+                                  activityList =
+                                      await _materialRequisitionSlipService
+                                          .getActivities(
+                                    search: '',
+                                    projectID: projectId,
+                                    itemID: itemModel.id,
+                                    isManualActivity: isManualActivity,
+                                  );
 
                                   setDialogState(() {
                                     availableController.text = formatQty(qty);
+
                                     item.availableQty = qty;
+
+                                    selectedActivity = null;
+                                    item.activityNo = null;
                                   });
                                 },
                               ),
@@ -1418,20 +1491,47 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                               const SizedBox(height: 10),
 
                               /// ACTIVITY
+                              // DropdownSearch<ActivityModel>(
+                              //   selectedItem: selectedActivity,
+                              //   compareFn: (a, b) => a.id == b.id,
+                              //   asyncItems: (String filter) async {
+                              //     if (selectedProject == null) return [];
+                              //     return _materialRequisitionSlipService
+                              //         .getActivities(
+                              //       search: filter.trim(),
+                              //       projectID: selectedProject!.id,
+                              //     );
+                              //   },
+                              //   itemAsString: (a) => a.activityName,
+
+                              //   // 👇 ADD THIS
+                              //   dropdownDecoratorProps:
+                              //       const DropDownDecoratorProps(
+                              //     dropdownSearchDecoration: InputDecoration(
+                              //       labelText: "Activity No",
+                              //       border: OutlineInputBorder(),
+                              //     ),
+                              //   ),
+
+                              //   popupProps: const PopupProps.dialog(
+                              //     showSearchBox: true,
+                              //   ),
+                              //   onChanged: (value) {
+                              //     setDialogState(() {
+                              //       selectedActivity = value;
+
+                              //       item.activityNo = value?.id;
+                              //       item.selectedActivity = value; // ✅ ADD THIS
+
+                              //       activityError = null;
+                              //     });
+                              //   },
+                              // ),
                               DropdownSearch<ActivityModel>(
                                 selectedItem: selectedActivity,
+                                items: activityList,
                                 compareFn: (a, b) => a.id == b.id,
-                                asyncItems: (String filter) async {
-                                  if (selectedProject == null) return [];
-                                  return _materialRequisitionSlipService
-                                      .getActivities(
-                                    search: filter.trim(),
-                                    projectID: selectedProject!.id,
-                                  );
-                                },
                                 itemAsString: (a) => a.activityName,
-
-                                // 👇 ADD THIS
                                 dropdownDecoratorProps:
                                     const DropDownDecoratorProps(
                                   dropdownSearchDecoration: InputDecoration(
@@ -1439,7 +1539,6 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                     border: OutlineInputBorder(),
                                   ),
                                 ),
-
                                 popupProps: const PopupProps.dialog(
                                   showSearchBox: true,
                                 ),
@@ -1448,11 +1547,48 @@ class _MaterialRequisitionSlipState extends State<MaterialRequisitionSlip> {
                                     selectedActivity = value;
 
                                     item.activityNo = value?.id;
-                                    item.selectedActivity = value; // ✅ ADD THIS
+                                    item.selectedActivity = value;
 
                                     activityError = null;
                                   });
                                 },
+                              ),
+
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: isManualActivity,
+                                    onChanged: (value) async {
+                                      isManualActivity = value ?? false;
+
+                                      setDialogState(() {
+                                        // clear selected activity
+                                        selectedActivity = null;
+                                        item.activityNo = null;
+                                      });
+
+                                      if (selectedItem == null) return;
+
+                                      // RELOAD ACTIVITIES
+                                      activityList =
+                                          await _materialRequisitionSlipService
+                                              .getActivities(
+                                        search: '',
+                                        projectID: selectedProject!.id,
+                                        itemID: selectedItem!.id,
+                                        isManualActivity: isManualActivity,
+                                      );
+
+                                      print("MANUAL => $isManualActivity");
+
+                                      print(
+                                          "ACTIVITY COUNT => ${activityList.length}");
+
+                                      setDialogState(() {});
+                                    },
+                                  ),
+                                  const Text("Manual"),
+                                ],
                               ),
 
                               const SizedBox(height: 10),

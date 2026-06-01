@@ -140,11 +140,13 @@ class ItemModel {
   final int id;
   final String displayText;
   final String? unit;
+  final bool? isFavorite;
 
   ItemModel({
     required this.id,
     required this.displayText,
     this.unit,
+    this.isFavorite,
   });
 
   factory ItemModel.fromJson(Map<String, dynamic> json) {
@@ -152,6 +154,7 @@ class ItemModel {
       id: json['id'],
       displayText: json['displayText'],
       unit: json['unit'], // 👈 API se aa raha ho to
+      isFavorite: json['isFavorite'],
     );
   }
 }
