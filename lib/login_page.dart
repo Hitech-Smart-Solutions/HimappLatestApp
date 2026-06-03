@@ -294,7 +294,7 @@ class _MyCustomFormState extends State<MyCustomForm> {
                         const SizedBox(height: 16),
 
                         Text(
-                          showResult ? "Forgot Password" : "Forgot Username",
+                          showResult ? "Forgot Password" : "Retrieve Username",
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -427,7 +427,7 @@ class _MyCustomFormState extends State<MyCustomForm> {
                                 );
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
+                                backgroundColor: Colors.blue,
                               ),
                               child: const Text("Send Reset Link"),
                             ),
