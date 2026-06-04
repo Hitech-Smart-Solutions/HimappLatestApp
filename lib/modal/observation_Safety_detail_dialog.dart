@@ -500,136 +500,6 @@ class _ObservationSafetyDetailDialogState
     );
   }
 
-  // Future<UpdateSiteObservation> getUpdatedDataFromForm(
-  //     List<String> uploadedFiles) async {
-  //   int id = widget.detail.id;
-  //   int rootCauseID = selectedRootCause?.id ?? 0;
-
-  //   String? reopenRemarks;
-  //   String? closeRemarks;
-  //   String? inprogressRemarks;
-  //   String? readytoinspectRemarks;
-
-  //   List<ActivityDTO> activities = [];
-  //   int selectedStatusId =
-  //       int.tryParse(selectedStatus ?? '') ?? SiteObservationStatus.Open;
-
-  //   if (selectedStatusId == SiteObservationStatus.Reopen) {
-  //     reopenRemarks = reopenRemarksController.text;
-  //   }
-
-  //   if (selectedStatusId == SiteObservationStatus.Closed) {
-  //     closeRemarks = closeRemarksController.text;
-  //   }
-
-  //   if (selectedStatusId == SiteObservationStatus.InProgress) {
-  //     inprogressRemarks = inProgessRemarksController.text;
-  //   }
-
-  //   if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
-  //     readytoinspectRemarks = inReadyToInspectRemarksController.text;
-  //   }
-
-  //   if (selectedStatusId == SiteObservationStatus.ReadyToInspect) {
-  //     activities.add(
-  //       ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: id,
-  //         actionID: SiteObservationActions.Assigned,
-  //         actionName: 'Assigned',
-  //         comments: '',
-  //         documentName: '',
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         assignedUserID: widget.detail.createdBy,
-  //         assignedUserName: null,
-  //         createdBy: userId,
-  //         createdDate: DateTime.now(),
-  //       ),
-  //     );
-
-  //     activities.add(
-  //       ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: id,
-  //         actionID: SiteObservationActions.Assigned,
-  //         actionName: 'Assigned',
-  //         comments: '',
-  //         documentName: '',
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         assignedUserID: widget.detail.createdBy,
-  //         assignedUserName: null,
-  //         createdBy: userId,
-  //         createdDate: DateTime.now(),
-  //       ),
-  //     );
-  //   } else if (selectedStatusId == SiteObservationStatus.Reopen) {
-  //     final assignedUsers =
-  //         await SiteObservationService().fetchGetassignedusersforReopen(id);
-
-  //     // Add an activity for each assigned user
-  //     for (var user in assignedUsers) {
-  //       activities.add(
-  //         ActivityDTO(
-  //           id: 0,
-  //           siteObservationID: id,
-  //           actionID: SiteObservationActions.Assigned,
-  //           actionName: 'Assigned',
-  //           comments: '',
-  //           documentName: '',
-  //           fromStatusID: fromStatus,
-  //           toStatusID: toStatus,
-  //           assignedUserID: user.assignedUserID,
-  //           createdBy: userId,
-  //           createdDate: DateTime.now(),
-  //         ),
-  //       );
-  //     }
-  //   }
-
-  //   // Add file uploads if available
-  //   for (String fileName in uploadedFiles) {
-  //     activities.add(
-  //       ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: id,
-  //         actionID: SiteObservationActions.DocUploaded,
-  //         actionName: 'DocUploaded',
-  //         comments: '',
-  //         documentName: fileName,
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         assignedUserID: userId!,
-  //         assignedUserName: null,
-  //         createdBy: userId,
-  //         createdDate: DateTime.now(),
-  //       ),
-  //     );
-  //   }
-
-  //   print("inprogressRemarks,$inprogressRemarks");
-
-  //   return UpdateSiteObservation(
-  //     id: id,
-  //     rootCauseID: rootCauseID,
-  //     rootcauseDescription: rootcauseDescriptionController.text,
-  //     corretiveActionToBeTaken: correctiveActionController.text,
-  //     preventiveActionTaken: preventiveActionController.text,
-  //     materialCost: double.tryParse(materialCostController.text) ?? 0.0,
-  //     labourCost: double.tryParse(labourCostController.text) ?? 0.0,
-  //     reworkCost: double.tryParse(reworkCostController.text) ?? 0.0,
-  //     statusID: selectedStatusId,
-  //     reopenRemarks: reopenRemarks,
-  //     closeRemarks: closeRemarks,
-  //     inprogressRemarks: inprogressRemarks,
-  //     readytoinspectRemarks: readytoinspectRemarks,
-  //     lastModifiedBy: userId!,
-  //     lastModifiedDate: DateTime.now(),
-  //     activityDTO: activities,
-  //   );
-  // }
-
   String getAttachmentStatusName(ActivityDTO activity) {
     final relatedActivities = widget.detail.activityDTO
         .where((a) => a.documentName == activity.documentName)
@@ -652,176 +522,6 @@ class _ObservationSafetyDetailDialogState
     );
     return status['name'] ?? 'Unknown';
   }
-
-  // Future<void> _sendActivityComment() async {
-  //   if (isSending) return;
-  //   setState(() {
-  //     isSending = true; // send start hone pe disable kar do
-  //   });
-  //   try {
-  //     final markupText = mentionsKey.currentState?.controller!.markupText ?? "";
-  //     final RegExp mentionRegex = RegExp(r'\@\[(.*?)\]\((.*?)\)');
-  //     final Iterable<RegExpMatch> matches = mentionRegex.allMatches(markupText);
-
-  //     List<User> selectedUsers = matches.map((match) {
-  //       String rawIdStr = match.group(1)!;
-  //       String rawUserName = match.group(2)!;
-
-  //       String cleanedIdStr = rawIdStr.replaceAll('_', '');
-  //       String cleanedUserName = rawUserName.replaceAll('_', '');
-
-  //       int userId = int.tryParse(cleanedIdStr) ?? 0;
-
-  //       // final matchedUser = allUsers.firstWhere(
-  //       //   (user) => user.id == userId,
-  //       //   orElse: () => User(id: 0, userName: ''),
-  //       // );
-
-  //       final matchedUser = allUsers.firstWhere(
-  //         (user) => user.id == userId,
-  //         orElse: () => User(
-  //             id: userId,
-  //             userName: cleanedUserName), // ✅ fallback me bhi name jaaye
-  //       );
-
-  //       String finalUserName = matchedUser.userName.isNotEmpty
-  //           ? matchedUser.userName
-  //           : cleanedUserName;
-
-  //       return User(id: userId, userName: finalUserName);
-  //     }).toList();
-
-  //     // ✅ Fix is here — get int userId only
-  //     // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
-  //     // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-  //     // String createdBy = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-  //     int createdById = await SharedPrefsHelper.getUserId() ?? 0;
-  //     String createdByName = await SharedPrefsHelper.getUserName() ?? 'Unknown';
-
-  //     // int createdBy = await SharedPrefsHelper.getUserId() ?? 0;
-  //     List<ActivityDTO> activities = [];
-
-  //     final commentText =
-  //         mentionsKey.currentState?.controller?.text.trim() ?? "";
-  //     final plainComment =
-  //         commentText.replaceAll(RegExp(r'\@\[(.*?)\]\((.*?)\)'), '').trim();
-
-  //     bool hasMentions = selectedUsers.isNotEmpty;
-  //     bool hasComment = plainComment.isNotEmpty;
-  //     // CASE 1 — Only mention(s)
-  //     if (hasMentions && !hasComment) {
-  //       for (var user in selectedUsers) {
-  //         activities.add(ActivityDTO(
-  //           id: 0,
-  //           siteObservationID: editingUserId,
-  //           actionID: SiteObservationActions.Assigned,
-  //           actionName: "Assigned",
-  //           comments: "",
-  //           documentName: "",
-  //           fromStatusID: fromStatus,
-  //           toStatusID: toStatus,
-  //           toStatusName: SiteObservationStatus.idToName[toStatus] ??
-  //               "Unknown", // ✅ Add this
-  //           assignedUserID: user.id,
-  //           assignedUserName: user.userName,
-  //           createdBy: createdById, // ✅ send as integer
-  //           createdByName: createdByName,
-  //           createdDate: DateTime.now(),
-  //         ));
-  //       }
-  //     }
-
-  //     // CASE 2 — Only comment
-  //     else if (!hasMentions && hasComment) {
-  //       activities.add(ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: editingUserId,
-  //         actionID: SiteObservationActions.Commented,
-  //         actionName: "Commented",
-  //         comments: plainComment,
-  //         documentName: "",
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         toStatusName: SiteObservationStatus.idToName[toStatus] ??
-  //             "Unknown", // ✅ Add this
-  //         assignedUserID: 0,
-  //         // assignedUserName: '',
-  //         // createdBy: createdBy, // ✅ integer
-  //         createdBy: createdById,
-  //         createdByName: createdByName,
-  //         assignedUserName: createdByName,
-  //         createdDate: DateTime.now(),
-  //       ));
-  //     }
-
-  //     // CASE 3 — Both mention(s) and comment
-  //     else if (hasMentions && hasComment) {
-  //       for (var user in selectedUsers) {
-  //         activities.add(ActivityDTO(
-  //           id: 0,
-  //           siteObservationID: editingUserId,
-  //           actionID: SiteObservationActions.Assigned,
-  //           actionName: "Assigned",
-  //           comments: "",
-  //           documentName: "",
-  //           fromStatusID: fromStatus,
-  //           toStatusID: toStatus,
-  //           toStatusName: SiteObservationStatus.idToName[toStatus] ??
-  //               "Unknown", // ✅ Add this
-  //           assignedUserID: user.id,
-  //           assignedUserName: user.userName,
-  //           createdBy: createdById, // ✅ integer
-  //           createdByName: createdByName,
-  //           createdDate: DateTime.now(),
-  //         ));
-  //       }
-
-  //       activities.add(ActivityDTO(
-  //         id: 0,
-  //         siteObservationID: editingUserId,
-  //         actionID: SiteObservationActions.Commented,
-  //         actionName: "Commented",
-  //         comments: plainComment,
-  //         documentName: "",
-  //         fromStatusID: fromStatus,
-  //         toStatusID: toStatus,
-  //         toStatusName: SiteObservationStatus.idToName[toStatus] ??
-  //             "Unknown", // ✅ Add this
-  //         assignedUserID: 0,
-  //         assignedUserName: '',
-  //         createdBy: createdById, // ✅ integer
-  //         createdByName: createdByName,
-  //         createdDate: DateTime.now(),
-  //       ));
-  //     }
-
-  //     if (activities.isEmpty) {
-  //       return;
-  //     }
-
-  //     bool success = await SiteObservationService().sendSiteObservationActivity(
-  //       activities: activities,
-  //       siteObservationID: editingUserId,
-  //     );
-
-  //     if (success) {
-  //       mentionsKey.currentState?.controller?.clear();
-  //       _activityCommentController.clear();
-
-  //       setState(() {
-  //         widget.detail.activityDTO.insertAll(0, activities);
-  //       });
-  //     } else {
-  //       print("❌ Failed to post activity!");
-  //     }
-  //   } catch (e, st) {
-  //     print(st);
-  //   } finally {
-  //     setState(() {
-  //       isSending = false; // send complete hone ke baad enable kar do
-  //     });
-  //   }
-  // }
 
   Future<void> _sendActivityComment() async {
     if (isSending) return;
@@ -1041,7 +741,6 @@ class _ObservationSafetyDetailDialogState
         if (floors.isNotEmpty) {
           setState(() {
             floorLabel = floors[0].labelName;
-            print("floorLabel,$floorLabel");
           });
         }
       } catch (e) {
@@ -1108,7 +807,6 @@ class _ObservationSafetyDetailDialogState
     // 🔹 DEFAULT ROOT CAUSE PERMISSION
     canEditRootCause = fromStatus == SiteObservationStatus.ReadyToInspect ||
         fromStatus == SiteObservationStatus.Closed;
-    print("canEditRootCause, $canEditRootCause");
     // -------------------------------
     // 🔥 STATUS RULES
     // -------------------------------
@@ -1307,8 +1005,6 @@ class _ObservationSafetyDetailDialogState
 
                           // Selected text builder (same as tumhara)
                           selectedItemBuilder: (BuildContext context) {
-                            print("🎯 selectedItemBuilder called");
-
                             return observationStatus.map<Widget>((status) {
                               final id =
                                   int.tryParse(status['id'].toString()) ??
@@ -1316,7 +1012,6 @@ class _ObservationSafetyDetailDialogState
                               final name = SiteObservationStatus.idToName[id] ??
                                   status['name'] ??
                                   'Unknown';
-                              print("🎯 SELECTED ITEM -> id=$id name=$name");
                               return Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(name,
@@ -1343,7 +1038,6 @@ class _ObservationSafetyDetailDialogState
                             final name = SiteObservationStatus.idToName[id] ??
                                 status['name'] ??
                                 'Unknown';
-                            print("📦 ITEM -> id=$id name=$name");
                             return DropdownMenuItem<int>(
                               value: id, // int type
                               child: Text(name,
@@ -1392,128 +1086,7 @@ class _ObservationSafetyDetailDialogState
                     ],
                   ),
                 ),
-
-                // Padding(
-                //   padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                //   child: Row(
-                //     children: [
-                //       Expanded(
-                //         child: Text(
-                //           widget.detail.observationCode ?? 'No Code',
-                //           style: const TextStyle(fontWeight: FontWeight.bold),
-                //         ),
-                //       ),
-                //       const SizedBox(width: 15),
-                //       Expanded(
-                //         child: DropdownButtonFormField<String>(
-                //           value: selectedStatus,
-                //           hint: const Text("-- Status --"),
-                //           isExpanded: true,
-                //           items: observationStatus.map((status) {
-                //             final idStr = status['id'].toString();
-                //             final id = int.tryParse(idStr);
-                //             final name = SiteObservationStatus.idToName[id] ??
-                //                 status['name'] ??
-                //                 'Unknown';
-
-                //             return DropdownMenuItem<String>(
-                //               value: idStr,
-                //               child: Text(name),
-                //             );
-                //           }).toList(),
-                //           onChanged: isStatusEnabled
-                //               ? (newValue) {
-                //                   if (newValue == null) return;
-
-                //                   final int selectedStatusInt =
-                //                       int.parse(newValue);
-
-                //                   setState(() {
-                //                     // ✅ THIS IS IMPORTANT
-                //                     // print('newValue861: $newValue');
-                //                     selectedStatus = newValue;
-
-                //                     // fromStatus = toStatus;
-                //                     toStatus = selectedStatusInt;
-
-                //                     isUpdateBtnVisible = true;
-                //                     collapsed = false;
-                //                     // print('fromStatus868: $fromStatus');
-                //                     // print('toStatus869: $toStatus');
-
-                //                     if (fromStatus != selectedStatusInt) {
-                //                       print("in");
-                //                       isUpdateBtnVisible = true;
-                //                       isRootCauseFileUpdateEnable = true;
-                //                     } else {
-                //                       print("out");
-                //                       isUpdateBtnVisible = false;
-                //                       isRootCauseFileUpdateEnable = false;
-                //                     }
-
-                //                     if (selectedStatusInt ==
-                //                         SiteObservationStatus.Reopen) {
-                //                       isReopenRemarksVisible = true;
-                //                       isCloseRemarksVisible = false;
-                //                       inProgessRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = false;
-                //                     } else if (selectedStatusInt ==
-                //                         SiteObservationStatus.Closed) {
-                //                       isReopenRemarksVisible = false;
-                //                       isCloseRemarksVisible = true;
-                //                       inProgessRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = false;
-                //                     } else if (selectedStatusInt ==
-                //                         SiteObservationStatus.InProgress) {
-                //                       // print("In Progress Selected");
-                //                       inProgessRemarksVisible = true;
-                //                       isReopenRemarksVisible = false;
-                //                       isCloseRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = false;
-                //                     } else if (selectedStatusInt ==
-                //                         SiteObservationStatus.ReadyToInspect) {
-                //                       // print("In Progress Selected");
-                //                       inProgessRemarksVisible = false;
-                //                       isReopenRemarksVisible = false;
-                //                       isCloseRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = true;
-                //                     } else {
-                //                       isReopenRemarksVisible = false;
-                //                       isCloseRemarksVisible = false;
-                //                       inProgessRemarksVisible = false;
-                //                       inReadyToInspectRemarksVisible = false;
-                //                     }
-
-                //                     if (selectedStatusInt ==
-                //                             SiteObservationStatus
-                //                                 .ReadyToInspect ||
-                //                         selectedStatusInt ==
-                //                             SiteObservationStatus.Closed) {
-                //                       print("ReadyToInspect/Closed IN");
-                //                       canEditRootCause = true;
-                //                       // isRootCauseFileUpdateEnable = true;
-                //                     } else {
-                //                       print("ReadyToInspect/Closed etc... OUT");
-                //                       canEditRootCause = false;
-                //                       // isRootCauseFileUpdateEnable = false;
-                //                     }
-                //                   });
-                //                 }
-                //               : null,
-                //           validator: (value) {
-                //             if (value == null || value.isEmpty) {
-                //               return 'Please select a status';
-                //             }
-                //             return null;
-                //           },
-                //         ),
-                //       ),
-                //     ],
-                //   ),
-                // ),
-
                 const SizedBox(height: 16),
-
                 Expanded(
                   child: DefaultTabController(
                     length: 3,
