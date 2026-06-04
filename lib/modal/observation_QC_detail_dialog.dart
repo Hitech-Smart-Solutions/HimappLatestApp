@@ -654,15 +654,12 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
           userUploadDoc.isNotEmpty &&
           userUploadDoc.first.id == currentUserId) {
         canUploadAttachments = true;
-        print("flag957,$flag");
       } else if (flag == 2 &&
           userUploadDoc.isNotEmpty &&
           userUploadDoc.first.id != currentUserId) {
         canUploadAttachments = true;
-        print("flag962,$flag");
       } else {
         canUploadAttachments = false;
-        print("flag965,$flag");
       }
 
       final creatorUserId = widget.detail.createdBy;
@@ -740,7 +737,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
         if (floors.isNotEmpty) {
           setState(() {
             floorLabel = floors[0].labelName;
-            print("floorLabel,$floorLabel");
           });
         }
       } catch (e) {
@@ -806,7 +802,6 @@ class _ObservationQCDetailDialogState extends State<ObservationQCDetailDialog> {
     // 🔹 DEFAULT ROOT CAUSE PERMISSION
     canEditRootCause = fromStatus == SiteObservationStatus.ReadyToInspect ||
         fromStatus == SiteObservationStatus.Closed;
-    print("canEditRootCause, $canEditRootCause");
     // -------------------------------
     // 🔥 STATUS RULES
     // -------------------------------
