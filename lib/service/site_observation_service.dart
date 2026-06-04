@@ -59,8 +59,6 @@ class SiteObservationService {
         },
       );
 
-      print("Response status code: ${response.statusCode}");
-
       final data =
           response.data is String ? jsonDecode(response.data) : response.data;
 

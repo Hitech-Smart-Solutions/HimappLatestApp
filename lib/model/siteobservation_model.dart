@@ -172,7 +172,7 @@ class Observation {
   });
 
   factory Observation.fromJson(Map<String, dynamic> json) {
-    print("Observation fromJson: $json");
+    // print("Observation fromJson: $json");
     return Observation(
       id: (json['id'] as num).toInt(),
       observationTypeID: (json['observationTypeID'] as num).toInt(),
@@ -667,7 +667,7 @@ class SiteObservationUpdateDraftModel {
   });
 
   factory SiteObservationUpdateDraftModel.fromJson(Map<String, dynamic> json) {
-    print("SiteObservationUpdateDraftModel fromJson: $json");
+    // print("SiteObservationUpdateDraftModel fromJson: $json");
     return SiteObservationUpdateDraftModel(
       id: json['id'],
       dueDate: json['dueDate'],
@@ -1002,7 +1002,7 @@ class NCRObservation {
   // }
 
   factory NCRObservation.fromJson(Map<String, dynamic> json) {
-    print("NCRObservation681:$json");
+    // print("NCRObservation681:$json");
     return NCRObservation(
       uniqueID: json['uniqueID'] ?? '',
       id: json['id'] ?? 0,
@@ -1129,9 +1129,9 @@ class GetSiteObservationMasterById {
   });
 
   factory GetSiteObservationMasterById.fromJson(Map<String, dynamic> json) {
-    print('GetSiteObservationMasterById.fromJson: $json');
-    print("🔍 RAW violationTypeName => ${json['violationTypeName']}");
-    print("🔍 ALL KEYS => ${json.keys}");
+    // print('GetSiteObservationMasterById.fromJson: $json');
+    // print("🔍 RAW violationTypeName => ${json['violationTypeName']}");
+    // print("🔍 ALL KEYS => ${json.keys}");
     return GetSiteObservationMasterById(
       id: json['id'] ?? 0,
       observationCode: json['siteObservationCode'] ?? '',
